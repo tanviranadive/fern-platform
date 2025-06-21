@@ -1,0 +1,109 @@
+# Fern Platform Configuration
+
+server:
+  port: 8080
+  host: "0.0.0.0"
+  readTimeout: "30s"
+  writeTimeout: "30s"
+  idleTimeout: "120s"
+  shutdownTimeout: "15s"
+  tls:
+    enabled: false
+    certFile: ""
+    keyFile: ""
+
+database:
+  host: "localhost"
+  port: 5432
+  user: "postgres"
+  password: "postgres"
+  dbname: "fern_platform"
+  sslmode: "disable"
+  timezone: "UTC"
+  maxOpenConns: 25
+  maxIdleConns: 5
+  connMaxLifetime: "300s"
+  connMaxIdleTime: "300s"
+
+auth:
+  enabled: false
+  jwtSecret: ""
+  jwksUrl: ""
+  issuer: ""
+  audience: ""
+  tokenExpiry: "24h"
+  refreshExpiry: "168h"
+
+logging:
+  level: "info"
+  format: "json"
+  output: "stdout"
+  structured: true
+
+services:
+  reporter:
+    host: "localhost"
+    port: 8080
+    url: "http://localhost:8080"
+  mycelium:
+    host: "localhost"
+    port: 8081
+    url: "http://localhost:8081"
+  ui:
+    host: "localhost"
+    port: 3000
+    url: "http://localhost:3000"
+
+redis:
+  host: "localhost"
+  port: 6379
+  password: ""
+  db: 0
+  poolSize: 10
+  idleTimeout: "300s"
+
+llm:
+  defaultProvider: "anthropic"
+  cacheEnabled: true
+  cacheTTL: "1h"
+  maxTokens: 4000
+  temperature: 0.7
+  providers:
+    anthropic:
+      type: "anthropic"
+      apiKey: "${ANTHROPIC_API_KEY}"
+      baseUrl: "https://api.anthropic.com"
+      model: "claude-3-sonnet-20240229"
+      enabled: true
+    openai:
+      type: "openai"
+      apiKey: "${OPENAI_API_KEY}"
+      baseUrl: "https://api.openai.com"
+      model: "gpt-4"
+      enabled: false
+    huggingface:
+      type: "huggingface"
+      apiKey: "${HUGGINGFACE_API_KEY}"
+      baseUrl: "https://api-inference.huggingface.co"
+      model: "microsoft/DialoGPT-large"
+      enabled: false
+    ollama:
+      type: "ollama"
+      apiKey: ""
+      baseUrl: "http://localhost:11434"
+      model: "llama2"
+      enabled: false
+
+monitoring:
+  metrics:
+    enabled: true
+    path: "/metrics"
+    port: 9090
+  tracing:
+    enabled: false
+    serviceName: "fern-platform"
+    endpoint: ""
+  health:
+    path: "/health"
+    interval: "30s"
+    timeout: "5s"

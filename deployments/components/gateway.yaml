@@ -1,0 +1,108 @@
+apiVersion: core.oam.dev/v1beta1
+kind: ComponentDefinition
+metadata:
+  name: gateway
+  namespace: vela-system
+  annotations:
+    definition.oam.dev/description: "HTTP gateway/ingress for services"
+spec:
+  workload:
+    definition:
+      apiVersion: networking.k8s.io/v1
+      kind: Ingress
+  schematic:
+    cue:
+      template: |
+        output: {
+        	apiVersion: "networking.k8s.io/v1"
+        	kind:       "Ingress"
+        	metadata: {
+        		name:      context.name
+        		namespace: context.namespace
+        		annotations: {
+        			"nginx.ingress.kubernetes.io/ssl-redirect": "false"
+        			"nginx.ingress.kubernetes.io/force-ssl-redirect": "false"
+        			if parameter.cors != _|_ {
+        				"nginx.ingress.kubernetes.io/enable-cors": "true"
+        				"nginx.ingress.kubernetes.io/cors-allow-origin": parameter.cors.allowOrigin
+        				"nginx.ingress.kubernetes.io/cors-allow-methods": parameter.cors.allowMethods
+        				"nginx.ingress.kubernetes.io/cors-allow-headers": parameter.cors.allowHeaders
+        			}
+        		}
+        	}
+        	spec: {
+        		rules: [
+        			for rule in parameter.rules {
+        				host: rule.host
+        				http: {
+        					paths: [
+        						for path in rule.paths {
+        							path:     path.path
+        							pathType: path.pathType
+        							backend: {
+        								service: {
+        									name: path.serviceName
+        									port: {
+        										number: path.servicePort
+        									}
+        								}
+        							}
+        						},
+        					]
+        				}
+        			},
+        		]
+        		if parameter.tls != _|_ {
+        			tls: [
+        				for tlsRule in parameter.tls {
+        					hosts:      tlsRule.hosts
+        					secretName: tlsRule.secretName
+        				},
+        			]
+        		}
+        	}
+        }
+        
+        parameter: {
+        	// +usage=Ingress rules configuration
+        	rules: [...{
+        		// +usage=Host for the rule
+        		host: string
+        		
+        		// +usage=Paths for the rule
+        		paths: [...{
+        			// +usage=Path pattern
+        			path: string
+        			
+        			// +usage=Path type (Prefix, Exact, ImplementationSpecific)
+        			pathType: *"Prefix" | "Exact" | "ImplementationSpecific"
+        			
+        			// +usage=Backend service name
+        			serviceName: string
+        			
+        			// +usage=Backend service port
+        			servicePort: int
+        		}]
+        	}]
+        	
+        	// +usage=TLS configuration
+        	tls?: [...{
+        		// +usage=List of hosts for TLS
+        		hosts: [...string]
+        		
+        		// +usage=Secret name containing TLS certificate
+        		secretName: string
+        	}]
+        	
+        	// +usage=CORS configuration
+        	cors?: {
+        		// +usage=Allowed origins for CORS
+        		allowOrigin: *"*" | string
+        		
+        		// +usage=Allowed methods for CORS
+        		allowMethods: *"GET, PUT, POST, DELETE, PATCH, OPTIONS" | string
+        		
+        		// +usage=Allowed headers for CORS
+        		allowHeaders: *"DNT,X-CustomHeader,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Authorization" | string
+        	}
+        }

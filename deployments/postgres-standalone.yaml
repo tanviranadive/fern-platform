@@ -1,0 +1,88 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: postgres-secret
+  namespace: fern-platform
+type: Opaque
+data:
+  username: ZmVybl91c2Vy # base64: fern_user
+  password: ZmVybl9wYXNzd29yZA== # base64: fern_password
+  database: ZmVybl9wbGF0Zm9ybQ== # base64: fern_platform
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-config
+  namespace: fern-platform
+data:
+  POSTGRES_DB: fern_platform
+  POSTGRES_USER: fern_user
+  POSTGRES_PASSWORD: fern_password
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres-standalone
+  namespace: fern-platform
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres-standalone
+  template:
+    metadata:
+      labels:
+        app: postgres-standalone
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:15-alpine
+        ports:
+        - containerPort: 5432
+        env:
+        - name: POSTGRES_DB
+          value: fern_platform
+        - name: POSTGRES_USER
+          value: fern_user
+        - name: POSTGRES_PASSWORD
+          value: fern_password
+        - name: PGDATA
+          value: /var/lib/postgresql/data/pgdata
+        volumeMounts:
+        - name: postgres-data
+          mountPath: /var/lib/postgresql/data
+        readinessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - pg_isready -U fern_user -d fern_platform
+          initialDelaySeconds: 15
+          periodSeconds: 5
+        livenessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - pg_isready -U fern_user -d fern_platform
+          initialDelaySeconds: 45
+          periodSeconds: 10
+      volumes:
+      - name: postgres-data
+        emptyDir: {}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-standalone
+  namespace: fern-platform
+spec:
+  selector:
+    app: postgres-standalone
+  ports:
+  - port: 5432
+    targetPort: 5432
+  type: ClusterIP

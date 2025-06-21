@@ -1,0 +1,171 @@
+# Simple Kubernetes deployment for local development
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: fern-platform
+
+---
+# PostgreSQL Secret
+apiVersion: v1
+kind: Secret
+metadata:
+  name: postgres-credentials
+  namespace: fern-platform
+type: Opaque
+data:
+  password: ZmVybl9wYXNzd29yZA==  # base64 encoded "fern_password"
+
+---
+# PostgreSQL Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+  namespace: fern-platform
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:15
+        env:
+        - name: POSTGRES_DB
+          value: fern_platform
+        - name: POSTGRES_USER
+          value: fern_user
+        - name: POSTGRES_PASSWORD
+          value: fern_password
+        ports:
+        - containerPort: 5432
+        volumeMounts:
+        - name: postgres-storage
+          mountPath: /var/lib/postgresql/data
+      volumes:
+      - name: postgres-storage
+        emptyDir: {}
+
+---
+# PostgreSQL Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: fern-platform
+spec:
+  selector:
+    app: postgres
+  ports:
+  - port: 5432
+    targetPort: 5432
+
+---
+# Redis Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  namespace: fern-platform
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+      - name: redis
+        image: redis:7-alpine
+        ports:
+        - containerPort: 6379
+
+---
+# Redis Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+  namespace: fern-platform
+spec:
+  selector:
+    app: redis
+  ports:
+  - port: 6379
+    targetPort: 6379
+
+---
+# Fern Reporter Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fern-reporter
+  namespace: fern-platform
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: fern-reporter
+  template:
+    metadata:
+      labels:
+        app: fern-reporter
+    spec:
+      containers:
+      - name: fern-reporter
+        image: anoop2811/fern-reporter-test:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+        env:
+        - name: DB_HOST
+          value: postgres
+        - name: DB_PORT
+          value: "5432"
+        - name: DB_USER
+          value: fern_user
+        - name: DB_PASSWORD
+          value: fern_password
+        - name: DB_NAME
+          value: fern_platform
+        - name: REDIS_HOST
+          value: redis
+        - name: REDIS_PORT
+          value: "6379"
+        - name: LOG_LEVEL
+          value: debug
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+
+---
+# Fern Reporter Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: fern-reporter
+  namespace: fern-platform
+spec:
+  selector:
+    app: fern-reporter
+  ports:
+  - port: 8080
+    targetPort: 8080
+  type: LoadBalancer

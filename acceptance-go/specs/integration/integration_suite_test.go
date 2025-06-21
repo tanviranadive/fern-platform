@@ -1,0 +1,185 @@
+package integration_test
+
+import (
+	"context"
+	"fmt"
+	"testing"
+	"time"
+
+	. "github.com/onsi/ginkgo/v2"
+	"github.com/onsi/ginkgo/v2/types"
+	. "github.com/onsi/gomega"
+
+	fern "github.com/guidewire-oss/fern-ginkgo-client/pkg/client"
+	"github.com/guidewire-oss/fern-platform/acceptance-go/pkg/clients/graphql"
+	"github.com/guidewire-oss/fern-platform/acceptance-go/pkg/clients/reporter"
+	"github.com/guidewire-oss/fern-platform/acceptance-go/pkg/fixtures"
+	"github.com/guidewire-oss/fern-platform/acceptance-go/pkg/k8s"
+)
+
+// Test suite variables
+var (
+	clusterManager    *k8s.ClusterManager
+	kubeVelaManager   *k8s.KubeVelaManager
+	reporterClient    *reporter.Client
+	graphqlClient     *graphql.Client
+	testDataManager   *fixtures.TestDataManager
+	
+	testNamespace     string
+	serviceURLs       map[string]string
+	suiteCtx          context.Context
+	suiteCancel       context.CancelFunc
+	
+	// Configuration flags
+	// Set useExistingPlatform to:
+	//   - true: Use deployed platform at existingPlatformURL (faster, for sending reports to fern-platform)
+	//   - false: Deploy fresh platform in k3d cluster (full isolation, for testing platform itself)
+	useExistingPlatform = true
+	existingPlatformURL = "http://localhost:9090"
+)
+
+func TestIntegrationAcceptance(t *testing.T) {
+	RegisterFailHandler(Fail)
+	
+	// Configure fern-ginkgo-client to report to the deployed platform
+	fernApiClient := fern.New("fern-platform-acceptance", fern.WithBaseURL("http://localhost:9090"))
+	
+	// Register the fern reporter with correct signature for Ginkgo v2
+	ReportAfterSuite("Fern Platform Reporter", func(report types.Report) {
+		err := fernApiClient.Report(report)
+		if err != nil {
+			GinkgoLogr.Error(err, "Failed to send test report to fern-platform")
+		}
+	})
+	
+	RunSpecs(t, "Integration Acceptance Test Suite")
+}
+
+var _ = BeforeSuite(func() {
+	By("Setting up integration acceptance test suite")
+	
+	// Create suite context with timeout
+	suiteCtx, suiteCancel = context.WithTimeout(context.Background(), 15*time.Minute)
+	
+	// Generate unique test identifier for this suite execution
+	testID := GinkgoRandomSeed()
+	testNamespace = fmt.Sprintf("fern-integration-test-%d-%d", testID, GinkgoParallelProcess())
+	
+	By(fmt.Sprintf("Creating isolated test environment: %s", testNamespace))
+	
+	// Initialize cluster manager
+	var err error
+	clusterManager, err = k8s.NewClusterManager()
+	Expect(err).NotTo(HaveOccurred(), "Failed to create cluster manager")
+	
+	// Verify cluster prerequisites (KubeVela, CNPG)
+	Expect(clusterManager.VerifyClusterPrerequisites(suiteCtx)).To(Succeed())
+	
+	// Create isolated namespace for this test suite
+	_, err = clusterManager.CreateTestNamespace(suiteCtx, fmt.Sprintf("%d-%d", testID, GinkgoParallelProcess()))
+	Expect(err).NotTo(HaveOccurred())
+	
+	// Wait for namespace to be ready
+	Expect(clusterManager.WaitForNamespaceReady(suiteCtx, testNamespace)).To(Succeed())
+	
+	// Initialize KubeVela manager with all services for integration testing
+	kubeVelaManager = k8s.NewKubeVelaManager(
+		testNamespace,
+		"fern-platform-integration-test",
+		"../../../deployments/fern-platform-local.yaml",
+		clusterManager.GetKubeClient(),
+		[]string{"postgres", "redis", "fern-reporter", "fern-mycelium", "fern-ui"},
+	)
+	
+	// Deploy KubeVela application
+	By("Deploying complete KubeVela application for integration testing")
+	Expect(kubeVelaManager.DeployApplication(suiteCtx)).To(Succeed())
+	
+	// Wait for all services to be ready
+	By("Waiting for all services to be ready")
+	Expect(kubeVelaManager.WaitForApplicationReady(suiteCtx)).To(Succeed())
+	
+	// Get service URLs
+	serviceURLs, err = kubeVelaManager.GetServiceURLs(suiteCtx)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(serviceURLs).To(HaveKey("fern-reporter"))
+	Expect(serviceURLs).To(HaveKey("fern-ui"))
+	
+	// Initialize API clients
+	reporterClient, err = reporter.NewClient(serviceURLs["fern-reporter"])
+	Expect(err).NotTo(HaveOccurred())
+	
+	graphqlClient, err = graphql.NewClient(serviceURLs["fern-reporter"])
+	Expect(err).NotTo(HaveOccurred())
+	
+	// Wait for services to be responsive
+	By("Waiting for all services to be responsive")
+	Eventually(func() error {
+		return reporterClient.HealthCheck(suiteCtx)
+	}, 3*time.Minute, 10*time.Second).Should(Succeed())
+	
+	// Initialize test data manager
+	testDataManager = fixtures.NewTestDataManager(reporterClient, testNamespace, fmt.Sprintf("%d", testID))
+	
+	// Create comprehensive test data for integration testing
+	By("Setting up comprehensive test data for integration testing")
+	Expect(testDataManager.SetupTestData(suiteCtx)).To(Succeed())
+	
+	By("✅ Integration acceptance test suite setup complete")
+})
+
+var _ = AfterSuite(func() {
+	By("Cleaning up integration acceptance test suite")
+	
+	defer suiteCancel()
+	
+	// Cleanup test data
+	if testDataManager != nil {
+		_ = testDataManager.CleanupTestData(suiteCtx)
+	}
+	
+	// Delete KubeVela application
+	if kubeVelaManager != nil {
+		By("Deleting KubeVela application")
+		_ = kubeVelaManager.DeleteApplication(suiteCtx)
+	}
+	
+	// Delete test namespace
+	if clusterManager != nil && testNamespace != "" {
+		By("Deleting test namespace")
+		_ = clusterManager.DeleteTestNamespace(suiteCtx, testNamespace)
+	}
+	
+	By("✅ Integration acceptance test suite cleanup complete")
+})
+
+// Helper functions for common operations
+func GetReporterClient() *reporter.Client {
+	GinkgoHelper()
+	Expect(reporterClient).NotTo(BeNil(), "Reporter client not initialized")
+	return reporterClient
+}
+
+func GetGraphQLClient() *graphql.Client {
+	GinkgoHelper()
+	Expect(graphqlClient).NotTo(BeNil(), "GraphQL client not initialized")
+	return graphqlClient
+}
+
+func GetTestData() *fixtures.CreatedTestData {
+	GinkgoHelper()
+	Expect(testDataManager).NotTo(BeNil(), "Test data manager not initialized")
+	return testDataManager.GetCreatedData()
+}
+
+func GetTestContext() context.Context {
+	GinkgoHelper()
+	Expect(suiteCtx).NotTo(BeNil(), "Suite context not initialized")
+	return suiteCtx
+}
+
+func GetServiceURLs() map[string]string {
+	GinkgoHelper()
+	Expect(serviceURLs).NotTo(BeNil(), "Service URLs not initialized")
+	return serviceURLs
+}

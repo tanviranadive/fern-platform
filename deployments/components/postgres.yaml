@@ -1,0 +1,87 @@
+apiVersion: core.oam.dev/v1beta1
+kind: ComponentDefinition
+metadata:
+  name: postgres
+  namespace: vela-system
+  annotations:
+    definition.oam.dev/description: "PostgreSQL database using CloudNativePG operator"
+spec:
+  workload:
+    definition:
+      apiVersion: postgresql.cnpg.io/v1
+      kind: Cluster
+  schematic:
+    cue:
+      template: |
+        output: {
+        	apiVersion: "postgresql.cnpg.io/v1"
+        	kind:       "Cluster"
+        	metadata: {
+        		name:      context.name
+        		namespace: context.namespace
+        	}
+        	spec: {
+        		instances: parameter.instances
+        		
+        		postgresql: {
+        			parameters: {
+        				max_connections: "200"
+        				shared_buffers: "256MB"
+        				effective_cache_size: "1GB"
+        			}
+        		}
+        		
+        		bootstrap: {
+        			initdb: {
+        				database: parameter.database
+        				owner:    parameter.username
+        				secret: {
+        					name: context.name + "-credentials"
+        				}
+        			}
+        		}
+        		
+        		storage: {
+        			size: parameter.storage
+        			storageClass: parameter.storageClass
+        		}
+        		
+        		monitoring: {
+        			enabled: true
+        		}
+        	}
+        }
+        
+        outputs: credentials: {
+        	apiVersion: "v1"
+        	kind:       "Secret"
+        	metadata: {
+        		name:      context.name + "-credentials"
+        		namespace: context.namespace
+        	}
+        	type: "kubernetes.io/basic-auth"
+        	data: {
+        		username: base64.Encode(parameter.username)
+        		password: base64.Encode(parameter.password)
+        	}
+        }
+        
+        parameter: {
+        	// +usage=Number of PostgreSQL instances
+        	instances: *1 | int
+        	
+        	// +usage=Database name to create
+        	database: string
+        	
+        	// +usage=Database username
+        	username: string
+        	
+        	// +usage=Database password
+        	password: string
+        	
+        	// +usage=Storage size for database
+        	storage: *"10Gi" | string
+        	
+        	// +usage=Storage class for persistent volumes
+        	storageClass: *"" | string
+        }

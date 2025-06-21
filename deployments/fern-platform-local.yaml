@@ -1,0 +1,241 @@
+# KubeVela Application for Fern Platform (Local Development)
+apiVersion: core.oam.dev/v1beta1
+kind: Application
+metadata:
+  name: fern-platform-local
+  namespace: fern-platform
+spec:
+  components:
+    # PostgreSQL Database using CNPG
+    - name: postgres-cluster
+      type: cnpg-cluster
+      properties:
+        name: fern-postgres
+        instances: 1
+        postgresql:
+          parameters:
+            max_connections: "100"
+            shared_buffers: "128MB"
+            effective_cache_size: "512MB"
+        bootstrap:
+          initdb:
+            database: fern_platform
+            owner: fern_user
+            secret:
+              name: postgres-credentials
+        storage:
+          size: 10Gi
+          storageClass: standard
+        monitoring:
+          enabled: false
+        backup:
+          enabled: false
+
+    # Redis for caching and message bus
+    - name: redis
+      type: helm
+      properties:
+        repoType: helm
+        url: https://charts.bitnami.com/bitnami
+        chart: redis
+        version: "18.x.x"
+        values:
+          auth:
+            enabled: false
+          master:
+            persistence:
+              enabled: false
+          replica:
+            replicaCount: 0
+
+    # Fern Reporter Service
+    - name: fern-reporter
+      type: webservice
+      properties:
+        image: fern-reporter:latest
+        imagePullPolicy: Never  # For local development
+        ports:
+          - port: 8080
+            expose: true
+        env:
+          - name: DB_HOST
+            value: fern-postgres-rw
+          - name: DB_PORT
+            value: "5432"
+          - name: DB_USER
+            value: fern_user
+          - name: DB_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: postgres-credentials
+                key: password
+          - name: DB_NAME
+            value: fern_platform
+          - name: REDIS_HOST
+            value: redis-master
+          - name: REDIS_PORT
+            value: "6379"
+          - name: LOG_LEVEL
+            value: "debug"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+
+    # Fern UI (placeholder for now)
+    - name: fern-ui
+      type: webservice
+      properties:
+        image: nginx:alpine
+        ports:
+          - port: 80
+            expose: true
+        configs:
+          - name: nginx-config
+            mountPath: /etc/nginx/conf.d
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 10
+          periodSeconds: 30
+
+  policies:
+    # Topology policy for local development
+    - name: local-cluster
+      type: topology
+      properties:
+        clusters: ["local"]
+        namespace: fern-platform
+
+    # Override configurations for local environment
+    - name: local-config
+      type: override
+      properties:
+        components:
+          - name: fern-reporter
+            properties:
+              replicas: 1
+              cpu: "200m"
+              memory: "512Mi"
+          - name: fern-ui
+            properties:
+              replicas: 1
+              cpu: "100m"
+              memory: "256Mi"
+
+  workflow:
+    steps:
+      # Step 1: Deploy infrastructure (Database and Redis)
+      - name: deploy-infrastructure
+        type: deploy
+        properties:
+          policies: ["local-cluster"]
+          parallelism: 2
+        outputs:
+          - name: postgres-ready
+            valueFrom: postgres-cluster.status.ready
+          - name: redis-ready
+            valueFrom: redis.status.ready
+
+      # Step 2: Wait for infrastructure to be ready
+      - name: wait-for-infrastructure
+        type: suspend
+        timeout: 300s
+        inputs:
+          - from: postgres-ready
+          - from: redis-ready
+
+      # Step 3: Run database migrations
+      - name: run-migrations
+        type: step-group
+        dependsOn:
+          - wait-for-infrastructure
+        subSteps:
+          - name: migration-job
+            type: apply-object
+            properties:
+              value:
+                apiVersion: batch/v1
+                kind: Job
+                metadata:
+                  name: fern-migration
+                  namespace: fern-platform
+                spec:
+                  template:
+                    spec:
+                      restartPolicy: OnFailure
+                      containers:
+                        - name: migrate
+                          image: fern-reporter:latest
+                          imagePullPolicy: Never
+                          command: ["./fern-reporter"]
+                          args: ["--migrate-only"]
+                          env:
+                            - name: DB_HOST
+                              value: fern-postgres-rw
+                            - name: DB_PORT
+                              value: "5432"
+                            - name: DB_USER
+                              value: fern_user
+                            - name: DB_PASSWORD
+                              valueFrom:
+                                secretKeyRef:
+                                  name: postgres-credentials
+                                  key: password
+                            - name: DB_NAME
+                              value: fern_platform
+
+      # Step 4: Deploy application services
+      - name: deploy-services
+        type: deploy
+        dependsOn:
+          - run-migrations
+        properties:
+          policies: ["local-cluster", "local-config"]
+          auto: true
+
+---
+# Secret for PostgreSQL credentials
+apiVersion: v1
+kind: Secret
+metadata:
+  name: postgres-credentials
+  namespace: fern-platform
+type: Opaque
+data:
+  password: ZmVybl9wYXNzd29yZA==  # base64 encoded "fern_password"
+
+---
+# ConfigMap for nginx configuration (placeholder)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-config
+  namespace: fern-platform
+data:
+  default.conf: |
+    server {
+        listen 80;
+        server_name localhost;
+        location / {
+            root /usr/share/nginx/html;
+            index index.html;
+            try_files $uri $uri/ /index.html;
+        }
+        location /api/ {
+            proxy_pass http://fern-reporter:8080/;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+    }

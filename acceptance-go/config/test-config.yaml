@@ -1,0 +1,53 @@
+# Fern Platform Acceptance Test Configuration
+test:
+  # Test environment settings
+  timeout: 300s
+  parallel_processes: 4
+  
+  # Kubernetes settings (assumes k3d with KubeVela pre-installed)
+  k8s:
+    namespace_prefix: "fern-acceptance"
+    kubeconfig: "" # Uses default kubeconfig
+    wait_timeout: 5m
+    
+  # KubeVela application settings
+  kubevela:
+    app_name: "fern-platform-test"
+    app_file: "../deployments/fern-platform-local.yaml"
+    components:
+      - postgres
+      - redis
+      - fern-reporter
+      - fern-mycelium
+      - fern-ui
+    
+  # Service endpoints (will be dynamically discovered)
+  services:
+    reporter:
+      port: 8080
+      health_path: "/health"
+    mycelium:
+      port: 8081
+      health_path: "/health"
+    ui:
+      port: 3000
+      health_path: "/"
+      
+  # Test data settings
+  fixtures:
+    projects_count: 5
+    test_runs_per_project: 20
+    specs_per_run: 10
+    
+  # Performance thresholds
+  performance:
+    page_load_max: 2000ms
+    api_response_max: 1000ms
+    complex_query_max: 5000ms
+    
+  # Browser settings for UI tests
+  browser:
+    headless: true
+    viewport_width: 1920
+    viewport_height: 1080
+    timeout: 30s

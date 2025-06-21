@@ -1,0 +1,140 @@
+# KubeVela Application for Fern Platform
+apiVersion: core.oam.dev/v1beta1
+kind: Application
+metadata:
+  name: fern-platform
+  namespace: fern-platform
+spec:
+  components:
+    # PostgreSQL Database
+    - name: postgres
+      type: webservice
+      properties:
+        image: postgres:15
+        ports:
+          - port: 5432
+            expose: true
+        env:
+          - name: POSTGRES_DB
+            value: fern_platform
+          - name: POSTGRES_USER
+            value: fern_user
+          - name: POSTGRES_PASSWORD
+            value: fern_password
+        volumeMounts:
+          emptyDir:
+            - name: postgres-data
+              mountPath: /var/lib/postgresql/data
+
+    # Redis Cache
+    - name: redis
+      type: webservice
+      properties:
+        image: redis:7-alpine
+        ports:
+          - port: 6379
+            expose: true
+
+    # Fern Reporter Service
+    - name: fern-reporter
+      type: webservice
+      properties:
+        image: anoop2811/fern-reporter-test:latest
+        ports:
+          - port: 8080
+            expose: true
+        env:
+          - name: DB_HOST
+            value: postgres
+          - name: DB_PORT
+            value: "5432"
+          - name: DB_USER
+            value: fern_user
+          - name: DB_PASSWORD
+            value: fern_password
+          - name: DB_NAME
+            value: fern_platform
+          - name: REDIS_HOST
+            value: redis
+          - name: REDIS_PORT
+            value: "6379"
+          - name: LOG_LEVEL
+            value: debug
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+
+  policies:
+    # Topology policy for deployment
+    - name: local-cluster
+      type: topology
+      properties:
+        clusters: ["local"]
+        namespace: fern-platform
+
+    # Override policy for environment-specific configs
+    - name: fern-platform-config
+      type: override
+      properties:
+        components:
+          - name: postgres
+            properties:
+              replicas: 1
+              cpu: "500m"
+              memory: "512Mi"
+          - name: redis
+            properties:
+              replicas: 1
+              cpu: "100m"
+              memory: "128Mi"
+          - name: fern-reporter
+            properties:
+              replicas: 1
+              cpu: "200m"
+              memory: "256Mi"
+
+  workflow:
+    steps:
+      # Step 1: Deploy infrastructure first
+      - name: deploy-infrastructure
+        type: deploy
+        properties:
+          policies: ["local-cluster"]
+        outputs:
+          - name: postgres-ready
+            valueFrom: postgres.status.readyReplicas
+          - name: redis-ready
+            valueFrom: redis.status.readyReplicas
+
+      # Step 2: Wait for infrastructure to be ready
+      - name: wait-for-infrastructure
+        type: suspend
+        timeout: 300s
+        inputs:
+          - from: postgres-ready
+          - from: redis-ready
+
+      # Step 3: Deploy application services
+      - name: deploy-services
+        type: deploy
+        dependsOn:
+          - wait-for-infrastructure
+        properties:
+          policies: ["local-cluster", "fern-platform-config"]
+          auto: true
+
+---
+# Namespace for the application
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: fern-platform

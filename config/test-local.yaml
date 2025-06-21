@@ -1,0 +1,38 @@
+# Fern Platform Test Configuration (SQLite)
+
+server:
+  port: 8080
+  host: "0.0.0.0"
+  readTimeout: "30s"
+  writeTimeout: "30s"
+  idleTimeout: "120s"
+  shutdownTimeout: "15s"
+
+database:
+  driver: "sqlite"
+  dsn: "file:test.db?cache=shared&mode=rwc"
+  maxOpenConns: 25
+  maxIdleConns: 5
+  connMaxLifetime: "300s"
+  connMaxIdleTime: "300s"
+
+auth:
+  enabled: false
+
+logging:
+  level: "info"
+  format: "json"
+  output: "stdout"
+  structured: true
+
+services:
+  reporter:
+    host: "localhost"
+    port: 8080
+    url: "http://localhost:8080"
+
+monitoring:
+  health:
+    path: "/api/v1/health"
+    interval: "30s"
+    timeout: "5s"

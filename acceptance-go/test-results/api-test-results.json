@@ -1,0 +1,991 @@
+[
+  {
+    "SuitePath": "/Users/anoopgopalakrishnan/workspace/oss/fern/fern-platform/acceptance-go/specs/api",
+    "SuiteDescription": "API Acceptance Test Suite",
+    "SuiteLabels": [],
+    "SuiteSucceeded": false,
+    "SuiteHasProgrammaticFocus": false,
+    "SpecialSuiteFailureReasons": [],
+    "PreRunStats": {
+      "TotalSpecs": 44,
+      "SpecsThatWillRun": 44
+    },
+    "StartTime": "2025-06-20T10:58:30.722315-07:00",
+    "EndTime": "2025-06-20T10:58:30.738577-07:00",
+    "RunTime": 16262000,
+    "SuiteConfig": {
+      "RandomSeed": 1750442309,
+      "RandomizeAllSpecs": false,
+      "FocusStrings": null,
+      "SkipStrings": null,
+      "FocusFiles": null,
+      "SkipFiles": null,
+      "LabelFilter": "",
+      "FailOnPending": false,
+      "FailOnEmpty": false,
+      "FailFast": false,
+      "FlakeAttempts": 0,
+      "MustPassRepeatedly": 0,
+      "DryRun": false,
+      "PollProgressAfter": 0,
+      "PollProgressInterval": 0,
+      "Timeout": 1798787981000,
+      "EmitSpecProgress": false,
+      "OutputInterceptorMode": "",
+      "SourceRoots": null,
+      "GracePeriod": 30000000000,
+      "ParallelProcess": 1,
+      "ParallelTotal": 4,
+      "ParallelHost": "127.0.0.1:62716"
+    },
+    "SpecReports": [
+      {
+        "ContainerHierarchyTexts": null,
+        "ContainerHierarchyLocations": null,
+        "ContainerHierarchyLabels": null,
+        "LeafNodeType": "BeforeSuite",
+        "LeafNodeLocation": {
+          "FileName": "/Users/anoopgopalakrishnan/workspace/oss/fern/fern-platform/acceptance-go/specs/api/api_suite_test.go",
+          "LineNumber": 58
+        },
+        "LeafNodeLabels": null,
+        "LeafNodeText": "",
+        "State": "failed",
+        "StartTime": "2025-06-20T10:58:30.7232-07:00",
+        "EndTime": "2025-06-20T10:58:30.737215-07:00",
+        "RunTime": 14014584,
+        "ParallelProcess": 1,
+        "Failure": {
+          "Message": "Expected success, but got an error:\n    \u003c*fmt.wrapError | 0x14000503b40\u003e: \n    failed to create projects: failed to create project fern-platform-api-1750442309: API request failed with status 400: {\"error\":\"Key: 'CreateProjectInput.ProjectID' Error:Field validation for 'ProjectID' failed on the 'required' tag\"}\n    {\n        msg: \"failed to create projects: failed to create project fern-platform-api-1750442309: API request failed with status 400: {\\\"error\\\":\\\"Key: 'CreateProjectInput.ProjectID' Error:Field validation for 'ProjectID' failed on the 'required' tag\\\"}\",\n        err: \u003c*fmt.wrapError | 0x14000503b20\u003e{\n            msg: \"failed to create project fern-platform-api-1750442309: API request failed with status 400: {\\\"error\\\":\\\"Key: 'CreateProjectInput.ProjectID' Error:Field validation for 'ProjectID' failed on the 'required' tag\\\"}\",\n            err: \u003c*errors.errorString | 0x14000317520\u003e{\n                s: \"API request failed with status 400: {\\\"error\\\":\\\"Key: 'CreateProjectInput.ProjectID' Error:Field validation for 'ProjectID' failed on the 'required' tag\\\"}\",\n            },\n        },\n    }",
+          "Location": {
+            "FileName": "/Users/anoopgopalakrishnan/workspace/oss/fern/fern-platform/acceptance-go/specs/api/api_suite_test.go",
+            "LineNumber": 153,
+            "FullStackTrace": "github.com/guidewire-oss/fern-platform/acceptance-go/specs/api_test.init.func1()\n\t/Users/anoopgopalakrishnan/workspace/oss/fern/fern-platform/acceptance-go/specs/api/api_suite_test.go:153 +0xdbc"
+          },
+          "TimelineLocation": {
+            "Order": 7,
+            "Time": "2025-06-20T10:58:30.737209-07:00"
+          },
+          "FailureNodeContext": "leaf-node",
+          "FailureNodeType": "BeforeSuite",
+          "FailureNodeLocation": {
+            "FileName": "/Users/anoopgopalakrishnan/workspace/oss/fern/fern-platform/acceptance-go/specs/api/api_suite_test.go",
+            "LineNumber": 58
+          },
+          "ProgressReport": {
+            "LeafNodeLocation": {},
+            "SpecStartTime": "0001-01-01T00:00:00Z",
+            "CurrentNodeLocation": {},
+            "CurrentNodeStartTime": "0001-01-01T00:00:00Z",
+            "CurrentStepLocation": {},
+            "CurrentStepStartTime": "0001-01-01T00:00:00Z",
+            "TimelineLocation": {
+              "Time": "0001-01-01T00:00:00Z"
+            }
+          }
+        },
+        "NumAttempts": 0,
+        "MaxFlakeAttempts": 0,
+        "MaxMustPassRepeatedly": 0,
+        "SpecEvents": [
+          {
+            "SpecEventType": "Node",
+            "CodeLocation": {
+              "FileName": "/Users/anoopgopalakrishnan/workspace/oss/fern/fern-platform/acceptance-go/specs/api/api_suite_test.go",
+              "LineNumber": 58
+            },
+            "TimelineLocation": {
+              "Order": 1,
+              "Time": "2025-06-20T10:58:30.723428-07:00"
+            },
+            "Message": "TOP-LEVEL",
+            "NodeType": "BeforeSuite"
+          },
+          {
+            "SpecEventType": "By",
+            "CodeLocation": {
+              "FileName": "/Users/anoopgopalakrishnan/workspace/oss/fern/fern-platform/acceptance-go/specs/api/api_suite_test.go",
+              "LineNumber": 59
+            },
+            "TimelineLocation": {
+              "Order": 2,
+              "Time": "2025-06-20T10:58:30.723441-07:00"
+            },
+            "Message": "Setting up API acceptance test suite"
+          },
+          {
+            "SpecEventType": "By",
+            "CodeLocation": {
+              "FileName": "/Users/anoopgopalakrishnan/workspace/oss/fern/fern-platform/acceptance-go/specs/api/api_suite_test.go",
+              "LineNumber": 73
+            },
+            "TimelineLocation": {
+              "Order": 3,
+              "Time": "2025-06-20T10:58:30.723444-07:00"
+            },
+            "Message": "Connecting to existing deployed fern-platform"
+          },
+          {
+            "SpecEventType": "By",
+            "CodeLocation": {
+              "FileName": "/Users/anoopgopalakrishnan/workspace/oss/fern/fern-platform/acceptance-go/specs/api/api_suite_test.go",
+              "LineNumber": 89
+            },
+            "TimelineLocation": {
+              "Order": 4,
+              "Time": "2025-06-20T10:58:30.723477-07:00"
+            },
+            "Message": "Waiting for existing platform to be responsive"
+          },
+          {
+            "SpecEventType": "By",
+            "CodeLocation": {
+              "FileName": "/Users/anoopgopalakrishnan/workspace/oss/fern/fern-platform/acceptance-go/specs/api/api_suite_test.go",
+              "LineNumber": 152
+            },
+            "TimelineLocation": {
+              "Order": 5,
+              "Time": "2025-06-20T10:58:30.732473-07:00"
+            },
+            "Message": "Setting up comprehensive test data"
+          },
+          {
+            "SpecEventType": "By",
+            "CodeLocation": {
+              "FileName": "/Users/anoopgopalakrishnan/workspace/oss/fern/fern-platform/acceptance-go/specs/api/api_suite_test.go",
+              "LineNumber": 153
+            },
+            "TimelineLocation": {
+              "Order": 6,
+              "Time": "2025-06-20T10:58:30.732479-07:00"
+            },
+            "Message": "Setting up test data fixtures"
+          },
+          {
+            "SpecEventType": "Node (End)",
+            "CodeLocation": {
+              "FileName": "/Users/anoopgopalakrishnan/workspace/oss/fern/fern-platform/acceptance-go/specs/api/api_suite_test.go",
+              "LineNumber": 58
+            },
+            "TimelineLocation": {
+              "Order": 8,
+              "Time": "2025-06-20T10:58:30.737214-07:00"
+            },
+            "Message": "TOP-LEVEL",
+            "Duration": 13785833,
+            "NodeType": "BeforeSuite"
+          }
+        ]
+      },
+      {
+        "ContainerHierarchyTexts": null,
+        "ContainerHierarchyLocations": null,
+        "ContainerHierarchyLabels": null,
+        "LeafNodeType": "AfterSuite",
+        "LeafNodeLocation": {
+          "FileName": "/Users/anoopgopalakrishnan/workspace/oss/fern/fern-platform/acceptance-go/specs/api/api_suite_test.go",
+          "LineNumber": 158
+        },
+        "LeafNodeLabels": null,
+        "LeafNodeText": "",
+        "State": "passed",
+        "StartTime": "2025-06-20T10:58:30.738127-07:00",
+        "EndTime": "2025-06-20T10:58:30.738234-07:00",
+        "RunTime": 106208,
+        "ParallelProcess": 1,
+        "NumAttempts": 0,
+        "MaxFlakeAttempts": 0,
+        "MaxMustPassRepeatedly": 0,
+        "CapturedStdOutErr": "✅ Test data cleanup completed for namespace: fern-api-test-1750442309-1\n",
+        "SpecEvents": [
+          {
+            "SpecEventType": "Node",
+            "CodeLocation": {
+              "FileName": "/Users/anoopgopalakrishnan/workspace/oss/fern/fern-platform/acceptance-go/specs/api/api_suite_test.go",
+              "LineNumber": 158
+            },
+            "TimelineLocation": {
+              "Order": 9,
+              "Time": "2025-06-20T10:58:30.738211-07:00"
+            },
+            "Message": "TOP-LEVEL",
+            "NodeType": "AfterSuite"
+          },
+          {
+            "SpecEventType": "By",
+            "CodeLocation": {
+              "FileName": "/Users/anoopgopalakrishnan/workspace/oss/fern/fern-platform/acceptance-go/specs/api/api_suite_test.go",
+              "LineNumber": 159
+            },
+            "TimelineLocation": {
+              "Order": 10,
+              "Time": "2025-06-20T10:58:30.738221-07:00"
+            },
+            "Message": "Cleaning up API acceptance test suite"
+          },
+          {
+            "SpecEventType": "By",
+            "CodeLocation": {
+              "FileName": "/Users/anoopgopalakrishnan/workspace/oss/fern/fern-platform/acceptance-go/specs/api/api_suite_test.go",
+              "LineNumber": 165
+            },
+            "TimelineLocation": {
+              "Order": 11,
+              "Time": "2025-06-20T10:58:30.738225-07:00"
+            },
+            "Message": "Cleaning up test data fixtures"
+          },
+          {
+            "SpecEventType": "By",
+            "CodeLocation": {
+              "FileName": "/Users/anoopgopalakrishnan/workspace/oss/fern/fern-platform/acceptance-go/specs/api/api_suite_test.go",
+              "LineNumber": 182
+            },
+            "TimelineLocation": {
+              "Order": 12,
+              "Time": "2025-06-20T10:58:30.738228-07:00"
+            },
+            "Message": "✅ API acceptance test suite cleanup complete"
+          },
+          {
+            "SpecEventType": "Node (End)",
+            "CodeLocation": {
+              "FileName": "/Users/anoopgopalakrishnan/workspace/oss/fern/fern-platform/acceptance-go/specs/api/api_suite_test.go",
+              "LineNumber": 158
+            },
+            "TimelineLocation": {
+              "Order": 14,
+              "Time": "2025-06-20T10:58:30.738233-07:00"
+            },
+            "Message": "TOP-LEVEL",
+            "Duration": 21708,
+            "NodeType": "AfterSuite"
+          }
+        ]
+      },
+      {
+        "ContainerHierarchyTexts": null,
+        "ContainerHierarchyLocations": null,
+        "ContainerHierarchyLabels": null,
+        "LeafNodeType": "ReportAfterSuite",
+        "LeafNodeLocation": {
+          "FileName": "/Users/anoopgopalakrishnan/workspace/oss/fern/fern-platform/acceptance-go/specs/api/api_suite_test.go",
+          "LineNumber": 48
+        },
+        "LeafNodeLabels": null,
+        "LeafNodeText": "Fern Platform Reporter",
+        "State": "passed",
+        "StartTime": "2025-06-20T10:58:30.738589-07:00",
+        "EndTime": "2025-06-20T10:58:30.794505-07:00",
+        "RunTime": 55916291,
+        "ParallelProcess": 1,
+        "NumAttempts": 0,
+        "MaxFlakeAttempts": 0,
+        "MaxMustPassRepeatedly": 0,
+        "CapturedGinkgoWriterOutput": "\"msg\"=\"Failed to send test report to fern-platform\" \"error\"=\"client: Response status code: 404, Response: 404 page not found\"\n",
+        "SpecEvents": [
+          {
+            "SpecEventType": "Node",
+            "CodeLocation": {
+              "FileName": "/Users/anoopgopalakrishnan/workspace/oss/fern/fern-platform/acceptance-go/specs/api/api_suite_test.go",
+              "LineNumber": 48
+            },
+            "TimelineLocation": {
+              "Order": 15,
+              "Time": "2025-06-20T10:58:30.79158-07:00"
+            },
+            "Message": "TOP-LEVEL",
+            "NodeType": "ReportAfterSuite"
+          },
+          {
+            "SpecEventType": "Node (End)",
+            "CodeLocation": {
+              "FileName": "/Users/anoopgopalakrishnan/workspace/oss/fern/fern-platform/acceptance-go/specs/api/api_suite_test.go",
+              "LineNumber": 48
+            },
+            "TimelineLocation": {
+              "Offset": 126,
+              "Order": 17,
+              "Time": "2025-06-20T10:58:30.794505-07:00"
+            },
+            "Message": "TOP-LEVEL",
+            "Duration": 2924833,
+            "NodeType": "ReportAfterSuite"
+          }
+        ]
+      },
+      {
+        "ContainerHierarchyTexts": null,
+        "ContainerHierarchyLocations": null,
+        "ContainerHierarchyLabels": null,
+        "LeafNodeType": "BeforeSuite",
+        "LeafNodeLocation": {
+          "FileName": "/Users/anoopgopalakrishnan/workspace/oss/fern/fern-platform/acceptance-go/specs/api/api_suite_test.go",
+          "LineNumber": 58
+        },
+        "LeafNodeLabels": null,
+        "LeafNodeText": "",
+        "State": "failed",
+        "StartTime": "2025-06-20T10:58:30.723203-07:00",
+        "EndTime": "2025-06-20T10:58:30.736402-07:00",
+        "RunTime": 13199250,
+        "ParallelProcess": 2,
+        "Failure": {
+          "Message": "Expected success, but got an error:\n    \u003c*fmt.wrapError | 0x14000494d60\u003e: \n    failed to create projects: failed to create project fern-platform-api-1750442309: API request failed with status 400: {\"error\":\"Key: 'CreateProjectInput.ProjectID' Error:Field validation for 'ProjectID' failed on the 'required' tag\"}\n    {\n        msg: \"failed to create projects: failed to create project fern-platform-api-1750442309: API request failed with status 400: {\\\"error\\\":\\\"Key: 'CreateProjectInput.ProjectID' Error:Field validation for 'ProjectID' failed on the 'required' tag\\\"}\",\n        err: \u003c*fmt.wrapError | 0x14000494d40\u003e{\n            msg: \"failed to create project fern-platform-api-1750442309: API request failed with status 400: {\\\"error\\\":\\\"Key: 'CreateProjectInput.ProjectID' Error:Field validation for 'ProjectID' failed on the 'required' tag\\\"}\",\n            err: \u003c*errors.errorString | 0x140000507a0\u003e{\n                s: \"API request failed with status 400: {\\\"error\\\":\\\"Key: 'CreateProjectInput.ProjectID' Error:Field validation for 'ProjectID' failed on the 'required' tag\\\"}\",\n            },\n        },\n    }",
+          "Location": {
+            "FileName": "/Users/anoopgopalakrishnan/workspace/oss/fern/fern-platform/acceptance-go/specs/api/api_suite_test.go",
+            "LineNumber": 153,
+            "FullStackTrace": "github.com/guidewire-oss/fern-platform/acceptance-go/specs/api_test.init.func1()\n\t/Users/anoopgopalakrishnan/workspace/oss/fern/fern-platform/acceptance-go/specs/api/api_suite_test.go:153 +0xdbc"
+          },
+          "TimelineLocation": {
+            "Order": 7,
+            "Time": "2025-06-20T10:58:30.736399-07:00"
+          },
+          "FailureNodeContext": "leaf-node",
+          "FailureNodeType": "BeforeSuite",
+          "FailureNodeLocation": {
+            "FileName": "/Users/anoopgopalakrishnan/workspace/oss/fern/fern-platform/acceptance-go/specs/api/api_suite_test.go",
+            "LineNumber": 58
+          },
+          "ProgressReport": {
+            "LeafNodeLocation": {},
+            "SpecStartTime": "0001-01-01T00:00:00Z",
+            "CurrentNodeLocation": {},
+            "CurrentNodeStartTime": "0001-01-01T00:00:00Z",
+            "CurrentStepLocation": {},
+            "CurrentStepStartTime": "0001-01-01T00:00:00Z",
+            "TimelineLocation": {
+              "Time": "0001-01-01T00:00:00Z"
+            }
+          }
+        },
+        "NumAttempts": 0,
+        "MaxFlakeAttempts": 0,
+        "MaxMustPassRepeatedly": 0,
+        "SpecEvents": [
+          {
+            "SpecEventType": "Node",
+            "CodeLocation": {
+              "FileName": "/Users/anoopgopalakrishnan/workspace/oss/fern/fern-platform/acceptance-go/specs/api/api_suite_test.go",
+              "LineNumber": 58
+            },
+            "TimelineLocation": {
+              "Order": 1,
+              "Time": "2025-06-20T10:58:30.723405-07:00"
+            },
+            "Message": "TOP-LEVEL",
+            "NodeType": "BeforeSuite"
+          },
+          {
+            "SpecEventType": "By",
+            "CodeLocation": {
+              "FileName": "/Users/anoopgopalakrishnan/workspace/oss/fern/fern-platform/acceptance-go/specs/api/api_suite_test.go",
+              "LineNumber": 59
+            },
+            "TimelineLocation": {
+              "Order": 2,
+              "Time": "2025-06-20T10:58:30.723436-07:00"
+            },
+            "Message": "Setting up API acceptance test suite"
+          },
+          {
+            "SpecEventType": "By",
+            "CodeLocation": {
+              "FileName": "/Users/anoopgopalakrishnan/workspace/oss/fern/fern-platform/acceptance-go/specs/api/api_suite_test.go",
+              "LineNumber": 73
+            },
+            "TimelineLocation": {
+              "Order": 3,
+              "Time": "2025-06-20T10:58:30.723439-07:00"
+            },
+            "Message": "Connecting to existing deployed fern-platform"
+          },
+          {
+            "SpecEventType": "By",
+            "CodeLocation": {
+              "FileName": "/Users/anoopgopalakrishnan/workspace/oss/fern/fern-platform/acceptance-go/specs/api/api_suite_test.go",
+              "LineNumber": 89
+            },
+            "TimelineLocation": {
+              "Order": 4,
+              "Time": "2025-06-20T10:58:30.723473-07:00"
+            },
+            "Message": "Waiting for existing platform to be responsive"
+          },
+          {
+            "SpecEventType": "By",
+            "CodeLocation": {
+              "FileName": "/Users/anoopgopalakrishnan/workspace/oss/fern/fern-platform/acceptance-go/specs/api/api_suite_test.go",
+              "LineNumber": 152
+            },
+            "TimelineLocation": {
+              "Order": 5,
+              "Time": "2025-06-20T10:58:30.732391-07:00"
+            },
+            "Message": "Setting up comprehensive test data"
+          },
+          {
+            "SpecEventType": "By",
+            "CodeLocation": {
+              "FileName": "/Users/anoopgopalakrishnan/workspace/oss/fern/fern-platform/acceptance-go/specs/api/api_suite_test.go",
+              "LineNumber": 153
+            },
+            "TimelineLocation": {
+              "Order": 6,
+              "Time": "2025-06-20T10:58:30.732396-07:00"
+            },
+            "Message": "Setting up test data fixtures"
+          },
+          {
+            "SpecEventType": "Node (End)",
+            "CodeLocation": {
+              "FileName": "/Users/anoopgopalakrishnan/workspace/oss/fern/fern-platform/acceptance-go/specs/api/api_suite_test.go",
+              "LineNumber": 58
+            },
+            "TimelineLocation": {
+              "Order": 8,
+              "Time": "2025-06-20T10:58:30.736402-07:00"
+            },
+            "Message": "TOP-LEVEL",
+            "Duration": 12996833,
+            "NodeType": "BeforeSuite"
+          }
+        ]
+      },
+      {
+        "ContainerHierarchyTexts": null,
+        "ContainerHierarchyLocations": null,
+        "ContainerHierarchyLabels": null,
+        "LeafNodeType": "AfterSuite",
+        "LeafNodeLocation": {
+          "FileName": "/Users/anoopgopalakrishnan/workspace/oss/fern/fern-platform/acceptance-go/specs/api/api_suite_test.go",
+          "LineNumber": 158
+        },
+        "LeafNodeLabels": null,
+        "LeafNodeText": "",
+        "State": "passed",
+        "StartTime": "2025-06-20T10:58:30.737297-07:00",
+        "EndTime": "2025-06-20T10:58:30.737709-07:00",
+        "RunTime": 411708,
+        "ParallelProcess": 2,
+        "NumAttempts": 0,
+        "MaxFlakeAttempts": 0,
+        "MaxMustPassRepeatedly": 0,
+        "CapturedStdOutErr": "✅ Test data cleanup completed for namespace: fern-api-test-1750442309-2\n",
+        "SpecEvents": [
+          {
+            "SpecEventType": "Node",
+            "CodeLocation": {
+              "FileName": "/Users/anoopgopalakrishnan/workspace/oss/fern/fern-platform/acceptance-go/specs/api/api_suite_test.go",
+              "LineNumber": 158
+            },
+            "TimelineLocation": {
+              "Order": 9,
+              "Time": "2025-06-20T10:58:30.737683-07:00"
+            },
+            "Message": "TOP-LEVEL",
+            "NodeType": "AfterSuite"
+          },
+          {
+            "SpecEventType": "By",
+            "CodeLocation": {
+              "FileName": "/Users/anoopgopalakrishnan/workspace/oss/fern/fern-platform/acceptance-go/specs/api/api_suite_test.go",
+              "LineNumber": 159
+            },
+            "TimelineLocation": {
+              "Order": 10,
+              "Time": "2025-06-20T10:58:30.737691-07:00"
+            },
+            "Message": "Cleaning up API acceptance test suite"
+          },
+          {
+            "SpecEventType": "By",
+            "CodeLocation": {
+              "FileName": "/Users/anoopgopalakrishnan/workspace/oss/fern/fern-platform/acceptance-go/specs/api/api_suite_test.go",
+              "LineNumber": 165
+            },
+            "TimelineLocation": {
+              "Order": 11,
+              "Time": "2025-06-20T10:58:30.737695-07:00"
+            },
+            "Message": "Cleaning up test data fixtures"
+          },
+          {
+            "SpecEventType": "By",
+            "CodeLocation": {
+              "FileName": "/Users/anoopgopalakrishnan/workspace/oss/fern/fern-platform/acceptance-go/specs/api/api_suite_test.go",
+              "LineNumber": 182
+            },
+            "TimelineLocation": {
+              "Order": 12,
+              "Time": "2025-06-20T10:58:30.7377-07:00"
+            },
+            "Message": "✅ API acceptance test suite cleanup complete"
+          },
+          {
+            "SpecEventType": "Node (End)",
+            "CodeLocation": {
+              "FileName": "/Users/anoopgopalakrishnan/workspace/oss/fern/fern-platform/acceptance-go/specs/api/api_suite_test.go",
+              "LineNumber": 158
+            },
+            "TimelineLocation": {
+              "Order": 14,
+              "Time": "2025-06-20T10:58:30.737704-07:00"
+            },
+            "Message": "TOP-LEVEL",
+            "Duration": 20708,
+            "NodeType": "AfterSuite"
+          }
+        ]
+      },
+      {
+        "ContainerHierarchyTexts": null,
+        "ContainerHierarchyLocations": null,
+        "ContainerHierarchyLabels": null,
+        "LeafNodeType": "BeforeSuite",
+        "LeafNodeLocation": {
+          "FileName": "/Users/anoopgopalakrishnan/workspace/oss/fern/fern-platform/acceptance-go/specs/api/api_suite_test.go",
+          "LineNumber": 58
+        },
+        "LeafNodeLabels": null,
+        "LeafNodeText": "",
+        "State": "failed",
+        "StartTime": "2025-06-20T10:58:30.723216-07:00",
+        "EndTime": "2025-06-20T10:58:30.736398-07:00",
+        "RunTime": 13181792,
+        "ParallelProcess": 4,
+        "Failure": {
+          "Message": "Expected success, but got an error:\n    \u003c*fmt.wrapError | 0x1400068c440\u003e: \n    failed to create projects: failed to create project fern-platform-api-1750442309: API request failed with status 400: {\"error\":\"Key: 'CreateProjectInput.ProjectID' Error:Field validation for 'ProjectID' failed on the 'required' tag\"}\n    {\n        msg: \"failed to create projects: failed to create project fern-platform-api-1750442309: API request failed with status 400: {\\\"error\\\":\\\"Key: 'CreateProjectInput.ProjectID' Error:Field validation for 'ProjectID' failed on the 'required' tag\\\"}\",\n        err: \u003c*fmt.wrapError | 0x1400068c420\u003e{\n            msg: \"failed to create project fern-platform-api-1750442309: API request failed with status 400: {\\\"error\\\":\\\"Key: 'CreateProjectInput.ProjectID' Error:Field validation for 'ProjectID' failed on the 'required' tag\\\"}\",\n            err: \u003c*errors.errorString | 0x14000592370\u003e{\n                s: \"API request failed with status 400: {\\\"error\\\":\\\"Key: 'CreateProjectInput.ProjectID' Error:Field validation for 'ProjectID' failed on the 'required' tag\\\"}\",\n            },\n        },\n    }",
+          "Location": {
+            "FileName": "/Users/anoopgopalakrishnan/workspace/oss/fern/fern-platform/acceptance-go/specs/api/api_suite_test.go",
+            "LineNumber": 153,
+            "FullStackTrace": "github.com/guidewire-oss/fern-platform/acceptance-go/specs/api_test.init.func1()\n\t/Users/anoopgopalakrishnan/workspace/oss/fern/fern-platform/acceptance-go/specs/api/api_suite_test.go:153 +0xdbc"
+          },
+          "TimelineLocation": {
+            "Order": 7,
+            "Time": "2025-06-20T10:58:30.736395-07:00"
+          },
+          "FailureNodeContext": "leaf-node",
+          "FailureNodeType": "BeforeSuite",
+          "FailureNodeLocation": {
+            "FileName": "/Users/anoopgopalakrishnan/workspace/oss/fern/fern-platform/acceptance-go/specs/api/api_suite_test.go",
+            "LineNumber": 58
+          },
+          "ProgressReport": {
+            "LeafNodeLocation": {},
+            "SpecStartTime": "0001-01-01T00:00:00Z",
+            "CurrentNodeLocation": {},
+            "CurrentNodeStartTime": "0001-01-01T00:00:00Z",
+            "CurrentStepLocation": {},
+            "CurrentStepStartTime": "0001-01-01T00:00:00Z",
+            "TimelineLocation": {
+              "Time": "0001-01-01T00:00:00Z"
+            }
+          }
+        },
+        "NumAttempts": 0,
+        "MaxFlakeAttempts": 0,
+        "MaxMustPassRepeatedly": 0,
+        "SpecEvents": [
+          {
+            "SpecEventType": "Node",
+            "CodeLocation": {
+              "FileName": "/Users/anoopgopalakrishnan/workspace/oss/fern/fern-platform/acceptance-go/specs/api/api_suite_test.go",
+              "LineNumber": 58
+            },
+            "TimelineLocation": {
+              "Order": 1,
+              "Time": "2025-06-20T10:58:30.723418-07:00"
+            },
+            "Message": "TOP-LEVEL",
+            "NodeType": "BeforeSuite"
+          },
+          {
+            "SpecEventType": "By",
+            "CodeLocation": {
+              "FileName": "/Users/anoopgopalakrishnan/workspace/oss/fern/fern-platform/acceptance-go/specs/api/api_suite_test.go",
+              "LineNumber": 59
+            },
+            "TimelineLocation": {
+              "Order": 2,
+              "Time": "2025-06-20T10:58:30.723437-07:00"
+            },
+            "Message": "Setting up API acceptance test suite"
+          },
+          {
+            "SpecEventType": "By",
+            "CodeLocation": {
+              "FileName": "/Users/anoopgopalakrishnan/workspace/oss/fern/fern-platform/acceptance-go/specs/api/api_suite_test.go",
+              "LineNumber": 73
+            },
+            "TimelineLocation": {
+              "Order": 3,
+              "Time": "2025-06-20T10:58:30.72344-07:00"
+            },
+            "Message": "Connecting to existing deployed fern-platform"
+          },
+          {
+            "SpecEventType": "By",
+            "CodeLocation": {
+              "FileName": "/Users/anoopgopalakrishnan/workspace/oss/fern/fern-platform/acceptance-go/specs/api/api_suite_test.go",
+              "LineNumber": 89
+            },
+            "TimelineLocation": {
+              "Order": 4,
+              "Time": "2025-06-20T10:58:30.723476-07:00"
+            },
+            "Message": "Waiting for existing platform to be responsive"
+          },
+          {
+            "SpecEventType": "By",
+            "CodeLocation": {
+              "FileName": "/Users/anoopgopalakrishnan/workspace/oss/fern/fern-platform/acceptance-go/specs/api/api_suite_test.go",
+              "LineNumber": 152
+            },
+            "TimelineLocation": {
+              "Order": 5,
+              "Time": "2025-06-20T10:58:30.731967-07:00"
+            },
+            "Message": "Setting up comprehensive test data"
+          },
+          {
+            "SpecEventType": "By",
+            "CodeLocation": {
+              "FileName": "/Users/anoopgopalakrishnan/workspace/oss/fern/fern-platform/acceptance-go/specs/api/api_suite_test.go",
+              "LineNumber": 153
+            },
+            "TimelineLocation": {
+              "Order": 6,
+              "Time": "2025-06-20T10:58:30.731974-07:00"
+            },
+            "Message": "Setting up test data fixtures"
+          },
+          {
+            "SpecEventType": "Node (End)",
+            "CodeLocation": {
+              "FileName": "/Users/anoopgopalakrishnan/workspace/oss/fern/fern-platform/acceptance-go/specs/api/api_suite_test.go",
+              "LineNumber": 58
+            },
+            "TimelineLocation": {
+              "Order": 8,
+              "Time": "2025-06-20T10:58:30.736398-07:00"
+            },
+            "Message": "TOP-LEVEL",
+            "Duration": 12980291,
+            "NodeType": "BeforeSuite"
+          }
+        ]
+      },
+      {
+        "ContainerHierarchyTexts": null,
+        "ContainerHierarchyLocations": null,
+        "ContainerHierarchyLabels": null,
+        "LeafNodeType": "AfterSuite",
+        "LeafNodeLocation": {
+          "FileName": "/Users/anoopgopalakrishnan/workspace/oss/fern/fern-platform/acceptance-go/specs/api/api_suite_test.go",
+          "LineNumber": 158
+        },
+        "LeafNodeLabels": null,
+        "LeafNodeText": "",
+        "State": "passed",
+        "StartTime": "2025-06-20T10:58:30.73769-07:00",
+        "EndTime": "2025-06-20T10:58:30.738166-07:00",
+        "RunTime": 476291,
+        "ParallelProcess": 4,
+        "NumAttempts": 0,
+        "MaxFlakeAttempts": 0,
+        "MaxMustPassRepeatedly": 0,
+        "CapturedStdOutErr": "✅ Test data cleanup completed for namespace: fern-api-test-1750442309-4\n",
+        "SpecEvents": [
+          {
+            "SpecEventType": "Node",
+            "CodeLocation": {
+              "FileName": "/Users/anoopgopalakrishnan/workspace/oss/fern/fern-platform/acceptance-go/specs/api/api_suite_test.go",
+              "LineNumber": 158
+            },
+            "TimelineLocation": {
+              "Order": 9,
+              "Time": "2025-06-20T10:58:30.738139-07:00"
+            },
+            "Message": "TOP-LEVEL",
+            "NodeType": "AfterSuite"
+          },
+          {
+            "SpecEventType": "By",
+            "CodeLocation": {
+              "FileName": "/Users/anoopgopalakrishnan/workspace/oss/fern/fern-platform/acceptance-go/specs/api/api_suite_test.go",
+              "LineNumber": 159
+            },
+            "TimelineLocation": {
+              "Order": 10,
+              "Time": "2025-06-20T10:58:30.738153-07:00"
+            },
+            "Message": "Cleaning up API acceptance test suite"
+          },
+          {
+            "SpecEventType": "By",
+            "CodeLocation": {
+              "FileName": "/Users/anoopgopalakrishnan/workspace/oss/fern/fern-platform/acceptance-go/specs/api/api_suite_test.go",
+              "LineNumber": 165
+            },
+            "TimelineLocation": {
+              "Order": 11,
+              "Time": "2025-06-20T10:58:30.738157-07:00"
+            },
+            "Message": "Cleaning up test data fixtures"
+          },
+          {
+            "SpecEventType": "By",
+            "CodeLocation": {
+              "FileName": "/Users/anoopgopalakrishnan/workspace/oss/fern/fern-platform/acceptance-go/specs/api/api_suite_test.go",
+              "LineNumber": 182
+            },
+            "TimelineLocation": {
+              "Order": 12,
+              "Time": "2025-06-20T10:58:30.738161-07:00"
+            },
+            "Message": "✅ API acceptance test suite cleanup complete"
+          },
+          {
+            "SpecEventType": "Node (End)",
+            "CodeLocation": {
+              "FileName": "/Users/anoopgopalakrishnan/workspace/oss/fern/fern-platform/acceptance-go/specs/api/api_suite_test.go",
+              "LineNumber": 158
+            },
+            "TimelineLocation": {
+              "Order": 14,
+              "Time": "2025-06-20T10:58:30.738165-07:00"
+            },
+            "Message": "TOP-LEVEL",
+            "Duration": 26917,
+            "NodeType": "AfterSuite"
+          }
+        ]
+      },
+      {
+        "ContainerHierarchyTexts": null,
+        "ContainerHierarchyLocations": null,
+        "ContainerHierarchyLabels": null,
+        "LeafNodeType": "BeforeSuite",
+        "LeafNodeLocation": {
+          "FileName": "/Users/anoopgopalakrishnan/workspace/oss/fern/fern-platform/acceptance-go/specs/api/api_suite_test.go",
+          "LineNumber": 58
+        },
+        "LeafNodeLabels": null,
+        "LeafNodeText": "",
+        "State": "failed",
+        "StartTime": "2025-06-20T10:58:30.723224-07:00",
+        "EndTime": "2025-06-20T10:58:30.737368-07:00",
+        "RunTime": 14143375,
+        "ParallelProcess": 3,
+        "Failure": {
+          "Message": "Expected success, but got an error:\n    \u003c*fmt.wrapError | 0x1400012f280\u003e: \n    failed to create projects: failed to create project fern-platform-api-1750442309: API request failed with status 400: {\"error\":\"Key: 'CreateProjectInput.ProjectID' Error:Field validation for 'ProjectID' failed on the 'required' tag\"}\n    {\n        msg: \"failed to create projects: failed to create project fern-platform-api-1750442309: API request failed with status 400: {\\\"error\\\":\\\"Key: 'CreateProjectInput.ProjectID' Error:Field validation for 'ProjectID' failed on the 'required' tag\\\"}\",\n        err: \u003c*fmt.wrapError | 0x1400012f260\u003e{\n            msg: \"failed to create project fern-platform-api-1750442309: API request failed with status 400: {\\\"error\\\":\\\"Key: 'CreateProjectInput.ProjectID' Error:Field validation for 'ProjectID' failed on the 'required' tag\\\"}\",\n            err: \u003c*errors.errorString | 0x14000113ad0\u003e{\n                s: \"API request failed with status 400: {\\\"error\\\":\\\"Key: 'CreateProjectInput.ProjectID' Error:Field validation for 'ProjectID' failed on the 'required' tag\\\"}\",\n            },\n        },\n    }",
+          "Location": {
+            "FileName": "/Users/anoopgopalakrishnan/workspace/oss/fern/fern-platform/acceptance-go/specs/api/api_suite_test.go",
+            "LineNumber": 153,
+            "FullStackTrace": "github.com/guidewire-oss/fern-platform/acceptance-go/specs/api_test.init.func1()\n\t/Users/anoopgopalakrishnan/workspace/oss/fern/fern-platform/acceptance-go/specs/api/api_suite_test.go:153 +0xdbc"
+          },
+          "TimelineLocation": {
+            "Order": 7,
+            "Time": "2025-06-20T10:58:30.737361-07:00"
+          },
+          "FailureNodeContext": "leaf-node",
+          "FailureNodeType": "BeforeSuite",
+          "FailureNodeLocation": {
+            "FileName": "/Users/anoopgopalakrishnan/workspace/oss/fern/fern-platform/acceptance-go/specs/api/api_suite_test.go",
+            "LineNumber": 58
+          },
+          "ProgressReport": {
+            "LeafNodeLocation": {},
+            "SpecStartTime": "0001-01-01T00:00:00Z",
+            "CurrentNodeLocation": {},
+            "CurrentNodeStartTime": "0001-01-01T00:00:00Z",
+            "CurrentStepLocation": {},
+            "CurrentStepStartTime": "0001-01-01T00:00:00Z",
+            "TimelineLocation": {
+              "Time": "0001-01-01T00:00:00Z"
+            }
+          }
+        },
+        "NumAttempts": 0,
+        "MaxFlakeAttempts": 0,
+        "MaxMustPassRepeatedly": 0,
+        "SpecEvents": [
+          {
+            "SpecEventType": "Node",
+            "CodeLocation": {
+              "FileName": "/Users/anoopgopalakrishnan/workspace/oss/fern/fern-platform/acceptance-go/specs/api/api_suite_test.go",
+              "LineNumber": 58
+            },
+            "TimelineLocation": {
+              "Order": 1,
+              "Time": "2025-06-20T10:58:30.723438-07:00"
+            },
+            "Message": "TOP-LEVEL",
+            "NodeType": "BeforeSuite"
+          },
+          {
+            "SpecEventType": "By",
+            "CodeLocation": {
+              "FileName": "/Users/anoopgopalakrishnan/workspace/oss/fern/fern-platform/acceptance-go/specs/api/api_suite_test.go",
+              "LineNumber": 59
+            },
+            "TimelineLocation": {
+              "Order": 2,
+              "Time": "2025-06-20T10:58:30.723457-07:00"
+            },
+            "Message": "Setting up API acceptance test suite"
+          },
+          {
+            "SpecEventType": "By",
+            "CodeLocation": {
+              "FileName": "/Users/anoopgopalakrishnan/workspace/oss/fern/fern-platform/acceptance-go/specs/api/api_suite_test.go",
+              "LineNumber": 73
+            },
+            "TimelineLocation": {
+              "Order": 3,
+              "Time": "2025-06-20T10:58:30.72346-07:00"
+            },
+            "Message": "Connecting to existing deployed fern-platform"
+          },
+          {
+            "SpecEventType": "By",
+            "CodeLocation": {
+              "FileName": "/Users/anoopgopalakrishnan/workspace/oss/fern/fern-platform/acceptance-go/specs/api/api_suite_test.go",
+              "LineNumber": 89
+            },
+            "TimelineLocation": {
+              "Order": 4,
+              "Time": "2025-06-20T10:58:30.723478-07:00"
+            },
+            "Message": "Waiting for existing platform to be responsive"
+          },
+          {
+            "SpecEventType": "By",
+            "CodeLocation": {
+              "FileName": "/Users/anoopgopalakrishnan/workspace/oss/fern/fern-platform/acceptance-go/specs/api/api_suite_test.go",
+              "LineNumber": 152
+            },
+            "TimelineLocation": {
+              "Order": 5,
+              "Time": "2025-06-20T10:58:30.732424-07:00"
+            },
+            "Message": "Setting up comprehensive test data"
+          },
+          {
+            "SpecEventType": "By",
+            "CodeLocation": {
+              "FileName": "/Users/anoopgopalakrishnan/workspace/oss/fern/fern-platform/acceptance-go/specs/api/api_suite_test.go",
+              "LineNumber": 153
+            },
+            "TimelineLocation": {
+              "Order": 6,
+              "Time": "2025-06-20T10:58:30.732428-07:00"
+            },
+            "Message": "Setting up test data fixtures"
+          },
+          {
+            "SpecEventType": "Node (End)",
+            "CodeLocation": {
+              "FileName": "/Users/anoopgopalakrishnan/workspace/oss/fern/fern-platform/acceptance-go/specs/api/api_suite_test.go",
+              "LineNumber": 58
+            },
+            "TimelineLocation": {
+              "Order": 8,
+              "Time": "2025-06-20T10:58:30.737367-07:00"
+            },
+            "Message": "TOP-LEVEL",
+            "Duration": 13928750,
+            "NodeType": "BeforeSuite"
+          }
+        ]
+      },
+      {
+        "ContainerHierarchyTexts": null,
+        "ContainerHierarchyLocations": null,
+        "ContainerHierarchyLabels": null,
+        "LeafNodeType": "AfterSuite",
+        "LeafNodeLocation": {
+          "FileName": "/Users/anoopgopalakrishnan/workspace/oss/fern/fern-platform/acceptance-go/specs/api/api_suite_test.go",
+          "LineNumber": 158
+        },
+        "LeafNodeLabels": null,
+        "LeafNodeText": "",
+        "State": "passed",
+        "StartTime": "2025-06-20T10:58:30.738014-07:00",
+        "EndTime": "2025-06-20T10:58:30.738177-07:00",
+        "RunTime": 162708,
+        "ParallelProcess": 3,
+        "NumAttempts": 0,
+        "MaxFlakeAttempts": 0,
+        "MaxMustPassRepeatedly": 0,
+        "CapturedStdOutErr": "✅ Test data cleanup completed for namespace: fern-api-test-1750442309-3\n",
+        "SpecEvents": [
+          {
+            "SpecEventType": "Node",
+            "CodeLocation": {
+              "FileName": "/Users/anoopgopalakrishnan/workspace/oss/fern/fern-platform/acceptance-go/specs/api/api_suite_test.go",
+              "LineNumber": 158
+            },
+            "TimelineLocation": {
+              "Order": 9,
+              "Time": "2025-06-20T10:58:30.738146-07:00"
+            },
+            "Message": "TOP-LEVEL",
+            "NodeType": "AfterSuite"
+          },
+          {
+            "SpecEventType": "By",
+            "CodeLocation": {
+              "FileName": "/Users/anoopgopalakrishnan/workspace/oss/fern/fern-platform/acceptance-go/specs/api/api_suite_test.go",
+              "LineNumber": 159
+            },
+            "TimelineLocation": {
+              "Order": 10,
+              "Time": "2025-06-20T10:58:30.738164-07:00"
+            },
+            "Message": "Cleaning up API acceptance test suite"
+          },
+          {
+            "SpecEventType": "By",
+            "CodeLocation": {
+              "FileName": "/Users/anoopgopalakrishnan/workspace/oss/fern/fern-platform/acceptance-go/specs/api/api_suite_test.go",
+              "LineNumber": 165
+            },
+            "TimelineLocation": {
+              "Order": 11,
+              "Time": "2025-06-20T10:58:30.738168-07:00"
+            },
+            "Message": "Cleaning up test data fixtures"
+          },
+          {
+            "SpecEventType": "By",
+            "CodeLocation": {
+              "FileName": "/Users/anoopgopalakrishnan/workspace/oss/fern/fern-platform/acceptance-go/specs/api/api_suite_test.go",
+              "LineNumber": 182
+            },
+            "TimelineLocation": {
+              "Order": 12,
+              "Time": "2025-06-20T10:58:30.738172-07:00"
+            },
+            "Message": "✅ API acceptance test suite cleanup complete"
+          },
+          {
+            "SpecEventType": "Node (End)",
+            "CodeLocation": {
+              "FileName": "/Users/anoopgopalakrishnan/workspace/oss/fern/fern-platform/acceptance-go/specs/api/api_suite_test.go",
+              "LineNumber": 158
+            },
+            "TimelineLocation": {
+              "Order": 14,
+              "Time": "2025-06-20T10:58:30.738176-07:00"
+            },
+            "Message": "TOP-LEVEL",
+            "Duration": 29375,
+            "NodeType": "AfterSuite"
+          }
+        ]
+      }
+    ]
+  }
+]

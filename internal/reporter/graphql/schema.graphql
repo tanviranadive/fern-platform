@@ -1,0 +1,341 @@
+# GraphQL schema for Fern Reporter Service
+
+scalar Time
+scalar JSON
+
+# Test Run Types
+type TestRun {
+  id: ID!
+  projectId: String!
+  runId: String!
+  branch: String
+  commitSha: String
+  status: String!
+  startTime: Time!
+  endTime: Time
+  totalTests: Int!
+  passedTests: Int!
+  failedTests: Int!
+  skippedTests: Int!
+  duration: Int! # Duration in milliseconds
+  environment: String
+  metadata: JSON
+  tags: [Tag!]!
+  suiteRuns: [SuiteRun!]!
+  createdAt: Time!
+  updatedAt: Time!
+}
+
+type SuiteRun {
+  id: ID!
+  testRunId: ID!
+  suiteName: String!
+  status: String!
+  startTime: Time!
+  endTime: Time
+  totalSpecs: Int!
+  passedSpecs: Int!
+  failedSpecs: Int!
+  skippedSpecs: Int!
+  duration: Int! # Duration in milliseconds
+  specRuns: [SpecRun!]!
+  createdAt: Time!
+  updatedAt: Time!
+}
+
+type SpecRun {
+  id: ID!
+  suiteRunId: ID!
+  specName: String!
+  status: String!
+  startTime: Time!
+  endTime: Time
+  duration: Int! # Duration in milliseconds
+  errorMessage: String
+  stackTrace: String
+  retryCount: Int!
+  isFlaky: Boolean!
+  createdAt: Time!
+  updatedAt: Time!
+}
+
+# Project Types
+type Project {
+  id: ID!
+  projectId: String!
+  name: String!
+  description: String
+  repository: String
+  defaultBranch: String!
+  settings: JSON
+  isActive: Boolean!
+  stats: ProjectStats
+  createdAt: Time!
+  updatedAt: Time!
+}
+
+type ProjectStats {
+  totalTestRuns: Int!
+  recentTestRuns: Int!
+  uniqueBranches: Int!
+  successRate: Float!
+}
+
+# Tag Types
+type Tag {
+  id: ID!
+  name: String!
+  description: String
+  color: String
+  usageCount: Int
+  createdAt: Time!
+  updatedAt: Time!
+}
+
+type TagUsage {
+  id: ID!
+  name: String!
+  description: String
+  color: String
+  usageCount: Int!
+}
+
+# Flaky Test Types
+type FlakyTest {
+  id: ID!
+  projectId: String!
+  testName: String!
+  suiteName: String
+  flakeRate: Float!
+  totalExecutions: Int!
+  flakyExecutions: Int!
+  lastSeenAt: Time!
+  firstSeenAt: Time!
+  status: String!
+  severity: String!
+  lastErrorMessage: String
+  createdAt: Time!
+  updatedAt: Time!
+}
+
+# Statistics Types
+type TestRunStats {
+  totalRuns: Int!
+  statusCounts: [StatusCount!]!
+  averageDuration: Int!
+  successRate: Float!
+}
+
+type StatusCount {
+  status: String!
+  count: Int!
+}
+
+type FlakyTestStats {
+  totalFlakyTests: Int!
+  severityCounts: [SeverityCount!]!
+  averageFlakeRate: Float!
+  mostFlakyTest: FlakyTest
+}
+
+type SeverityCount {
+  severity: String!
+  count: Int!
+}
+
+# Connection Types for Pagination
+type TestRunConnection {
+  edges: [TestRunEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type TestRunEdge {
+  node: TestRun!
+  cursor: String!
+}
+
+type ProjectConnection {
+  edges: [ProjectEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type ProjectEdge {
+  node: Project!
+  cursor: String!
+}
+
+type TagConnection {
+  edges: [TagEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type TagEdge {
+  node: Tag!
+  cursor: String!
+}
+
+type FlakyTestConnection {
+  edges: [FlakyTestEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type FlakyTestEdge {
+  node: FlakyTest!
+  cursor: String!
+}
+
+type PageInfo {
+  hasNextPage: Boolean!
+  hasPreviousPage: Boolean!
+  startCursor: String
+  endCursor: String
+}
+
+# Input Types
+input TestRunFilter {
+  projectId: String
+  branch: String
+  status: String
+  environment: String
+  startTime: Time
+  endTime: Time
+  tags: [String!]
+}
+
+input ProjectFilter {
+  search: String
+  activeOnly: Boolean
+}
+
+input TagFilter {
+  search: String
+}
+
+input FlakyTestFilter {
+  projectId: String
+  severity: String
+  status: String
+  minFlakeRate: Float
+  maxFlakeRate: Float
+}
+
+input CreateTestRunInput {
+  projectId: String!
+  runId: String!
+  branch: String
+  commitSha: String
+  environment: String
+  metadata: JSON
+  tags: [String!]
+}
+
+input CreateProjectInput {
+  projectId: String!
+  name: String!
+  description: String
+  repository: String
+  defaultBranch: String
+  settings: JSON
+}
+
+input UpdateProjectInput {
+  name: String
+  description: String
+  repository: String
+  defaultBranch: String
+  settings: JSON
+}
+
+input CreateTagInput {
+  name: String!
+  description: String
+  color: String
+}
+
+input UpdateTagInput {
+  name: String
+  description: String
+  color: String
+}
+
+# Query Root
+type Query {
+  # Test Runs
+  testRun(id: ID!): TestRun
+  testRunByRunId(runId: String!): TestRun
+  testRuns(
+    filter: TestRunFilter
+    first: Int
+    after: String
+    orderBy: String
+    orderDirection: OrderDirection
+  ): TestRunConnection!
+  testRunStats(projectId: String, days: Int): TestRunStats!
+  recentTestRuns(projectId: String, limit: Int): [TestRun!]!
+
+  # Projects
+  project(id: ID!): Project
+  projectByProjectId(projectId: String!): Project
+  projects(
+    filter: ProjectFilter
+    first: Int
+    after: String
+  ): ProjectConnection!
+
+  # Tags
+  tag(id: ID!): Tag
+  tagByName(name: String!): Tag
+  tags(
+    filter: TagFilter
+    first: Int
+    after: String
+  ): TagConnection!
+  tagUsageStats: [TagUsage!]!
+  popularTags(limit: Int): [TagUsage!]!
+
+  # Flaky Tests
+  flakyTest(id: ID!): FlakyTest
+  flakyTests(
+    filter: FlakyTestFilter
+    first: Int
+    after: String
+    orderBy: String
+    orderDirection: OrderDirection
+  ): FlakyTestConnection!
+  flakyTestStats(projectId: String): FlakyTestStats!
+  recentlyAddedFlakyTests(projectId: String, days: Int, limit: Int): [FlakyTest!]!
+}
+
+# Mutation Root
+type Mutation {
+  # Test Runs
+  createTestRun(input: CreateTestRunInput!): TestRun!
+  updateTestRunStatus(runId: String!, status: String!, endTime: Time): TestRun!
+  deleteTestRun(id: ID!): Boolean!
+  assignTagsToTestRun(testRunId: ID!, tagIds: [ID!]!): TestRun!
+
+  # Projects
+  createProject(input: CreateProjectInput!): Project!
+  updateProject(id: ID!, input: UpdateProjectInput!): Project!
+  deleteProject(id: ID!): Boolean!
+  activateProject(projectId: String!): Project!
+  deactivateProject(projectId: String!): Project!
+
+  # Tags
+  createTag(input: CreateTagInput!): Tag!
+  updateTag(id: ID!, input: UpdateTagInput!): Tag!
+  deleteTag(id: ID!): Boolean!
+
+  # Flaky Tests
+  markFlakyTestResolved(id: ID!): FlakyTest!
+  markSpecAsFlaky(specRunId: ID!): SpecRun!
+}
+
+enum OrderDirection {
+  ASC
+  DESC
+}

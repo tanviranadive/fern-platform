@@ -1,0 +1,36 @@
+# Simple Dockerfile using pre-built binary
+FROM alpine:latest
+
+# Install runtime dependencies
+RUN apk add --no-cache ca-certificates tzdata wget
+
+# Create non-root user
+RUN addgroup -g 1001 -S fern && \
+    adduser -u 1001 -S fern -G fern
+
+# Set working directory
+WORKDIR /app
+
+# Copy pre-built binary
+COPY bin/fern-platform ./fern-platform
+
+# Copy configuration files and other assets
+COPY config ./config
+COPY migrations ./migrations
+COPY web ./web
+
+# Change ownership
+RUN chown -R fern:fern /app && chmod +x /app/fern-platform
+
+# Switch to non-root user
+USER fern
+
+# Expose port
+EXPOSE 8080
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider http://localhost:8080/health || exit 1
+
+# Run the application
+CMD ["./fern-platform", "-config", "config/config.yaml"]
