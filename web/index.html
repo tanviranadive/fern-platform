@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fern Platform</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            background-color: #f8fafc;
+            color: #1a202c;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1rem 2rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .header h1 {
+            font-size: 2rem;
+            font-weight: 600;
+        }
+        
+        .header p {
+            margin-top: 0.5rem;
+            opacity: 0.9;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+        }
+        
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 8px;
+            padding: 1.5rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            border: 1px solid #e2e8f0;
+        }
+        
+        .card h3 {
+            color: #2d3748;
+            font-size: 1.25rem;
+            margin-bottom: 1rem;
+        }
+        
+        .stat {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        
+        .stat:last-child {
+            border-bottom: none;
+        }
+        
+        .stat-value {
+            font-weight: 600;
+            color: #4299e1;
+        }
+        
+        .status {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+        
+        .status.healthy {
+            background-color: #c6f6d5;
+            color: #22543d;
+        }
+        
+        .status.running {
+            background-color: #bee3f8;
+            color: #2a4365;
+        }
+        
+        .api-section {
+            margin-top: 2rem;
+        }
+        
+        .api-endpoints {
+            display: grid;
+            gap: 1rem;
+        }
+        
+        .endpoint {
+            background: white;
+            border-radius: 6px;
+            padding: 1rem;
+            border: 1px solid #e2e8f0;
+            font-family: 'Monaco', 'Menlo', monospace;
+        }
+        
+        .endpoint-method {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-right: 0.5rem;
+        }
+        
+        .get {
+            background-color: #e6fffa;
+            color: #234e52;
+        }
+        
+        .post {
+            background-color: #fef5e7;
+            color: #744210;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: #718096;
+        }
+        
+        .error {
+            background-color: #fed7d7;
+            color: #742a2a;
+            padding: 1rem;
+            border-radius: 6px;
+            margin: 1rem 0;
+        }
+
+        .nav-button {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.875rem;
+        }
+
+        .nav-button:hover {
+            opacity: 0.8;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        th {
+            background-color: #f8fafc;
+            font-weight: 600;
+            color: #4a5568;
+        }
+
+        tr:hover {
+            background-color: #f8fafc;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        // Simple router for SPA navigation
+        function useRouter() {
+            const [route, setRoute] = useState(window.location.hash.slice(1) || '/');
+            
+            useEffect(() => {
+                const handleHashChange = () => {
+                    setRoute(window.location.hash.slice(1) || '/');
+                };
+                window.addEventListener('hashchange', handleHashChange);
+                return () => window.removeEventListener('hashchange', handleHashChange);
+            }, []);
+            
+            const navigate = (path) => {
+                window.location.hash = path;
+            };
+            
+            return { route, navigate };
+        }
+
+        // Navigation component
+        function Navigation({ route, navigate }) {
+            return (
+                <div style={{padding: '1rem 2rem', backgroundColor: 'white', borderBottom: '1px solid #e2e8f0', marginBottom: '2rem'}}>
+                    <div style={{display: 'flex', gap: '2rem', alignItems: 'center'}}>
+                        <h2 style={{margin: 0, color: '#2d3748'}}>Fern Platform</h2>
+                        <nav style={{display: 'flex', gap: '1rem'}}>
+                            <button 
+                                onClick={() => navigate('/')}
+                                className="nav-button"
+                                style={{
+                                    backgroundColor: route === '/' ? '#667eea' : 'transparent',
+                                    color: route === '/' ? 'white' : '#4a5568'
+                                }}
+                            >
+                                Dashboard
+                            </button>
+                            <button 
+                                onClick={() => navigate('/test-summaries')}
+                                className="nav-button"
+                                style={{
+                                    backgroundColor: route === '/test-summaries' ? '#667eea' : 'transparent',
+                                    color: route === '/test-summaries' ? 'white' : '#4a5568'
+                                }}
+                            >
+                                Test Summaries
+                            </button>
+                            <button 
+                                onClick={() => navigate('/test-runs')}
+                                className="nav-button"
+                                style={{
+                                    backgroundColor: route === '/test-runs' ? '#667eea' : 'transparent',
+                                    color: route === '/test-runs' ? 'white' : '#4a5568'
+                                }}
+                            >
+                                Test Runs
+                            </button>
+                        </nav>
+                    </div>
+                </div>
+            );
+        }
+
+        // Dashboard component
+        function Dashboard() {
+            const [health, setHealth] = useState(null);
+            const [projects, setProjects] = useState([]);
+            const [testRuns, setTestRuns] = useState([]);
+            const [loading, setLoading] = useState(true);
+            const [error, setError] = useState(null);
+
+            useEffect(() => {
+                fetchData();
+            }, []);
+
+            const fetchData = async () => {
+                try {
+                    // Fetch health status
+                    const healthRes = await fetch('/health');
+                    const healthData = await healthRes.json();
+                    setHealth(healthData);
+
+                    // Fetch projects
+                    const projectsRes = await fetch('/api/v1/projects');
+                    const projectsData = await projectsRes.json();
+                    setProjects(projectsData.data || []);
+
+                    // Fetch test runs
+                    const testRunsRes = await fetch('/api/v1/test-runs');
+                    const testRunsData = await testRunsRes.json();
+                    setTestRuns(testRunsData.data || []);
+
+                    setLoading(false);
+                } catch (err) {
+                    setError(err.message);
+                    setLoading(false);
+                }
+            };
+
+            if (loading) {
+                return (
+                    <div className="container">
+                        <div className="loading">Loading platform data...</div>
+                    </div>
+                );
+            }
+
+            if (error) {
+                return (
+                    <div className="container">
+                        <div className="error">Error: {error}</div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="container">
+                    <div className="dashboard">
+                        <div className="card">
+                            <h3>Platform Status</h3>
+                            <div className="stat">
+                                <span>Service Status</span>
+                                <span className={`status ${health?.status === 'healthy' ? 'healthy' : 'running'}`}>
+                                    {health?.status || 'Unknown'}
+                                </span>
+                            </div>
+                            <div className="stat">
+                                <span>Service</span>
+                                <span className="stat-value">{health?.service || 'fern-platform'}</span>
+                            </div>
+                            <div className="stat">
+                                <span>Last Updated</span>
+                                <span className="stat-value">
+                                    {health?.timestamp ? new Date(health.timestamp).toLocaleTimeString() : 'N/A'}
+                                </span>
+                            </div>
+                        </div>
+
+                        <div className="card">
+                            <h3>Projects</h3>
+                            <div className="stat">
+                                <span>Total Projects</span>
+                                <span className="stat-value">{projects.length}</span>
+                            </div>
+                            <div className="stat">
+                                <span>Active Projects</span>
+                                <span className="stat-value">{projects.filter(p => p.is_active).length}</span>
+                            </div>
+                            {projects.length === 0 && (
+                                <div style={{textAlign: 'center', color: '#718096', marginTop: '1rem'}}>
+                                    No projects found. Create your first project via API.
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="card">
+                            <h3>Test Runs</h3>
+                            <div className="stat">
+                                <span>Total Runs</span>
+                                <span className="stat-value">{testRuns.length}</span>
+                            </div>
+                            <div className="stat">
+                                <span>Recent Runs</span>
+                                <span className="stat-value">{testRuns.filter(tr => {
+                                    const runDate = new Date(tr.start_time);
+                                    const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+                                    return runDate > dayAgo;
+                                }).length}</span>
+                            </div>
+                            {testRuns.length === 0 && (
+                                <div style={{textAlign: 'center', color: '#718096', marginTop: '1rem'}}>
+                                    No test runs found. Submit test results via API.
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="api-section">
+                        <div className="card">
+                            <h3>Available APIs</h3>
+                            <div className="api-endpoints">
+                                <div className="endpoint">
+                                    <span className="endpoint-method get">GET</span>
+                                    <span>/health - Service health check</span>
+                                </div>
+                                <div className="endpoint">
+                                    <span className="endpoint-method get">GET</span>
+                                    <span>/api/v1/projects - List all projects</span>
+                                </div>
+                                <div className="endpoint">
+                                    <span className="endpoint-method post">POST</span>
+                                    <span>/api/v1/projects - Create new project</span>
+                                </div>
+                                <div className="endpoint">
+                                    <span className="endpoint-method get">GET</span>
+                                    <span>/api/v1/test-runs - List all test runs</span>
+                                </div>
+                                <div className="endpoint">
+                                    <span className="endpoint-method post">POST</span>
+                                    <span>/api/v1/test-runs - Create new test run</span>
+                                </div>
+                                <div className="endpoint">
+                                    <span className="endpoint-method get">GET</span>
+                                    <span>/graphql - GraphQL playground</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="card" style={{marginTop: '1.5rem'}}>
+                        <h3>Architecture Highlights</h3>
+                        <div className="stat">
+                            <span>Microservices</span>
+                            <span className="stat-value">✓ Enabled</span>
+                        </div>
+                        <div className="stat">
+                            <span>Database</span>
+                            <span className="stat-value">PostgreSQL + GORM</span>
+                        </div>
+                        <div className="stat">
+                            <span>Deployment</span>
+                            <span className="stat-value">KubeVela + k3d</span>
+                        </div>
+                        <div className="stat">
+                            <span>APIs</span>
+                            <span className="stat-value">REST + GraphQL</span>
+                        </div>
+                        <div className="stat">
+                            <span>Container</span>
+                            <span className="stat-value">anoop2811/fern-reporter-test</span>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // Test Summaries page similar to fern-ui
+        function TestSummaries() {
+            const [projects, setProjects] = useState([]);
+            const [testRuns, setTestRuns] = useState([]);
+            const [loading, setLoading] = useState(true);
+            const [error, setError] = useState(null);
+
+            useEffect(() => {
+                fetchData();
+            }, []);
+
+            const fetchData = async () => {
+                try {
+                    const [projectsRes, testRunsRes] = await Promise.all([
+                        fetch('/api/v1/projects'),
+                        fetch('/api/v1/test-runs')
+                    ]);
+
+                    const projectsData = await projectsRes.json();
+                    const testRunsData = await testRunsRes.json();
+
+                    setProjects(projectsData.data || []);
+                    setTestRuns(testRunsData.data || []);
+                    setLoading(false);
+                } catch (err) {
+                    setError(err.message);
+                    setLoading(false);
+                }
+            };
+
+            const getProjectRuns = (projectId) => {
+                return testRuns.filter(run => run.project_id === projectId);
+            };
+
+            const getStatusColor = (status) => {
+                switch (status) {
+                    case 'passed': return '#3ca454';
+                    case 'failed': return '#a43c4f';
+                    case 'running': return '#4ecdc4';
+                    default: return '#718096';
+                }
+            };
+
+            if (loading) return <div className="container"><div className="loading">Loading test summaries...</div></div>;
+            if (error) return <div className="container"><div className="error">Error: {error}</div></div>;
+
+            return (
+                <div className="container">
+                    <h2 style={{marginBottom: '2rem', color: '#2d3748'}}>Test Summaries</h2>
+                    
+                    <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(400px, 1fr))', gap: '1.5rem'}}>
+                        {projects.map(project => {
+                            const projectRuns = getProjectRuns(project.id);
+                            const latestRuns = projectRuns.slice(0, 10); // Last 10 runs
+                            const totalTests = projectRuns.reduce((sum, run) => sum + (run.total_tests || 0), 0);
+                            const passedTests = projectRuns.reduce((sum, run) => sum + (run.passed_tests || 0), 0);
+                            const failedTests = projectRuns.reduce((sum, run) => sum + (run.failed_tests || 0), 0);
+
+                            return (
+                                <div key={project.id} className="card" style={{padding: '1.5rem'}}>
+                                    <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem'}}>
+                                        <div>
+                                            <h3 style={{margin: '0 0 0.5rem 0', color: '#2d3748'}}>{project.name}</h3>
+                                            <p style={{margin: 0, color: '#718096', fontSize: '0.875rem'}}>{project.description}</p>
+                                        </div>
+                                        <span style={{
+                                            padding: '0.25rem 0.75rem',
+                                            borderRadius: '9999px',
+                                            fontSize: '0.75rem',
+                                            backgroundColor: project.is_active ? '#c6f6d5' : '#fed7d7',
+                                            color: project.is_active ? '#22543d' : '#742a2a'
+                                        }}>
+                                            {project.is_active ? 'Active' : 'Inactive'}
+                                        </span>
+                                    </div>
+
+                                    <div style={{marginBottom: '1rem'}}>
+                                        <div style={{display: 'flex', gap: '1rem', marginBottom: '0.5rem'}}>
+                                            <span style={{fontSize: '0.875rem', color: '#4a5568'}}>
+                                                <strong>{totalTests}</strong> total tests
+                                            </span>
+                                            <span style={{fontSize: '0.875rem', color: '#22543d'}}>
+                                                <strong>{passedTests}</strong> passed
+                                            </span>
+                                            <span style={{fontSize: '0.875rem', color: '#742a2a'}}>
+                                                <strong>{failedTests}</strong> failed
+                                            </span>
+                                        </div>
+                                        
+                                        <div style={{fontSize: '0.875rem', color: '#718096', marginBottom: '1rem'}}>
+                                            {projectRuns.length} test runs • Last run: {
+                                                projectRuns.length > 0 
+                                                    ? new Date(projectRuns[0].start_time).toLocaleDateString()
+                                                    : 'Never'
+                                            }
+                                        </div>
+
+                                        {/* Test history visualization */}
+                                        <div style={{display: 'flex', gap: '2px', flexWrap: 'wrap'}}>
+                                            {latestRuns.map((run, index) => (
+                                                <div
+                                                    key={run.id}
+                                                    title={`${run.status} - ${new Date(run.start_time).toLocaleDateString()}`}
+                                                    style={{
+                                                        width: '12px',
+                                                        height: '12px',
+                                                        backgroundColor: getStatusColor(run.status),
+                                                        borderRadius: '2px',
+                                                        cursor: 'pointer'
+                                                    }}
+                                                />
+                                            ))}
+                                            {latestRuns.length === 0 && (
+                                                <span style={{color: '#718096', fontSize: '0.875rem'}}>No test runs yet</span>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <div style={{borderTop: '1px solid #e2e8f0', paddingTop: '1rem'}}>
+                                        <div style={{fontSize: '0.875rem', color: '#718096', marginBottom: '0.5rem'}}>
+                                            Repository: {project.repository || 'Not specified'}
+                                        </div>
+                                        <div style={{fontSize: '0.875rem', color: '#718096'}}>
+                                            Default branch: {project.default_branch || 'main'}
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+
+                    {projects.length === 0 && (
+                        <div style={{textAlign: 'center', color: '#718096', marginTop: '4rem'}}>
+                            <h3>No projects found</h3>
+                            <p>Create your first project to see test summaries here.</p>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        // Test Runs page similar to fern-ui
+        function TestRuns() {
+            const [testRuns, setTestRuns] = useState([]);
+            const [loading, setLoading] = useState(true);
+            const [error, setError] = useState(null);
+            const [expandedRun, setExpandedRun] = useState(null);
+
+            useEffect(() => {
+                fetchData();
+            }, []);
+
+            const fetchData = async () => {
+                try {
+                    const testRunsRes = await fetch('/api/v1/test-runs');
+                    const testRunsData = await testRunsRes.json();
+                    setTestRuns(testRunsData.data || []);
+                    setLoading(false);
+                } catch (err) {
+                    setError(err.message);
+                    setLoading(false);
+                }
+            };
+
+            const getStatusColor = (status) => {
+                switch (status) {
+                    case 'passed': return '#3ca454';
+                    case 'failed': return '#a43c4f';
+                    case 'running': return '#4ecdc4';
+                    default: return '#718096';
+                }
+            };
+
+            const formatDuration = (startTime, endTime) => {
+                if (!endTime) return 'Running...';
+                const start = new Date(startTime);
+                const end = new Date(endTime);
+                const diffMs = end - start;
+                const diffMins = Math.floor(diffMs / 60000);
+                const diffSecs = Math.floor((diffMs % 60000) / 1000);
+                return `${diffMins}m ${diffSecs}s`;
+            };
+
+            if (loading) return <div className="container"><div className="loading">Loading test runs...</div></div>;
+            if (error) return <div className="container"><div className="error">Error: {error}</div></div>;
+
+            return (
+                <div className="container">
+                    <h2 style={{marginBottom: '2rem', color: '#2d3748'}}>Test Runs</h2>
+                    
+                    <div className="card">
+                        <div style={{overflowX: 'auto'}}>
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Project</th>
+                                        <th>Status</th>
+                                        <th>Branch</th>
+                                        <th>Tests</th>
+                                        <th>Duration</th>
+                                        <th>Started</th>
+                                        <th>Environment</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {testRuns.map(run => (
+                                        <React.Fragment key={run.id}>
+                                            <tr 
+                                                onClick={() => setExpandedRun(expandedRun === run.id ? null : run.id)}
+                                                style={{
+                                                    cursor: 'pointer',
+                                                    backgroundColor: expandedRun === run.id ? '#f8fafc' : 'white'
+                                                }}
+                                            >
+                                                <td style={{fontWeight: '500'}}>{run.project_id}</td>
+                                                <td>
+                                                    <span style={{
+                                                        padding: '0.25rem 0.75rem',
+                                                        borderRadius: '9999px',
+                                                        fontSize: '0.75rem',
+                                                        backgroundColor: getStatusColor(run.status) + '20',
+                                                        color: getStatusColor(run.status),
+                                                        fontWeight: '500'
+                                                    }}>
+                                                        {run.status}
+                                                    </span>
+                                                </td>
+                                                <td style={{fontFamily: 'monospace'}}>{run.branch || 'main'}</td>
+                                                <td>
+                                                    <span style={{color: '#22543d'}}>{run.passed_tests}</span>/
+                                                    <span style={{color: '#742a2a'}}>{run.failed_tests}</span>/
+                                                    <span style={{color: '#4a5568'}}>{run.total_tests}</span>
+                                                </td>
+                                                <td>{formatDuration(run.start_time, run.end_time)}</td>
+                                                <td>{new Date(run.start_time).toLocaleString()}</td>
+                                                <td>
+                                                    <span style={{
+                                                        padding: '0.25rem 0.5rem',
+                                                        borderRadius: '4px',
+                                                        fontSize: '0.75rem',
+                                                        backgroundColor: run.environment === 'production' ? '#c6f6d5' : '#bee3f8',
+                                                        color: run.environment === 'production' ? '#22543d' : '#2a4365'
+                                                    }}>
+                                                        {run.environment || 'development'}
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                            {expandedRun === run.id && (
+                                                <tr style={{backgroundColor: '#f8fafc'}}>
+                                                    <td colSpan="7" style={{borderBottom: '1px solid #e2e8f0'}}>
+                                                        <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1rem'}}>
+                                                            <div>
+                                                                <h4 style={{margin: '0 0 0.5rem 0', color: '#2d3748'}}>Run Details</h4>
+                                                                <p style={{margin: '0.25rem 0', fontSize: '0.875rem'}}><strong>Run ID:</strong> {run.run_id}</p>
+                                                                <p style={{margin: '0.25rem 0', fontSize: '0.875rem'}}><strong>Commit:</strong> {run.commit_sha || 'N/A'}</p>
+                                                                <p style={{margin: '0.25rem 0', fontSize: '0.875rem'}}><strong>Started:</strong> {new Date(run.start_time).toLocaleString()}</p>
+                                                                {run.end_time && (
+                                                                    <p style={{margin: '0.25rem 0', fontSize: '0.875rem'}}><strong>Ended:</strong> {new Date(run.end_time).toLocaleString()}</p>
+                                                                )}
+                                                            </div>
+                                                            <div>
+                                                                <h4 style={{margin: '0 0 0.5rem 0', color: '#2d3748'}}>Test Results</h4>
+                                                                <p style={{margin: '0.25rem 0', fontSize: '0.875rem', color: '#22543d'}}><strong>Passed:</strong> {run.passed_tests}</p>
+                                                                <p style={{margin: '0.25rem 0', fontSize: '0.875rem', color: '#742a2a'}}><strong>Failed:</strong> {run.failed_tests}</p>
+                                                                <p style={{margin: '0.25rem 0', fontSize: '0.875rem', color: '#4a5568'}}><strong>Skipped:</strong> {run.skipped_tests}</p>
+                                                                <p style={{margin: '0.25rem 0', fontSize: '0.875rem'}}><strong>Total:</strong> {run.total_tests}</p>
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            )}
+                                        </React.Fragment>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        {testRuns.length === 0 && (
+                            <div style={{textAlign: 'center', color: '#718096', padding: '4rem'}}>
+                                <h3>No test runs found</h3>
+                                <p>Submit test results via API to see them here.</p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
+        // Main App component with routing
+        function FernPlatform() {
+            const { route, navigate } = useRouter();
+
+            const renderPage = () => {
+                switch (route) {
+                    case '/test-summaries':
+                        return <TestSummaries />;
+                    case '/test-runs':
+                        return <TestRuns />;
+                    default:
+                        return <Dashboard />;
+                }
+            };
+
+            return (
+                <div>
+                    <div className="header">
+                        <h1>Fern Platform</h1>
+                        <p>Unified test reporting and analysis platform</p>
+                    </div>
+                    <Navigation route={route} navigate={navigate} />
+                    {renderPage()}
+                </div>
+            );
+        }
+
+        ReactDOM.render(<FernPlatform />, document.getElementById('root'));
+    </script>
+</body>
+</html>
