@@ -3,11 +3,48 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fern Platform</title>
+    <title>Fern Platform - Test Report Generator</title>
     <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
+        :root {
+            --fern-primary: #7cb342;
+            --fern-primary-dark: #689f38;
+            --fern-primary-light: #aed581;
+            --fern-secondary: #43a047;
+            --fern-accent: #8bc34a;
+            
+            --success: #4caf50;
+            --warning: #ff9800;
+            --error: #f44336;
+            --info: #2196f3;
+            --skipped: #9e9e9e;
+            
+            --bg-primary: #fafafa;
+            --bg-secondary: #ffffff;
+            --bg-tertiary: #f5f5f5;
+            
+            --text-primary: #1a1a1a;
+            --text-secondary: #616161;
+            --text-tertiary: #9e9e9e;
+            
+            --border-light: #e0e0e0;
+            --border-medium: #bdbdbd;
+            
+            --shadow-sm: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
+            --shadow-md: 0 3px 6px rgba(0,0,0,0.16), 0 3px 6px rgba(0,0,0,0.23);
+            --shadow-lg: 0 10px 20px rgba(0,0,0,0.19), 0 6px 6px rgba(0,0,0,0.23);
+            
+            --radius-sm: 4px;
+            --radius-md: 8px;
+            --radius-lg: 12px;
+            --radius-xl: 16px;
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -15,172 +52,455 @@
         }
         
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
-            background-color: #f8fafc;
-            color: #1a202c;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            background: linear-gradient(135deg, var(--bg-primary) 0%, #e8f5e8 100%);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
         }
         
+        /* Header Styles */
         .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, var(--fern-primary) 0%, var(--fern-secondary) 100%);
             color: white;
-            padding: 1rem 2rem;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            padding: 1.5rem 2rem;
+            box-shadow: var(--shadow-lg);
+            position: sticky;
+            top: 0;
+            z-index: 100;
         }
         
-        .header h1 {
-            font-size: 2rem;
-            font-weight: 600;
+        .header-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
         }
         
-        .header p {
-            margin-top: 0.5rem;
+        .logo-section {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        .logo {
+            width: 48px;
+            height: 48px;
+            background: white;
+            border-radius: var(--radius-lg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: var(--shadow-sm);
+        }
+        
+        .logo i {
+            color: var(--fern-primary);
+            font-size: 24px;
+        }
+        
+        .brand-text h1 {
+            font-size: 1.75rem;
+            font-weight: 700;
+            margin-bottom: 0.25rem;
+        }
+        
+        .brand-text p {
             opacity: 0.9;
+            font-size: 0.875rem;
+            font-weight: 400;
         }
         
+        .header-stats {
+            display: flex;
+            gap: 2rem;
+            align-items: center;
+        }
+        
+        .stat-item {
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            display: block;
+        }
+        
+        .stat-label {
+            font-size: 0.75rem;
+            opacity: 0.8;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        /* Navigation Styles */
+        .navigation {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-light);
+            padding: 0 2rem;
+            box-shadow: var(--shadow-sm);
+        }
+        
+        .nav-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            gap: 0;
+        }
+        
+        .nav-button {
+            background: none;
+            border: none;
+            padding: 1rem 1.5rem;
+            cursor: pointer;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+            transition: all 0.2s ease;
+            border-bottom: 3px solid transparent;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .nav-button:hover {
+            color: var(--fern-primary);
+            background: rgba(124, 179, 66, 0.05);
+        }
+        
+        .nav-button.active {
+            color: var(--fern-primary);
+            border-bottom-color: var(--fern-primary);
+            background: rgba(124, 179, 66, 0.1);
+        }
+        
+        /* Container Styles */
         .container {
-            max-width: 1200px;
-            margin: 2rem auto;
-            padding: 0 1rem;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
         }
         
-        .dashboard {
+        /* Dashboard Grid */
+        .dashboard-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
             gap: 1.5rem;
             margin-bottom: 2rem;
         }
         
+        /* Card Styles */
         .card {
-            background: white;
-            border-radius: 8px;
+            background: var(--bg-secondary);
+            border-radius: var(--radius-lg);
             padding: 1.5rem;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            border: 1px solid #e2e8f0;
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border-light);
+            transition: all 0.3s ease;
         }
         
-        .card h3 {
-            color: #2d3748;
-            font-size: 1.25rem;
-            margin-bottom: 1rem;
+        .card:hover {
+            box-shadow: var(--shadow-md);
+            transform: translateY(-2px);
         }
         
-        .stat {
+        .card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1.5rem;
+        }
+        
+        .card-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .card-icon {
+            width: 2rem;
+            height: 2rem;
+            border-radius: var(--radius-sm);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.875rem;
+        }
+        
+        /* Status Indicators */
+        .status {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.375rem 0.875rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .status.healthy {
+            background: rgba(76, 175, 80, 0.1);
+            color: var(--success);
+        }
+        
+        .status.active {
+            background: rgba(124, 179, 66, 0.1);
+            color: var(--fern-primary);
+        }
+        
+        .status.inactive {
+            background: rgba(158, 158, 158, 0.1);
+            color: var(--skipped);
+        }
+        
+        /* Stats Display */
+        .stat-row {
             display: flex;
             justify-content: space-between;
             align-items: center;
             padding: 0.75rem 0;
-            border-bottom: 1px solid #f1f5f9;
+            border-bottom: 1px solid var(--border-light);
         }
         
-        .stat:last-child {
+        .stat-row:last-child {
             border-bottom: none;
         }
         
-        .stat-value {
+        .stat-number {
             font-weight: 600;
-            color: #4299e1;
+            font-size: 1.125rem;
         }
         
-        .status {
-            display: inline-block;
-            padding: 0.25rem 0.75rem;
-            border-radius: 9999px;
+        .success { color: var(--success); }
+        .error { color: var(--error); }
+        .warning { color: var(--warning); }
+        .info { color: var(--info); }
+        .skipped { color: var(--skipped); }
+        
+        /* Loading States */
+        .loading, .error-message {
+            text-align: center;
+            padding: 3rem;
+            color: var(--text-secondary);
+        }
+        
+        .loading i {
+            font-size: 2rem;
+            animation: spin 1s linear infinite;
+            color: var(--fern-primary);
+            margin-bottom: 1rem;
+        }
+        
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        
+        /* View Toggle */
+        .view-toggle {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        .toggle-button {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-light);
+            padding: 0.5rem 1rem;
+            border-radius: var(--radius-md);
+            cursor: pointer;
             font-size: 0.875rem;
             font-weight: 500;
+            color: var(--text-secondary);
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
         }
         
-        .status.healthy {
-            background-color: #c6f6d5;
-            color: #22543d;
+        .toggle-button:hover {
+            border-color: var(--fern-primary);
+            color: var(--fern-primary);
         }
         
-        .status.running {
-            background-color: #bee3f8;
-            color: #2a4365;
+        .toggle-button.active {
+            background: var(--fern-primary);
+            border-color: var(--fern-primary);
+            color: white;
         }
         
-        .api-section {
-            margin-top: 2rem;
+        /* Treemap Styles */
+        .treemap-container {
+            background: var(--bg-secondary);
+            border-radius: var(--radius-lg);
+            padding: 1.5rem;
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border-light);
+            margin-bottom: 2rem;
         }
         
-        .api-endpoints {
-            display: grid;
-            gap: 1rem;
+        .treemap-svg {
+            width: 100%;
+            height: 500px;
+            border-radius: var(--radius-md);
         }
         
-        .endpoint {
-            background: white;
-            border-radius: 6px;
-            padding: 1rem;
-            border: 1px solid #e2e8f0;
-            font-family: 'Monaco', 'Menlo', monospace;
-        }
-        
-        .endpoint-method {
-            display: inline-block;
-            padding: 0.25rem 0.5rem;
-            border-radius: 4px;
-            font-size: 0.75rem;
-            font-weight: 600;
-            margin-right: 0.5rem;
-        }
-        
-        .get {
-            background-color: #e6fffa;
-            color: #234e52;
-        }
-        
-        .post {
-            background-color: #fef5e7;
-            color: #744210;
-        }
-        
-        .loading {
-            text-align: center;
-            padding: 2rem;
-            color: #718096;
-        }
-        
-        .error {
-            background-color: #fed7d7;
-            color: #742a2a;
-            padding: 1rem;
-            border-radius: 6px;
-            margin: 1rem 0;
-        }
-
-        .nav-button {
-            padding: 0.5rem 1rem;
-            border: none;
-            border-radius: 4px;
+        .treemap-cell {
+            stroke: white;
+            stroke-width: 2;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: all 0.2s ease;
+        }
+        
+        .treemap-cell:hover {
+            stroke-width: 3;
+            filter: brightness(1.1);
+        }
+        
+        .treemap-text {
+            font-size: 11px;
+            font-weight: 600;
+            fill: white;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+            pointer-events: none;
+        }
+        
+        .treemap-legend {
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            margin-top: 1rem;
+            flex-wrap: wrap;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
             font-size: 0.875rem;
         }
-
-        .nav-button:hover {
-            opacity: 0.8;
+        
+        .legend-color {
+            width: 1rem;
+            height: 1rem;
+            border-radius: var(--radius-sm);
         }
-
+        
+        /* Test History Visualization */
+        .test-history {
+            display: flex;
+            gap: 2px;
+            flex-wrap: wrap;
+            margin-top: 0.5rem;
+        }
+        
+        .history-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+        }
+        
+        .history-dot:hover {
+            transform: scale(1.2);
+        }
+        
+        /* Tables */
+        .table-container {
+            background: var(--bg-secondary);
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border-light);
+        }
+        
         table {
             width: 100%;
             border-collapse: collapse;
         }
-
-        th, td {
+        
+        th {
+            background: var(--bg-tertiary);
             padding: 1rem;
             text-align: left;
-            border-bottom: 1px solid #e2e8f0;
-        }
-
-        th {
-            background-color: #f8fafc;
             font-weight: 600;
-            color: #4a5568;
+            color: var(--text-primary);
+            border-bottom: 1px solid var(--border-light);
         }
-
+        
+        td {
+            padding: 1rem;
+            border-bottom: 1px solid var(--border-light);
+            vertical-align: top;
+        }
+        
         tr:hover {
-            background-color: #f8fafc;
+            background: var(--bg-tertiary);
+        }
+        
+        /* Empty States */
+        .empty-state {
+            text-align: center;
+            padding: 4rem 2rem;
+            color: var(--text-secondary);
+        }
+        
+        .empty-state i {
+            font-size: 3rem;
+            color: var(--text-tertiary);
+            margin-bottom: 1rem;
+        }
+        
+        .empty-state h3 {
+            font-size: 1.25rem;
+            margin-bottom: 0.5rem;
+            color: var(--text-secondary);
+        }
+        
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .header-content {
+                flex-direction: column;
+                gap: 1rem;
+                text-align: center;
+            }
+            
+            .header-stats {
+                gap: 1rem;
+            }
+            
+            .nav-content {
+                flex-wrap: wrap;
+            }
+            
+            .container {
+                padding: 1rem;
+            }
+            
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .treemap-legend {
+                gap: 1rem;
+            }
+        }
+        
+        /* Animations */
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
         }
     </style>
 </head>
@@ -188,7 +508,31 @@
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect } = React;
+        const { useState, useEffect, useRef } = React;
+
+        // Utility functions
+        const formatDate = (dateString) => {
+            return new Date(dateString).toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        };
+
+        const getTestStatusColor = (passed, failed, skipped, total) => {
+            if (total === 0) return '#e0e0e0';
+            
+            const passRate = passed / total;
+            const failRate = failed / total;
+            const skipRate = skipped / total;
+            
+            if (passRate >= 0.9) return '#4caf50'; // High pass rate - green
+            if (passRate >= 0.7) return '#8bc34a'; // Good pass rate - light green
+            if (passRate >= 0.5) return '#ffc107'; // Medium pass rate - yellow
+            if (failRate >= 0.7) return '#f44336'; // High fail rate - red
+            return '#ff9800'; // Mixed results - orange
+        };
 
         // Simple router for SPA navigation
         function useRouter() {
@@ -209,50 +553,230 @@
             return { route, navigate };
         }
 
-        // Navigation component
-        function Navigation({ route, navigate }) {
+        // Enhanced Header component
+        function Header({ health, projects, testRuns }) {
+            const activeProjects = projects.filter(p => p.is_active).length;
+            const recentRuns = testRuns.filter(tr => {
+                const runDate = new Date(tr.start_time);
+                const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+                return runDate > dayAgo;
+            }).length;
+
             return (
-                <div style={{padding: '1rem 2rem', backgroundColor: 'white', borderBottom: '1px solid #e2e8f0', marginBottom: '2rem'}}>
-                    <div style={{display: 'flex', gap: '2rem', alignItems: 'center'}}>
-                        <h2 style={{margin: 0, color: '#2d3748'}}>Fern Platform</h2>
-                        <nav style={{display: 'flex', gap: '1rem'}}>
-                            <button 
-                                onClick={() => navigate('/')}
-                                className="nav-button"
-                                style={{
-                                    backgroundColor: route === '/' ? '#667eea' : 'transparent',
-                                    color: route === '/' ? 'white' : '#4a5568'
-                                }}
-                            >
-                                Dashboard
-                            </button>
-                            <button 
-                                onClick={() => navigate('/test-summaries')}
-                                className="nav-button"
-                                style={{
-                                    backgroundColor: route === '/test-summaries' ? '#667eea' : 'transparent',
-                                    color: route === '/test-summaries' ? 'white' : '#4a5568'
-                                }}
-                            >
-                                Test Summaries
-                            </button>
-                            <button 
-                                onClick={() => navigate('/test-runs')}
-                                className="nav-button"
-                                style={{
-                                    backgroundColor: route === '/test-runs' ? '#667eea' : 'transparent',
-                                    color: route === '/test-runs' ? 'white' : '#4a5568'
-                                }}
-                            >
-                                Test Runs
-                            </button>
-                        </nav>
+                <div className="header">
+                    <div className="header-content">
+                        <div className="logo-section">
+                            <div className="logo">
+                                <i className="fas fa-seedling"></i>
+                            </div>
+                            <div className="brand-text">
+                                <h1>Fern Platform</h1>
+                                <p>Test Report Generator</p>
+                            </div>
+                        </div>
+                        
+                        <div className="header-stats">
+                            <div className="stat-item">
+                                <span className="stat-value">{activeProjects}</span>
+                                <span className="stat-label">Active Projects</span>
+                            </div>
+                            <div className="stat-item">
+                                <span className="stat-value">{testRuns.length}</span>
+                                <span className="stat-label">Total Runs</span>
+                            </div>
+                            <div className="stat-item">
+                                <span className="stat-value">{recentRuns}</span>
+                                <span className="stat-label">Recent Runs</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
             );
         }
 
-        // Dashboard component
+        // Enhanced Navigation component
+        function Navigation({ route, navigate }) {
+            const navItems = [
+                { path: '/', label: 'Dashboard', icon: 'fas fa-tachometer-alt' },
+                { path: '/test-summaries', label: 'Test Summaries', icon: 'fas fa-chart-pie' },
+                { path: '/test-runs', label: 'Test Runs', icon: 'fas fa-list-alt' }
+            ];
+
+            return (
+                <div className="navigation">
+                    <div className="nav-content">
+                        {navItems.map(item => (
+                            <button 
+                                key={item.path}
+                                onClick={() => navigate(item.path)}
+                                className={`nav-button ${route === item.path ? 'active' : ''}`}
+                            >
+                                <i className={item.icon}></i>
+                                {item.label}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            );
+        }
+
+        // Treemap Visualization Component
+        function TreemapVisualization({ projects, testRuns }) {
+            const svgRef = useRef();
+
+            useEffect(() => {
+                if (!projects.length || !testRuns.length) return;
+
+                const svg = d3.select(svgRef.current);
+                svg.selectAll("*").remove();
+
+                const width = svg.node().getBoundingClientRect().width;
+                const height = 500;
+
+                // Prepare data for treemap
+                const treemapData = projects.map(project => {
+                    const projectRuns = testRuns.filter(run => run.project_id === project.id);
+                    const latestRun = projectRuns[0]; // Most recent run
+                    
+                    if (!latestRun) {
+                        return {
+                            name: project.name,
+                            value: 1,
+                            passed: 0,
+                            failed: 0,
+                            skipped: 0,
+                            total: 0
+                        };
+                    }
+
+                    return {
+                        name: project.name,
+                        value: latestRun.total_tests || 1,
+                        passed: latestRun.passed_tests || 0,
+                        failed: latestRun.failed_tests || 0,
+                        skipped: latestRun.skipped_tests || 0,
+                        total: latestRun.total_tests || 0
+                    };
+                });
+
+                const hierarchy = d3.hierarchy({ children: treemapData })
+                    .sum(d => d.value)
+                    .sort((a, b) => b.value - a.value);
+
+                const treemap = d3.treemap()
+                    .size([width, height])
+                    .padding(4)
+                    .round(true);
+
+                treemap(hierarchy);
+
+                const cell = svg.selectAll("g")
+                    .data(hierarchy.leaves())
+                    .enter().append("g")
+                    .attr("transform", d => `translate(${d.x0},${d.y0})`);
+
+                cell.append("rect")
+                    .attr("class", "treemap-cell")
+                    .attr("width", d => d.x1 - d.x0)
+                    .attr("height", d => d.y1 - d.y0)
+                    .attr("fill", d => getTestStatusColor(d.data.passed, d.data.failed, d.data.skipped, d.data.total))
+                    .attr("rx", 4);
+
+                // Add project name
+                cell.append("text")
+                    .attr("class", "treemap-text")
+                    .attr("x", 8)
+                    .attr("y", 20)
+                    .text(d => d.data.name)
+                    .call(wrap, d => d.x1 - d.x0 - 16);
+
+                // Add test stats
+                cell.append("text")
+                    .attr("class", "treemap-text")
+                    .attr("x", 8)
+                    .attr("y", d => (d.y1 - d.y0) - 30)
+                    .style("font-size", "10px")
+                    .text(d => `${d.data.total} tests`);
+
+                cell.append("text")
+                    .attr("class", "treemap-text")
+                    .attr("x", 8)
+                    .attr("y", d => (d.y1 - d.y0) - 15)
+                    .style("font-size", "9px")
+                    .text(d => `✓${d.data.passed} ✗${d.data.failed} ⊘${d.data.skipped}`);
+
+            }, [projects, testRuns]);
+
+            // Text wrapping utility
+            function wrap(text, width) {
+                text.each(function() {
+                    const text = d3.select(this);
+                    const words = text.text().split(/\s+/).reverse();
+                    let word;
+                    let line = [];
+                    let lineNumber = 0;
+                    const lineHeight = 1.1;
+                    const y = text.attr("y");
+                    const dy = 0;
+                    let tspan = text.text(null).append("tspan").attr("x", 8).attr("y", y).attr("dy", dy + "em");
+                    
+                    const maxWidth = typeof width === 'function' ? width(text.datum()) : width;
+                    
+                    while (word = words.pop()) {
+                        line.push(word);
+                        tspan.text(line.join(" "));
+                        if (tspan.node().getComputedTextLength() > maxWidth - 16) {
+                            line.pop();
+                            tspan.text(line.join(" "));
+                            line = [word];
+                            tspan = text.append("tspan")
+                                .attr("x", 8)
+                                .attr("y", y)
+                                .attr("dy", ++lineNumber * lineHeight + dy + "em")
+                                .text(word);
+                        }
+                    }
+                });
+            }
+
+            return (
+                <div className="treemap-container">
+                    <div className="card-header">
+                        <h3 className="card-title">
+                            <div className="card-icon" style={{background: 'rgba(124, 179, 66, 0.1)', color: 'var(--fern-primary)'}}>
+                                <i className="fas fa-th"></i>
+                            </div>
+                            Test Suite Treemap
+                        </h3>
+                    </div>
+                    <svg ref={svgRef} className="treemap-svg"></svg>
+                    <div className="treemap-legend">
+                        <div className="legend-item">
+                            <div className="legend-color" style={{background: '#4caf50'}}></div>
+                            <span>High Pass Rate (90%+)</span>
+                        </div>
+                        <div className="legend-item">
+                            <div className="legend-color" style={{background: '#8bc34a'}}></div>
+                            <span>Good Pass Rate (70-89%)</span>
+                        </div>
+                        <div className="legend-item">
+                            <div className="legend-color" style={{background: '#ffc107'}}></div>
+                            <span>Medium Pass Rate (50-69%)</span>
+                        </div>
+                        <div className="legend-item">
+                            <div className="legend-color" style={{background: '#ff9800'}}></div>
+                            <span>Mixed Results</span>
+                        </div>
+                        <div className="legend-item">
+                            <div className="legend-color" style={{background: '#f44336'}}></div>
+                            <span>High Fail Rate (70%+)</span>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // Enhanced Dashboard component
         function Dashboard() {
             const [health, setHealth] = useState(null);
             const [projects, setProjects] = useState([]);
@@ -266,21 +790,19 @@
 
             const fetchData = async () => {
                 try {
-                    // Fetch health status
-                    const healthRes = await fetch('/health');
+                    const [healthRes, projectsRes, testRunsRes] = await Promise.all([
+                        fetch('/health'),
+                        fetch('/api/v1/projects'),
+                        fetch('/api/v1/test-runs')
+                    ]);
+
                     const healthData = await healthRes.json();
-                    setHealth(healthData);
-
-                    // Fetch projects
-                    const projectsRes = await fetch('/api/v1/projects');
                     const projectsData = await projectsRes.json();
-                    setProjects(projectsData.data || []);
-
-                    // Fetch test runs
-                    const testRunsRes = await fetch('/api/v1/test-runs');
                     const testRunsData = await testRunsRes.json();
-                    setTestRuns(testRunsData.data || []);
 
+                    setHealth(healthData);
+                    setProjects(projectsData.data || []);
+                    setTestRuns(testRunsData.data || []);
                     setLoading(false);
                 } catch (err) {
                     setError(err.message);
@@ -291,7 +813,10 @@
             if (loading) {
                 return (
                     <div className="container">
-                        <div className="loading">Loading platform data...</div>
+                        <div className="loading fade-in">
+                            <i className="fas fa-spinner"></i>
+                            <div>Loading dashboard...</div>
+                        </div>
                     </div>
                 );
             }
@@ -299,138 +824,155 @@
             if (error) {
                 return (
                     <div className="container">
-                        <div className="error">Error: {error}</div>
+                        <div className="error-message fade-in">
+                            <i className="fas fa-exclamation-triangle"></i>
+                            <div>Error: {error}</div>
+                        </div>
                     </div>
                 );
             }
 
             return (
-                <div className="container">
-                    <div className="dashboard">
+                <div className="container fade-in">
+                    <div className="dashboard-grid">
                         <div className="card">
-                            <h3>Platform Status</h3>
-                            <div className="stat">
+                            <div className="card-header">
+                                <h3 className="card-title">
+                                    <div className="card-icon" style={{background: 'rgba(76, 175, 80, 0.1)', color: 'var(--success)'}}>
+                                        <i className="fas fa-heartbeat"></i>
+                                    </div>
+                                    Platform Status
+                                </h3>
+                            </div>
+                            <div className="stat-row">
                                 <span>Service Status</span>
-                                <span className={`status ${health?.status === 'healthy' ? 'healthy' : 'running'}`}>
+                                <span className={`status ${health?.status === 'healthy' ? 'healthy' : 'inactive'}`}>
                                     {health?.status || 'Unknown'}
                                 </span>
                             </div>
-                            <div className="stat">
+                            <div className="stat-row">
                                 <span>Service</span>
-                                <span className="stat-value">{health?.service || 'fern-platform'}</span>
+                                <span className="stat-number">{health?.service || 'fern-platform'}</span>
                             </div>
-                            <div className="stat">
+                            <div className="stat-row">
                                 <span>Last Updated</span>
-                                <span className="stat-value">
-                                    {health?.timestamp ? new Date(health.timestamp).toLocaleTimeString() : 'N/A'}
+                                <span className="stat-number">
+                                    {health?.timestamp ? formatDate(health.timestamp) : 'N/A'}
                                 </span>
                             </div>
                         </div>
 
                         <div className="card">
-                            <h3>Projects</h3>
-                            <div className="stat">
-                                <span>Total Projects</span>
-                                <span className="stat-value">{projects.length}</span>
+                            <div className="card-header">
+                                <h3 className="card-title">
+                                    <div className="card-icon" style={{background: 'rgba(124, 179, 66, 0.1)', color: 'var(--fern-primary)'}}>
+                                        <i className="fas fa-project-diagram"></i>
+                                    </div>
+                                    Projects
+                                </h3>
                             </div>
-                            <div className="stat">
+                            <div className="stat-row">
+                                <span>Total Projects</span>
+                                <span className="stat-number">{projects.length}</span>
+                            </div>
+                            <div className="stat-row">
                                 <span>Active Projects</span>
-                                <span className="stat-value">{projects.filter(p => p.is_active).length}</span>
+                                <span className="stat-number success">{projects.filter(p => p.is_active).length}</span>
                             </div>
                             {projects.length === 0 && (
-                                <div style={{textAlign: 'center', color: '#718096', marginTop: '1rem'}}>
-                                    No projects found. Create your first project via API.
+                                <div className="empty-state">
+                                    <i className="fas fa-folder-open"></i>
+                                    <p>No projects found. Create your first project via API.</p>
                                 </div>
                             )}
                         </div>
 
                         <div className="card">
-                            <h3>Test Runs</h3>
-                            <div className="stat">
-                                <span>Total Runs</span>
-                                <span className="stat-value">{testRuns.length}</span>
+                            <div className="card-header">
+                                <h3 className="card-title">
+                                    <div className="card-icon" style={{background: 'rgba(33, 150, 243, 0.1)', color: 'var(--info)'}}>
+                                        <i className="fas fa-play-circle"></i>
+                                    </div>
+                                    Test Runs
+                                </h3>
                             </div>
-                            <div className="stat">
-                                <span>Recent Runs</span>
-                                <span className="stat-value">{testRuns.filter(tr => {
+                            <div className="stat-row">
+                                <span>Total Runs</span>
+                                <span className="stat-number">{testRuns.length}</span>
+                            </div>
+                            <div className="stat-row">
+                                <span>Recent Runs (24h)</span>
+                                <span className="stat-number info">{testRuns.filter(tr => {
                                     const runDate = new Date(tr.start_time);
                                     const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
                                     return runDate > dayAgo;
                                 }).length}</span>
                             </div>
                             {testRuns.length === 0 && (
-                                <div style={{textAlign: 'center', color: '#718096', marginTop: '1rem'}}>
-                                    No test runs found. Submit test results via API.
+                                <div className="empty-state">
+                                    <i className="fas fa-flask"></i>
+                                    <p>No test runs found. Submit test results via API.</p>
                                 </div>
                             )}
                         </div>
                     </div>
 
-                    <div className="api-section">
-                        <div className="card">
-                            <h3>Available APIs</h3>
-                            <div className="api-endpoints">
-                                <div className="endpoint">
-                                    <span className="endpoint-method get">GET</span>
-                                    <span>/health - Service health check</span>
+                    <div className="card">
+                        <div className="card-header">
+                            <h3 className="card-title">
+                                <div className="card-icon" style={{background: 'rgba(124, 179, 66, 0.1)', color: 'var(--fern-primary)'}}>
+                                    <i className="fas fa-code"></i>
                                 </div>
-                                <div className="endpoint">
-                                    <span className="endpoint-method get">GET</span>
-                                    <span>/api/v1/projects - List all projects</span>
-                                </div>
-                                <div className="endpoint">
-                                    <span className="endpoint-method post">POST</span>
-                                    <span>/api/v1/projects - Create new project</span>
-                                </div>
-                                <div className="endpoint">
-                                    <span className="endpoint-method get">GET</span>
-                                    <span>/api/v1/test-runs - List all test runs</span>
-                                </div>
-                                <div className="endpoint">
-                                    <span className="endpoint-method post">POST</span>
-                                    <span>/api/v1/test-runs - Create new test run</span>
-                                </div>
-                                <div className="endpoint">
-                                    <span className="endpoint-method get">GET</span>
-                                    <span>/graphql - GraphQL playground</span>
-                                </div>
-                            </div>
+                                Available APIs
+                            </h3>
                         </div>
-                    </div>
-
-                    <div className="card" style={{marginTop: '1.5rem'}}>
-                        <h3>Architecture Highlights</h3>
-                        <div className="stat">
-                            <span>Microservices</span>
-                            <span className="stat-value">✓ Enabled</span>
-                        </div>
-                        <div className="stat">
-                            <span>Database</span>
-                            <span className="stat-value">PostgreSQL + GORM</span>
-                        </div>
-                        <div className="stat">
-                            <span>Deployment</span>
-                            <span className="stat-value">KubeVela + k3d</span>
-                        </div>
-                        <div className="stat">
-                            <span>APIs</span>
-                            <span className="stat-value">REST + GraphQL</span>
-                        </div>
-                        <div className="stat">
-                            <span>Container</span>
-                            <span className="stat-value">anoop2811/fern-reporter-test</span>
+                        <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '0.5rem'}}>
+                            {[
+                                { method: 'GET', endpoint: '/health', desc: 'Service health check' },
+                                { method: 'GET', endpoint: '/api/v1/projects', desc: 'List all projects' },
+                                { method: 'POST', endpoint: '/api/v1/projects', desc: 'Create new project' },
+                                { method: 'GET', endpoint: '/api/v1/test-runs', desc: 'List all test runs' },
+                                { method: 'POST', endpoint: '/api/v1/test-runs', desc: 'Create new test run' },
+                                { method: 'GET', endpoint: '/graphql', desc: 'GraphQL playground' }
+                            ].map((api, index) => (
+                                <div key={index} style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '0.5rem',
+                                    padding: '0.5rem',
+                                    background: 'var(--bg-tertiary)',
+                                    borderRadius: 'var(--radius-sm)',
+                                    fontSize: '0.875rem'
+                                }}>
+                                    <span style={{
+                                        background: api.method === 'GET' ? 'var(--info)' : 'var(--fern-primary)',
+                                        color: 'white',
+                                        padding: '0.25rem 0.5rem',
+                                        borderRadius: 'var(--radius-sm)',
+                                        fontSize: '0.75rem',
+                                        fontWeight: '600',
+                                        minWidth: '45px',
+                                        textAlign: 'center'
+                                    }}>
+                                        {api.method}
+                                    </span>
+                                    <code style={{fontFamily: 'Monaco, Consolas, monospace', color: 'var(--text-primary)'}}>{api.endpoint}</code>
+                                    <span style={{color: 'var(--text-secondary)', fontSize: '0.8rem'}}>- {api.desc}</span>
+                                </div>
+                            ))}
                         </div>
                     </div>
                 </div>
             );
         }
 
-        // Test Summaries page similar to fern-ui
+        // Enhanced TestSummaries component
         function TestSummaries() {
             const [projects, setProjects] = useState([]);
             const [testRuns, setTestRuns] = useState([]);
             const [loading, setLoading] = useState(true);
             const [error, setError] = useState(null);
+            const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'treemap'
 
             useEffect(() => {
                 fetchData();
@@ -459,105 +1001,147 @@
                 return testRuns.filter(run => run.project_id === projectId);
             };
 
-            const getStatusColor = (status) => {
-                switch (status) {
-                    case 'passed': return '#3ca454';
-                    case 'failed': return '#a43c4f';
-                    case 'running': return '#4ecdc4';
-                    default: return '#718096';
-                }
-            };
+            if (loading) {
+                return (
+                    <div className="container">
+                        <div className="loading fade-in">
+                            <i className="fas fa-spinner"></i>
+                            <div>Loading test summaries...</div>
+                        </div>
+                    </div>
+                );
+            }
 
-            if (loading) return <div className="container"><div className="loading">Loading test summaries...</div></div>;
-            if (error) return <div className="container"><div className="error">Error: {error}</div></div>;
+            if (error) {
+                return (
+                    <div className="container">
+                        <div className="error-message fade-in">
+                            <i className="fas fa-exclamation-triangle"></i>
+                            <div>Error: {error}</div>
+                        </div>
+                    </div>
+                );
+            }
 
             return (
-                <div className="container">
-                    <h2 style={{marginBottom: '2rem', color: '#2d3748'}}>Test Summaries</h2>
-                    
-                    <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(400px, 1fr))', gap: '1.5rem'}}>
-                        {projects.map(project => {
-                            const projectRuns = getProjectRuns(project.id);
-                            const latestRuns = projectRuns.slice(0, 10); // Last 10 runs
-                            const totalTests = projectRuns.reduce((sum, run) => sum + (run.total_tests || 0), 0);
-                            const passedTests = projectRuns.reduce((sum, run) => sum + (run.passed_tests || 0), 0);
-                            const failedTests = projectRuns.reduce((sum, run) => sum + (run.failed_tests || 0), 0);
-
-                            return (
-                                <div key={project.id} className="card" style={{padding: '1.5rem'}}>
-                                    <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem'}}>
-                                        <div>
-                                            <h3 style={{margin: '0 0 0.5rem 0', color: '#2d3748'}}>{project.name}</h3>
-                                            <p style={{margin: 0, color: '#718096', fontSize: '0.875rem'}}>{project.description}</p>
-                                        </div>
-                                        <span style={{
-                                            padding: '0.25rem 0.75rem',
-                                            borderRadius: '9999px',
-                                            fontSize: '0.75rem',
-                                            backgroundColor: project.is_active ? '#c6f6d5' : '#fed7d7',
-                                            color: project.is_active ? '#22543d' : '#742a2a'
-                                        }}>
-                                            {project.is_active ? 'Active' : 'Inactive'}
-                                        </span>
-                                    </div>
-
-                                    <div style={{marginBottom: '1rem'}}>
-                                        <div style={{display: 'flex', gap: '1rem', marginBottom: '0.5rem'}}>
-                                            <span style={{fontSize: '0.875rem', color: '#4a5568'}}>
-                                                <strong>{totalTests}</strong> total tests
-                                            </span>
-                                            <span style={{fontSize: '0.875rem', color: '#22543d'}}>
-                                                <strong>{passedTests}</strong> passed
-                                            </span>
-                                            <span style={{fontSize: '0.875rem', color: '#742a2a'}}>
-                                                <strong>{failedTests}</strong> failed
-                                            </span>
-                                        </div>
-                                        
-                                        <div style={{fontSize: '0.875rem', color: '#718096', marginBottom: '1rem'}}>
-                                            {projectRuns.length} test runs • Last run: {
-                                                projectRuns.length > 0 
-                                                    ? new Date(projectRuns[0].start_time).toLocaleDateString()
-                                                    : 'Never'
-                                            }
-                                        </div>
-
-                                        {/* Test history visualization */}
-                                        <div style={{display: 'flex', gap: '2px', flexWrap: 'wrap'}}>
-                                            {latestRuns.map((run, index) => (
-                                                <div
-                                                    key={run.id}
-                                                    title={`${run.status} - ${new Date(run.start_time).toLocaleDateString()}`}
-                                                    style={{
-                                                        width: '12px',
-                                                        height: '12px',
-                                                        backgroundColor: getStatusColor(run.status),
-                                                        borderRadius: '2px',
-                                                        cursor: 'pointer'
-                                                    }}
-                                                />
-                                            ))}
-                                            {latestRuns.length === 0 && (
-                                                <span style={{color: '#718096', fontSize: '0.875rem'}}>No test runs yet</span>
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    <div style={{borderTop: '1px solid #e2e8f0', paddingTop: '1rem'}}>
-                                        <div style={{fontSize: '0.875rem', color: '#718096', marginBottom: '0.5rem'}}>
-                                            Repository: {project.repository || 'Not specified'}
-                                        </div>
-                                        <div style={{fontSize: '0.875rem', color: '#718096'}}>
-                                            Default branch: {project.default_branch || 'main'}
-                                        </div>
-                                    </div>
-                                </div>
-                            );
-                        })}
+                <div className="container fade-in">
+                    <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem'}}>
+                        <h2 style={{color: 'var(--text-primary)', fontSize: '1.75rem', fontWeight: '600'}}>
+                            <i className="fas fa-chart-pie" style={{marginRight: '0.5rem', color: 'var(--fern-primary)'}}></i>
+                            Test Summaries
+                        </h2>
+                        
+                        <div className="view-toggle">
+                            <button 
+                                className={`toggle-button ${viewMode === 'grid' ? 'active' : ''}`}
+                                onClick={() => setViewMode('grid')}
+                            >
+                                <i className="fas fa-th-large"></i>
+                                Grid View
+                            </button>
+                            <button 
+                                className={`toggle-button ${viewMode === 'treemap' ? 'active' : ''}`}
+                                onClick={() => setViewMode('treemap')}
+                            >
+                                <i className="fas fa-th"></i>
+                                Treemap View
+                            </button>
+                        </div>
                     </div>
 
+                    {viewMode === 'treemap' && (
+                        <TreemapVisualization projects={projects} testRuns={testRuns} />
+                    )}
+                    
+                    {viewMode === 'grid' && (
+                        <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(400px, 1fr))', gap: '1.5rem'}}>
+                            {projects.map(project => {
+                                const projectRuns = getProjectRuns(project.id);
+                                const latestRuns = projectRuns.slice(0, 10);
+                                const totalTests = projectRuns.reduce((sum, run) => sum + (run.total_tests || 0), 0);
+                                const passedTests = projectRuns.reduce((sum, run) => sum + (run.passed_tests || 0), 0);
+                                const failedTests = projectRuns.reduce((sum, run) => sum + (run.failed_tests || 0), 0);
+                                const skippedTests = projectRuns.reduce((sum, run) => sum + (run.skipped_tests || 0), 0);
+
+                                return (
+                                    <div key={project.id} className="card">
+                                        <div className="card-header">
+                                            <div>
+                                                <h3 style={{margin: '0 0 0.5rem 0', color: 'var(--text-primary)', fontSize: '1.125rem'}}>
+                                                    {project.name}
+                                                </h3>
+                                                <p style={{margin: 0, color: 'var(--text-secondary)', fontSize: '0.875rem'}}>
+                                                    {project.description}
+                                                </p>
+                                            </div>
+                                            <span className={`status ${project.is_active ? 'active' : 'inactive'}`}>
+                                                {project.is_active ? 'Active' : 'Inactive'}
+                                            </span>
+                                        </div>
+
+                                        <div style={{marginBottom: '1rem'}}>
+                                            <div style={{display: 'flex', gap: '1rem', marginBottom: '0.5rem', flexWrap: 'wrap'}}>
+                                                <span style={{fontSize: '0.875rem', color: 'var(--text-secondary)'}}>
+                                                    <strong className="stat-number">{totalTests}</strong> total tests
+                                                </span>
+                                                <span style={{fontSize: '0.875rem'}}>
+                                                    <strong className="stat-number success">{passedTests}</strong> passed
+                                                </span>
+                                                <span style={{fontSize: '0.875rem'}}>
+                                                    <strong className="stat-number error">{failedTests}</strong> failed
+                                                </span>
+                                                <span style={{fontSize: '0.875rem'}}>
+                                                    <strong className="stat-number skipped">{skippedTests}</strong> skipped
+                                                </span>
+                                            </div>
+                                            
+                                            <div style={{fontSize: '0.875rem', color: 'var(--text-tertiary)', marginBottom: '1rem'}}>
+                                                <i className="fas fa-play-circle" style={{marginRight: '0.5rem'}}></i>
+                                                {projectRuns.length} test runs • Last run: {
+                                                    projectRuns.length > 0 
+                                                        ? formatDate(projectRuns[0].start_time)
+                                                        : 'Never'
+                                                }
+                                            </div>
+
+                                            <div style={{marginBottom: '1rem'}}>
+                                                <div style={{fontSize: '0.75rem', color: 'var(--text-tertiary)', marginBottom: '0.5rem'}}>
+                                                    <i className="fas fa-code-branch" style={{marginRight: '0.5rem'}}></i>
+                                                    Repository: {project.repository || 'Not specified'}
+                                                </div>
+                                                <div style={{fontSize: '0.75rem', color: 'var(--text-tertiary)'}}>
+                                                    <i className="fas fa-code-branch" style={{marginRight: '0.5rem'}}></i>
+                                                    Default branch: {project.default_branch || 'main'}
+                                                </div>
+                                            </div>
+
+                                            <div className="test-history">
+                                                {latestRuns.map((run, index) => (
+                                                    <div
+                                                        key={run.id}
+                                                        className="history-dot"
+                                                        style={{
+                                                            backgroundColor: getTestStatusColor(
+                                                                run.passed_tests || 0,
+                                                                run.failed_tests || 0,
+                                                                run.skipped_tests || 0,
+                                                                run.total_tests || 0
+                                                            )
+                                                        }}
+                                                        title={`Run ${run.id}: ${run.total_tests || 0} tests, ${run.passed_tests || 0} passed, ${run.failed_tests || 0} failed`}
+                                                    ></div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+
                     {projects.length === 0 && (
-                        <div style={{textAlign: 'center', color: '#718096', marginTop: '4rem'}}>
+                        <div className="empty-state">
+                            <i className="fas fa-folder-open"></i>
                             <h3>No projects found</h3>
                             <p>Create your first project to see test summaries here.</p>
                         </div>
@@ -566,12 +1150,11 @@
             );
         }
 
-        // Test Runs page similar to fern-ui
+        // TestRuns component (enhanced)
         function TestRuns() {
             const [testRuns, setTestRuns] = useState([]);
             const [loading, setLoading] = useState(true);
             const [error, setError] = useState(null);
-            const [expandedRun, setExpandedRun] = useState(null);
 
             useEffect(() => {
                 fetchData();
@@ -579,9 +1162,9 @@
 
             const fetchData = async () => {
                 try {
-                    const testRunsRes = await fetch('/api/v1/test-runs');
-                    const testRunsData = await testRunsRes.json();
-                    setTestRuns(testRunsData.data || []);
+                    const response = await fetch('/api/v1/test-runs');
+                    const data = await response.json();
+                    setTestRuns(data.data || []);
                     setLoading(false);
                 } catch (err) {
                     setError(err.message);
@@ -589,133 +1172,134 @@
                 }
             };
 
-            const getStatusColor = (status) => {
-                switch (status) {
-                    case 'passed': return '#3ca454';
-                    case 'failed': return '#a43c4f';
-                    case 'running': return '#4ecdc4';
-                    default: return '#718096';
-                }
-            };
+            if (loading) {
+                return (
+                    <div className="container">
+                        <div className="loading fade-in">
+                            <i className="fas fa-spinner"></i>
+                            <div>Loading test runs...</div>
+                        </div>
+                    </div>
+                );
+            }
 
-            const formatDuration = (startTime, endTime) => {
-                if (!endTime) return 'Running...';
-                const start = new Date(startTime);
-                const end = new Date(endTime);
-                const diffMs = end - start;
-                const diffMins = Math.floor(diffMs / 60000);
-                const diffSecs = Math.floor((diffMs % 60000) / 1000);
-                return `${diffMins}m ${diffSecs}s`;
-            };
-
-            if (loading) return <div className="container"><div className="loading">Loading test runs...</div></div>;
-            if (error) return <div className="container"><div className="error">Error: {error}</div></div>;
+            if (error) {
+                return (
+                    <div className="container">
+                        <div className="error-message fade-in">
+                            <i className="fas fa-exclamation-triangle"></i>
+                            <div>Error: {error}</div>
+                        </div>
+                    </div>
+                );
+            }
 
             return (
-                <div className="container">
-                    <h2 style={{marginBottom: '2rem', color: '#2d3748'}}>Test Runs</h2>
+                <div className="container fade-in">
+                    <h2 style={{marginBottom: '2rem', color: 'var(--text-primary)', fontSize: '1.75rem', fontWeight: '600'}}>
+                        <i className="fas fa-list-alt" style={{marginRight: '0.5rem', color: 'var(--fern-primary)'}}></i>
+                        Test Runs
+                    </h2>
                     
-                    <div className="card">
-                        <div style={{overflowX: 'auto'}}>
+                    {testRuns.length > 0 ? (
+                        <div className="table-container">
                             <table>
                                 <thead>
                                     <tr>
                                         <th>Project</th>
-                                        <th>Status</th>
+                                        <th>Run ID</th>
                                         <th>Branch</th>
                                         <th>Tests</th>
+                                        <th>Status</th>
                                         <th>Duration</th>
                                         <th>Started</th>
-                                        <th>Environment</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {testRuns.map(run => (
-                                        <React.Fragment key={run.id}>
-                                            <tr 
-                                                onClick={() => setExpandedRun(expandedRun === run.id ? null : run.id)}
-                                                style={{
-                                                    cursor: 'pointer',
-                                                    backgroundColor: expandedRun === run.id ? '#f8fafc' : 'white'
-                                                }}
-                                            >
-                                                <td style={{fontWeight: '500'}}>{run.project_id}</td>
-                                                <td>
-                                                    <span style={{
-                                                        padding: '0.25rem 0.75rem',
-                                                        borderRadius: '9999px',
-                                                        fontSize: '0.75rem',
-                                                        backgroundColor: getStatusColor(run.status) + '20',
-                                                        color: getStatusColor(run.status),
-                                                        fontWeight: '500'
-                                                    }}>
-                                                        {run.status}
-                                                    </span>
-                                                </td>
-                                                <td style={{fontFamily: 'monospace'}}>{run.branch || 'main'}</td>
-                                                <td>
-                                                    <span style={{color: '#22543d'}}>{run.passed_tests}</span>/
-                                                    <span style={{color: '#742a2a'}}>{run.failed_tests}</span>/
-                                                    <span style={{color: '#4a5568'}}>{run.total_tests}</span>
-                                                </td>
-                                                <td>{formatDuration(run.start_time, run.end_time)}</td>
-                                                <td>{new Date(run.start_time).toLocaleString()}</td>
-                                                <td>
-                                                    <span style={{
-                                                        padding: '0.25rem 0.5rem',
-                                                        borderRadius: '4px',
-                                                        fontSize: '0.75rem',
-                                                        backgroundColor: run.environment === 'production' ? '#c6f6d5' : '#bee3f8',
-                                                        color: run.environment === 'production' ? '#22543d' : '#2a4365'
-                                                    }}>
-                                                        {run.environment || 'development'}
-                                                    </span>
-                                                </td>
-                                            </tr>
-                                            {expandedRun === run.id && (
-                                                <tr style={{backgroundColor: '#f8fafc'}}>
-                                                    <td colSpan="7" style={{borderBottom: '1px solid #e2e8f0'}}>
-                                                        <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1rem'}}>
-                                                            <div>
-                                                                <h4 style={{margin: '0 0 0.5rem 0', color: '#2d3748'}}>Run Details</h4>
-                                                                <p style={{margin: '0.25rem 0', fontSize: '0.875rem'}}><strong>Run ID:</strong> {run.run_id}</p>
-                                                                <p style={{margin: '0.25rem 0', fontSize: '0.875rem'}}><strong>Commit:</strong> {run.commit_sha || 'N/A'}</p>
-                                                                <p style={{margin: '0.25rem 0', fontSize: '0.875rem'}}><strong>Started:</strong> {new Date(run.start_time).toLocaleString()}</p>
-                                                                {run.end_time && (
-                                                                    <p style={{margin: '0.25rem 0', fontSize: '0.875rem'}}><strong>Ended:</strong> {new Date(run.end_time).toLocaleString()}</p>
-                                                                )}
-                                                            </div>
-                                                            <div>
-                                                                <h4 style={{margin: '0 0 0.5rem 0', color: '#2d3748'}}>Test Results</h4>
-                                                                <p style={{margin: '0.25rem 0', fontSize: '0.875rem', color: '#22543d'}}><strong>Passed:</strong> {run.passed_tests}</p>
-                                                                <p style={{margin: '0.25rem 0', fontSize: '0.875rem', color: '#742a2a'}}><strong>Failed:</strong> {run.failed_tests}</p>
-                                                                <p style={{margin: '0.25rem 0', fontSize: '0.875rem', color: '#4a5568'}}><strong>Skipped:</strong> {run.skipped_tests}</p>
-                                                                <p style={{margin: '0.25rem 0', fontSize: '0.875rem'}}><strong>Total:</strong> {run.total_tests}</p>
-                                                            </div>
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            )}
-                                        </React.Fragment>
+                                    {testRuns.map((run) => (
+                                        <tr key={run.id}>
+                                            <td>
+                                                <div style={{fontWeight: '500'}}>{run.project_id}</div>
+                                                <div style={{fontSize: '0.75rem', color: 'var(--text-tertiary)'}}>
+                                                    {run.environment}
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <code style={{fontSize: '0.75rem', background: 'var(--bg-tertiary)', padding: '0.25rem 0.5rem', borderRadius: 'var(--radius-sm)'}}>
+                                                    {run.run_id}
+                                                </code>
+                                            </td>
+                                            <td>
+                                                <span style={{display: 'flex', alignItems: 'center', gap: '0.5rem'}}>
+                                                    <i className="fas fa-code-branch" style={{fontSize: '0.75rem', color: 'var(--text-tertiary)'}}></i>
+                                                    {run.branch || 'main'}
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <div style={{fontSize: '0.875rem'}}>
+                                                    <span className="success">{run.passed_tests || 0}</span> / 
+                                                    <span className="error" style={{margin: '0 0.25rem'}}>{run.failed_tests || 0}</span> / 
+                                                    <span className="skipped">{run.skipped_tests || 0}</span>
+                                                    <div style={{fontSize: '0.75rem', color: 'var(--text-tertiary)'}}>
+                                                        {run.total_tests || 0} total
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <span className={`status ${run.status === 'completed' ? 'healthy' : 'active'}`}>
+                                                    {run.status}
+                                                </span>
+                                            </td>
+                                            <td>
+                                                {run.duration_ms ? `${(run.duration_ms / 1000).toFixed(1)}s` : 'N/A'}
+                                            </td>
+                                            <td>{formatDate(run.start_time)}</td>
+                                        </tr>
                                     ))}
                                 </tbody>
                             </table>
                         </div>
-
-                        {testRuns.length === 0 && (
-                            <div style={{textAlign: 'center', color: '#718096', padding: '4rem'}}>
-                                <h3>No test runs found</h3>
-                                <p>Submit test results via API to see them here.</p>
-                            </div>
-                        )}
-                    </div>
+                    ) : (
+                        <div className="empty-state">
+                            <i className="fas fa-flask"></i>
+                            <h3>No test runs found</h3>
+                            <p>Test runs will appear here once you submit test results via the API.</p>
+                        </div>
+                    )}
                 </div>
             );
         }
 
-        // Main App component with routing
+        // Main App component
         function FernPlatform() {
             const { route, navigate } = useRouter();
+            const [appData, setAppData] = useState({ health: null, projects: [], testRuns: [] });
+
+            useEffect(() => {
+                fetchAppData();
+            }, []);
+
+            const fetchAppData = async () => {
+                try {
+                    const [healthRes, projectsRes, testRunsRes] = await Promise.all([
+                        fetch('/health'),
+                        fetch('/api/v1/projects'),
+                        fetch('/api/v1/test-runs')
+                    ]);
+
+                    const health = await healthRes.json();
+                    const projects = await projectsRes.json();
+                    const testRuns = await testRunsRes.json();
+
+                    setAppData({
+                        health,
+                        projects: projects.data || [],
+                        testRuns: testRuns.data || []
+                    });
+                } catch (err) {
+                    console.error('Failed to fetch app data:', err);
+                }
+            };
 
             const renderPage = () => {
                 switch (route) {
@@ -730,10 +1314,7 @@
 
             return (
                 <div>
-                    <div className="header">
-                        <h1>Fern Platform</h1>
-                        <p>Unified test reporting and analysis platform</p>
-                    </div>
+                    <Header {...appData} />
                     <Navigation route={route} navigate={navigate} />
                     {renderPage()}
                 </div>
