@@ -12,6 +12,11 @@ PARALLEL_PROCESSES := 4
 TEST_TIMEOUT := 30m
 VERBOSE := false
 
+# Platform configuration
+# Set to true to use existing deployed platform instead of creating k3d environment
+USE_EXISTING_PLATFORM := true
+EXISTING_PLATFORM_URL := http://localhost:8080
+
 # Cluster and deployment settings
 KUBEVELA_APP_FILE := ../deployments/fern-platform-local.yaml
 CLUSTER_SETUP_TIMEOUT := 10m
@@ -19,10 +24,19 @@ CLUSTER_SETUP_TIMEOUT := 10m
 .PHONY: help deps test test-api test-integration test-ui test-all clean setup verify-cluster
 
 help: ## Display this help message
-	@echo "Fern Platform Go Acceptance Tests"
+	@echo "🌿 Fern Platform Go Acceptance Tests"
+	@echo ""
+	@echo "📚 Test Execution Modes:"
+	@echo "  USE_EXISTING_PLATFORM=true   🚀 Fast mode: test against existing platform"
+	@echo "  USE_EXISTING_PLATFORM=false  🐌 Full mode: deploy fresh k3d environment"
+	@echo ""
+	@echo "🎯 Recommended Usage:"
+	@echo "  make test-existing           # Quick tests against deployed platform"
+	@echo "  make test-isolated           # Full isolation with fresh deployment" 
+	@echo "  make test                    # Smart mode (respects USE_EXISTING_PLATFORM)"
 	@echo ""
 	@echo "Available targets:"
-	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  \033[36m%-25s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
 deps: ## Install test dependencies
 	@echo "Installing Go test dependencies..."
@@ -63,19 +77,62 @@ test-api: setup ## Run API acceptance tests only
 		./specs/api/
 	@echo "✅ API acceptance tests completed"
 
+# Targets for running tests against existing platform (fast)
 test-api-existing: deps ## Run API acceptance tests against existing deployed platform
 	@echo "🧪 Running API acceptance tests against existing platform..."
 	@mkdir -p ./test-results
-	@echo "Note: Tests are configured to use existing platform by default"
+	@echo "Using existing platform at: $(EXISTING_PLATFORM_URL)"
 	$(GINKGO) run \
 		--procs=$(PARALLEL_PROCESSES) \
-		--timeout=$(TEST_TIMEOUT) \
+		--timeout=10m \
 		--output-dir=./test-results \
 		--json-report=api-test-results.json \
 		--junit-report=api-test-results.xml \
 		$(if $(filter true,$(VERBOSE)),-v) \
 		./specs/api/
 	@echo "✅ API acceptance tests completed"
+
+test-integration-existing: deps ## Run integration acceptance tests against existing deployed platform
+	@echo "🧪 Running integration acceptance tests against existing platform..."
+	@mkdir -p ./test-results
+	@echo "Using existing platform at: $(EXISTING_PLATFORM_URL)"
+	$(GINKGO) run \
+		--procs=$(PARALLEL_PROCESSES) \
+		--timeout=10m \
+		--output-dir=./test-results \
+		--json-report=integration-test-results.json \
+		--junit-report=integration-test-results.xml \
+		$(if $(filter true,$(VERBOSE)),-v) \
+		./specs/integration/
+	@echo "✅ Integration acceptance tests completed"
+
+test-ui-existing: deps ## Run UI acceptance tests against existing deployed platform
+	@echo "🧪 Running UI acceptance tests against existing platform..."
+	@mkdir -p ./test-results
+	@echo "Using existing platform at: $(EXISTING_PLATFORM_URL)"
+	$(GINKGO) run \
+		--procs=2 \
+		--timeout=15m \
+		--output-dir=./test-results \
+		--json-report=ui-test-results.json \
+		--junit-report=ui-test-results.xml \
+		$(if $(filter true,$(VERBOSE)),-v) \
+		./specs/ui/
+	@echo "✅ UI acceptance tests completed"
+
+test-all-existing: deps ## Run all acceptance tests against existing deployed platform  
+	@echo "🧪 Running all acceptance tests against existing platform..."
+	@mkdir -p ./test-results
+	@echo "Using existing platform at: $(EXISTING_PLATFORM_URL)"
+	$(GINKGO) run \
+		--procs=$(PARALLEL_PROCESSES) \
+		--timeout=15m \
+		--output-dir=./test-results \
+		--json-report=all-test-results.json \
+		--junit-report=all-test-results.xml \
+		$(if $(filter true,$(VERBOSE)),-v) \
+		./specs/...
+	@echo "✅ All acceptance tests completed"
 
 test-integration: setup ## Run integration acceptance tests only
 	@echo "🧪 Running integration acceptance tests..."
@@ -113,10 +170,46 @@ test-all: setup ## Run all acceptance tests
 		./specs/...
 	@echo "✅ All acceptance tests completed"
 
-test: test-all ## Alias for test-all
+# Smart test targets that respect USE_EXISTING_PLATFORM flag
+test-smart-api: ## Run API tests (respects USE_EXISTING_PLATFORM flag)
+ifeq ($(USE_EXISTING_PLATFORM),true)
+	@$(MAKE) test-api-existing
+else
+	@$(MAKE) test-api
+endif
+
+test-smart-integration: ## Run integration tests (respects USE_EXISTING_PLATFORM flag)  
+ifeq ($(USE_EXISTING_PLATFORM),true)
+	@$(MAKE) test-integration-existing
+else
+	@$(MAKE) test-integration
+endif
+
+test-smart-ui: ## Run UI tests (respects USE_EXISTING_PLATFORM flag)
+ifeq ($(USE_EXISTING_PLATFORM),true)
+	@$(MAKE) test-ui-existing
+else
+	@$(MAKE) test-ui
+endif
+
+test-smart-all: ## Run all tests (respects USE_EXISTING_PLATFORM flag)
+ifeq ($(USE_EXISTING_PLATFORM),true)
+	@$(MAKE) test-all-existing
+else
+	@$(MAKE) test-all
+endif
+
+test: test-smart-all ## Alias for smart test execution
+
+# Mode switching convenience targets
+test-existing: ## Run tests in fast mode (against existing platform)
+	@$(MAKE) test USE_EXISTING_PLATFORM=true
+
+test-isolated: ## Run tests in isolated mode (fresh k3d deployment)
+	@$(MAKE) test USE_EXISTING_PLATFORM=false
 
 test-verbose: ## Run all tests with verbose output
-	@$(MAKE) test-all VERBOSE=true
+	@$(MAKE) test VERBOSE=true
 
 test-fast: ## Run tests with minimal parallelism for quick feedback
 	@echo "🧪 Running fast acceptance tests..."
@@ -251,6 +344,17 @@ env: ## Show environment variables for testing
 	@echo "PARALLEL_PROCESSES: $(PARALLEL_PROCESSES)"
 	@echo "TEST_TIMEOUT: $(TEST_TIMEOUT)"
 	@echo "KUBEVELA_APP_FILE: $(KUBEVELA_APP_FILE)"
+	@echo ""
+	@echo "Platform Configuration:"
+	@echo "USE_EXISTING_PLATFORM: $(USE_EXISTING_PLATFORM)"
+	@echo "EXISTING_PLATFORM_URL: $(EXISTING_PLATFORM_URL)"
+	@echo ""
+	@echo "Test Mode:"
+ifeq ($(USE_EXISTING_PLATFORM),true)
+	@echo "  🚀 FAST MODE: Using existing platform (no k3d deployment)"
+else
+	@echo "  🐌 FULL MODE: Will create isolated k3d environment"
+endif
 
 # CI/CD targets
 ci-setup: check-deps verify-cluster ## Setup for CI environment

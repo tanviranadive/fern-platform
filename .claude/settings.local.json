@@ -40,7 +40,9 @@
       "Bash(ginkgo run:*)",
       "Bash(ginkgo:*)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(kubectl create:*)",
+      "WebFetch(domain:kubevela.io)"
     ],
     "deny": []
   }

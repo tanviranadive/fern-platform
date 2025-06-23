@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/guidewire-oss/fern-platform/pkg/logging"
 	"github.com/guidewire-oss/fern-platform/pkg/middleware"
 	"github.com/guidewire-oss/fern-platform/internal/reporter/repository"
@@ -46,7 +47,7 @@ func (h *Handler) RegisterRoutes(router *gin.Engine) {
 	// Static file serving for web interface
 	router.Static("/web", "./web")
 	router.GET("/", func(c *gin.Context) {
-		c.Redirect(http.StatusFound, "/web/index.html")
+		c.File("./web/index.html")
 	})
 
 	v1 := router.Group("/api/v1")
@@ -243,7 +244,7 @@ func (h *Handler) listTestRuns(c *gin.Context) {
 		}
 	}
 
-	testRuns, total, err := h.testRunService.ListTestRuns(filter)
+	testRuns, total, err := h.testRunService.ListTestRunsWithProjects(filter)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -412,9 +413,24 @@ func (h *Handler) createFernProject(c *gin.Context) {
 		return
 	}
 
-	// Convert to internal service input
+	// Check if project already exists by name or project ID
+	existingProject, err := h.projectService.GetProjectByProjectID(input.Name)
+	if err == nil {
+		// Project exists, return it
+		response := gin.H{
+			"uuid":       existingProject.ProjectID,
+			"name":        existingProject.Name,
+			"team_name":   input.TeamName,
+			"comment":     existingProject.Description,
+			"created_at":  existingProject.CreatedAt,
+		}
+		c.JSON(http.StatusOK, response)
+		return
+	}
+
+	// Convert to internal service input for new project
 	projectInput := service.CreateProjectInput{
-		ProjectID:   fmt.Sprintf("%s-%d", input.Name, time.Now().Unix()),
+		ProjectID:   uuid.New().String(),
 		Name:        input.Name,
 		Description: input.Comment,
 	}

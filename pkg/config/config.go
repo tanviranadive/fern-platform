@@ -39,6 +39,7 @@ type TLSConfig struct {
 }
 
 type DatabaseConfig struct {
+	Uri             string        `mapstructure:"uri"` // Deprecated, use individual fields instead
 	Host            string        `mapstructure:"host"`
 	Port            int           `mapstructure:"port"`
 	User            string        `mapstructure:"user"`
@@ -53,11 +54,11 @@ type DatabaseConfig struct {
 }
 
 type AuthConfig struct {
-	Enabled       bool   `mapstructure:"enabled"`
-	JWTSecret     string `mapstructure:"jwtSecret"`
-	JWKSUrl       string `mapstructure:"jwksUrl"`
-	Issuer        string `mapstructure:"issuer"`
-	Audience      string `mapstructure:"audience"`
+	Enabled       bool          `mapstructure:"enabled"`
+	JWTSecret     string        `mapstructure:"jwtSecret"`
+	JWKSUrl       string        `mapstructure:"jwksUrl"`
+	Issuer        string        `mapstructure:"issuer"`
+	Audience      string        `mapstructure:"audience"`
 	TokenExpiry   time.Duration `mapstructure:"tokenExpiry"`
 	RefreshExpiry time.Duration `mapstructure:"refreshExpiry"`
 }
@@ -91,26 +92,26 @@ type RedisConfig struct {
 }
 
 type LLMConfig struct {
-	DefaultProvider string            `mapstructure:"defaultProvider"`
+	DefaultProvider string                 `mapstructure:"defaultProvider"`
 	Providers       map[string]LLMProvider `mapstructure:"providers"`
-	CacheEnabled    bool              `mapstructure:"cacheEnabled"`
-	CacheTTL        time.Duration     `mapstructure:"cacheTTL"`
-	MaxTokens       int               `mapstructure:"maxTokens"`
-	Temperature     float32           `mapstructure:"temperature"`
+	CacheEnabled    bool                   `mapstructure:"cacheEnabled"`
+	CacheTTL        time.Duration          `mapstructure:"cacheTTL"`
+	MaxTokens       int                    `mapstructure:"maxTokens"`
+	Temperature     float32                `mapstructure:"temperature"`
 }
 
 type LLMProvider struct {
-	Type      string `mapstructure:"type"`
-	APIKey    string `mapstructure:"apiKey"`
-	BaseURL   string `mapstructure:"baseUrl"`
-	Model     string `mapstructure:"model"`
-	Enabled   bool   `mapstructure:"enabled"`
+	Type    string `mapstructure:"type"`
+	APIKey  string `mapstructure:"apiKey"`
+	BaseURL string `mapstructure:"baseUrl"`
+	Model   string `mapstructure:"model"`
+	Enabled bool   `mapstructure:"enabled"`
 }
 
 type MonitoringConfig struct {
-	Metrics   MetricsConfig `mapstructure:"metrics"`
-	Tracing   TracingConfig `mapstructure:"tracing"`
-	Health    HealthConfig  `mapstructure:"health"`
+	Metrics MetricsConfig `mapstructure:"metrics"`
+	Tracing TracingConfig `mapstructure:"tracing"`
+	Health  HealthConfig  `mapstructure:"health"`
 }
 
 type MetricsConfig struct {
@@ -120,9 +121,9 @@ type MetricsConfig struct {
 }
 
 type TracingConfig struct {
-	Enabled    bool   `mapstructure:"enabled"`
+	Enabled     bool   `mapstructure:"enabled"`
 	ServiceName string `mapstructure:"serviceName"`
-	Endpoint   string `mapstructure:"endpoint"`
+	Endpoint    string `mapstructure:"endpoint"`
 }
 
 type HealthConfig struct {
@@ -150,7 +151,7 @@ func NewManager() *Manager {
 func (m *Manager) Load(configPath string) error {
 	viper.SetConfigName("config")
 	viper.SetConfigType("yaml")
-	
+
 	if configPath != "" {
 		viper.SetConfigFile(configPath)
 	} else {
@@ -254,7 +255,7 @@ func (m *Manager) bindEnvVars() {
 
 	// Database
 	viper.BindEnv("database.host", "DB_HOST", "POSTGRES_HOST")
-	viper.BindEnv("database.port", "DB_PORT", "POSTGRES_PORT") 
+	viper.BindEnv("database.port", "DB_PORT", "POSTGRES_PORT")
 	viper.BindEnv("database.user", "DB_USER", "POSTGRES_USER")
 	viper.BindEnv("database.password", "DB_PASSWORD", "POSTGRES_PASSWORD")
 	viper.BindEnv("database.dbname", "DB_NAME", "POSTGRES_DB")
@@ -315,7 +316,7 @@ func GetDatabaseConfig() *DatabaseConfig {
 	return &GetConfig().Database
 }
 
-// GetServerConfig returns server configuration  
+// GetServerConfig returns server configuration
 func GetServerConfig() *ServerConfig {
 	return &GetConfig().Server
 }
@@ -338,17 +339,19 @@ func GetLLMConfig() *LLMConfig {
 // DatabaseConnectionString returns the PostgreSQL connection string
 func (d *DatabaseConfig) ConnectionString() string {
 	return fmt.Sprintf(
-		"host=%s port=%d user=%s password=%s dbname=%s sslmode=%s TimeZone=%s",
-		d.Host, d.Port, d.User, d.Password, d.DBName, d.SSLMode, d.TimeZone,
+		"postgres://%s:%s@%s.fern-platform:%d/%s?sslmode=%s",
+		d.User, d.Password, d.Host, d.Port, d.DBName, d.SSLMode,
 	)
 }
 
 // MigrationURL returns the PostgreSQL URL for migrations
 func (d *DatabaseConfig) MigrationURL() string {
-	return fmt.Sprintf(
-		"postgres://%s:%s@%s:%d/%s?sslmode=%s",
+	dbString := fmt.Sprintf(
+		"postgres://%s:%s@%s.fern-platform:%d/%s?sslmode=%s",
 		d.User, d.Password, d.Host, d.Port, d.DBName, d.SSLMode,
 	)
+	fmt.Printf("db string is : [%s]\n", dbString)
+	return dbString
 }
 
 // RedisConnectionString returns the Redis connection string

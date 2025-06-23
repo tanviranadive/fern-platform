@@ -23,8 +23,8 @@ type DB struct {
 
 // NewDatabase creates a new database connection using the provided configuration
 func NewDatabase(cfg *config.DatabaseConfig) (*DB, error) {
-	dsn := cfg.ConnectionString()
-	
+	dbUrl := cfg.ConnectionString()
+
 	gormConfig := &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Info),
 		NowFunc: func() time.Time {
@@ -32,7 +32,7 @@ func NewDatabase(cfg *config.DatabaseConfig) (*DB, error) {
 		},
 	}
 
-	db, err := gorm.Open(postgres.Open(dsn), gormConfig)
+	db, err := gorm.Open(postgres.Open(dbUrl), gormConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to database: %w", err)
 	}
@@ -60,7 +60,7 @@ func (db *DB) Health() error {
 	if err != nil {
 		return fmt.Errorf("failed to get underlying sql.DB: %w", err)
 	}
-	
+
 	return sqlDB.Ping()
 }
 
@@ -70,14 +70,14 @@ func (db *DB) Close() error {
 	if err != nil {
 		return fmt.Errorf("failed to get underlying sql.DB: %w", err)
 	}
-	
+
 	return sqlDB.Close()
 }
 
 // Migrate runs database migrations
 func (db *DB) Migrate(migrationsPath string) error {
 	migrationURL := db.config.MigrationURL()
-	
+
 	m, err := migrate.New(
 		fmt.Sprintf("file://%s", migrationsPath),
 		migrationURL,
@@ -97,7 +97,7 @@ func (db *DB) Migrate(migrationsPath string) error {
 // MigrateDown rolls back database migrations
 func (db *DB) MigrateDown(migrationsPath string, steps int) error {
 	migrationURL := db.config.MigrationURL()
-	
+
 	m, err := migrate.New(
 		fmt.Sprintf("file://%s", migrationsPath),
 		migrationURL,

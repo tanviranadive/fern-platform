@@ -3,25 +3,29 @@ package integration_test
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	"github.com/guidewire-oss/fern-platform/acceptance-go/pkg/clients/reporter"
+	"github.com/guidewire-oss/fern-platform/acceptance-go/pkg/fixtures"
 )
 
 var _ = Describe("End-to-End Workflows", func() {
 	var (
 		ctx            context.Context
-		reporterClient = GetReporterClient()
-		graphqlClient  = GetGraphQLClient()
-		testData       = GetTestData()
-		serviceURLs    = GetServiceURLs()
+		reporterClient *reporter.Client
+		testData       *fixtures.CreatedTestData
+		serviceURLs    map[string]string
 	)
 
 	BeforeEach(func() {
 		ctx = GetTestContext()
+		reporterClient = GetReporterClient()
+		testData = GetTestData()
+		serviceURLs = GetServiceURLs()
 	})
 
 	Describe("Complete Test Run Lifecycle", func() {

@@ -74,6 +74,12 @@ type ListTestRunsFilter struct {
 	Order       string // ASC or DESC
 }
 
+// TestRunWithProject represents a test run with project information
+type TestRunWithProject struct {
+	database.TestRun
+	ProjectName string `json:"project_name"`
+}
+
 // ListTestRuns retrieves test runs with filtering and pagination
 func (r *TestRunRepository) ListTestRuns(filter ListTestRunsFilter) ([]*database.TestRun, int64, error) {
 	query := r.db.Model(&database.TestRun{})
@@ -137,6 +143,94 @@ func (r *TestRunRepository) ListTestRuns(filter ListTestRunsFilter) ([]*database
 
 	var testRuns []*database.TestRun
 	err := query.Find(&testRuns).Error
+	return testRuns, total, err
+}
+
+// ListTestRunsWithProjects retrieves test runs with project names via JOIN
+func (r *TestRunRepository) ListTestRunsWithProjects(filter ListTestRunsFilter) ([]*TestRunWithProject, int64, error) {
+	query := r.db.Table("test_runs").
+		Select("test_runs.id, test_runs.created_at, test_runs.updated_at, test_runs.deleted_at, test_runs.project_id, test_runs.run_id, test_runs.branch, test_runs.commit_sha, test_runs.status, test_runs.start_time, test_runs.end_time, test_runs.total_tests, test_runs.passed_tests, test_runs.failed_tests, test_runs.skipped_tests, test_runs.duration_ms, test_runs.environment, project_details.name as project_name").
+		Joins("LEFT JOIN project_details ON test_runs.project_id = project_details.project_id")
+
+	// Apply filters
+	if filter.ProjectID != "" {
+		query = query.Where("test_runs.project_id = ?", filter.ProjectID)
+	}
+	if filter.Branch != "" {
+		query = query.Where("test_runs.branch = ?", filter.Branch)
+	}
+	if filter.Status != "" {
+		query = query.Where("test_runs.status = ?", filter.Status)
+	}
+	if filter.Environment != "" {
+		query = query.Where("test_runs.environment = ?", filter.Environment)
+	}
+	if filter.StartTime != nil {
+		query = query.Where("test_runs.start_time >= ?", filter.StartTime)
+	}
+	if filter.EndTime != nil {
+		query = query.Where("test_runs.start_time <= ?", filter.EndTime)
+	}
+
+	// Filter by tags if provided
+	if len(filter.Tags) > 0 {
+		query = query.Joins("JOIN test_run_tags ON test_runs.id = test_run_tags.test_run_id").
+			Joins("JOIN tags ON test_run_tags.tag_id = tags.id").
+			Where("tags.name IN ?", filter.Tags).
+			Group("test_runs.id, project_details.name").
+			Having("COUNT(DISTINCT tags.id) = ?", len(filter.Tags))
+	}
+
+	// Get total count
+	var total int64
+	countQuery := r.db.Table("test_runs").
+		Joins("LEFT JOIN project_details ON test_runs.project_id = project_details.project_id")
+	
+	// Apply the same filters for count
+	if filter.ProjectID != "" {
+		countQuery = countQuery.Where("test_runs.project_id = ?", filter.ProjectID)
+	}
+	if filter.Branch != "" {
+		countQuery = countQuery.Where("test_runs.branch = ?", filter.Branch)
+	}
+	if filter.Status != "" {
+		countQuery = countQuery.Where("test_runs.status = ?", filter.Status)
+	}
+	if filter.Environment != "" {
+		countQuery = countQuery.Where("test_runs.environment = ?", filter.Environment)
+	}
+	if filter.StartTime != nil {
+		countQuery = countQuery.Where("test_runs.start_time >= ?", filter.StartTime)
+	}
+	if filter.EndTime != nil {
+		countQuery = countQuery.Where("test_runs.start_time <= ?", filter.EndTime)
+	}
+	
+	if err := countQuery.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	// Apply ordering
+	orderBy := "test_runs.start_time"
+	if filter.OrderBy != "" {
+		orderBy = "test_runs." + filter.OrderBy
+	}
+	order := "DESC"
+	if filter.Order != "" {
+		order = filter.Order
+	}
+	query = query.Order(fmt.Sprintf("%s %s", orderBy, order))
+
+	// Apply pagination
+	if filter.Limit > 0 {
+		query = query.Limit(filter.Limit)
+	}
+	if filter.Offset > 0 {
+		query = query.Offset(filter.Offset)
+	}
+
+	var testRuns []*TestRunWithProject
+	err := query.Scan(&testRuns).Error
 	return testRuns, total, err
 }
 

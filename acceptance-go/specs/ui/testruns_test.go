@@ -2,6 +2,7 @@ package ui_test
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -11,7 +12,6 @@ import (
 var _ = Describe("Test Runs UI", func() {
 	var (
 		testRunsPage = NewTestRunsPage()
-		testData     = GetTestData()
 	)
 
 	BeforeEach(func() {

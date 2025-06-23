@@ -34,7 +34,7 @@ build: deps ## Build the platform binary
 build-linux: deps ## Build for Linux (useful for containers)
 	@echo "🔨 Building Fern Platform for Linux..."
 	mkdir -p $(BUILD_DIR)
-	GOOS=linux GOARCH=amd64 go build $(GO_BUILD_FLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-linux $(CMD_DIR)/main.go
+	GOOS=linux GOARCH=arm64 go build $(GO_BUILD_FLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-linux $(CMD_DIR)/main.go
 	@echo "✅ Built $(BUILD_DIR)/$(BINARY_NAME)-linux"
 
 test: test-unit ## Run all tests
@@ -104,13 +104,13 @@ migrate-status: ## Check migration status
 # Docker operations
 docker-build: ## Build Docker image
 	@echo "🐳 Building Docker image..."
-	docker build -t fern-platform:$(VERSION) .
-	docker tag fern-platform:$(VERSION) fern-platform:latest
-	@echo "✅ Docker image built: fern-platform:$(VERSION)"
+	docker build -t anoop2811/fern-platform:$(VERSION)5 .
+	docker tag anoop2811/fern-platform:$(VERSION)5 fern-platform:latest
+	@echo "✅ Docker image built: anoop2811/fern-platform:$(VERSION)5"
 
 docker-run: ## Run Docker container
 	@echo "🐳 Running Docker container..."
-	docker run -p 8080:8080 fern-platform:latest
+	docker run -p 8080:8080 anoop2811/fern-platform:latest
 
 # Development tools
 install-tools: ## Install development tools

@@ -247,6 +247,11 @@ func (s *TestRunService) ListTestRuns(filter repository.ListTestRunsFilter) ([]*
 	return s.testRunRepo.ListTestRuns(filter)
 }
 
+// ListTestRunsWithProjects retrieves test runs with project names
+func (s *TestRunService) ListTestRunsWithProjects(filter repository.ListTestRunsFilter) ([]*repository.TestRunWithProject, int64, error) {
+	return s.testRunRepo.ListTestRunsWithProjects(filter)
+}
+
 // GetTestRunStats retrieves test run statistics
 func (s *TestRunService) GetTestRunStats(projectID string, days int) (*repository.TestRunStats, error) {
 	return s.testRunRepo.GetTestRunStats(projectID, days)

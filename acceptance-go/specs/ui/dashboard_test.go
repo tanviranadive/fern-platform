@@ -1,6 +1,7 @@
 package ui_test
 
 import (
+	"fmt"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
