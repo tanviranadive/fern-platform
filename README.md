@@ -225,19 +225,22 @@ The platform uses KubeVela applications for:
 
 ## Contributing
 
-1. Fork the repository
-2. Create a feature branch
-3. Make changes following the established patterns
-4. Run tests: `make test`
-5. Submit a pull request
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for detailed instructions on:
 
-### Development Guidelines
+- 🚀 Setting up your development environment
+- ☸️ Local deployment with KubeVela and k3d
+- 🧪 Running acceptance tests
+- 📝 Code style guidelines
+- 🔄 Pull request process
 
-- Follow Go best practices and project structure
-- Use Ginkgo/Gomega for testing
-- Add comprehensive acceptance tests for new features
-- Update documentation for API changes
-- Follow semantic versioning
+### Quick Start for Contributors
+
+1. **Fork** and clone the repository
+2. **Follow** the [local deployment guide](CONTRIBUTING.md#local-deployment-with-kubevela)
+3. **Make** your changes with tests
+4. **Submit** a pull request
+
+For questions, open a [GitHub Discussion](../../discussions) or [Issue](../../issues).
 
 ## Architecture Decisions
 
