@@ -243,16 +243,14 @@ setup-local: ## Setup local development environment
 	@echo "🔧 Setting up local development environment..."
 	@$(MAKE) deps
 	@$(MAKE) install-tools
-	@echo "Starting local dependencies with Docker Compose..."
-	docker-compose up -d postgres redis
 	@echo "✅ Local development environment ready"
 	@echo ""
 	@echo "Next steps:"
-	@echo "1. Run 'make migrate-up' to setup database"
-	@echo "2. Run 'make dev' to start development server"
+	@echo "1. Follow CONTRIBUTING.md for k3d cluster setup"
+	@echo "2. Run 'make cluster-setup' for complete k3d deployment"
 
 teardown-local: ## Teardown local development environment
 	@echo "🧹 Tearing down local development environment..."
-	docker-compose down -v
+	@$(MAKE) cluster-teardown
 	@$(MAKE) clean
 	@echo "✅ Local environment cleaned up"

@@ -131,11 +131,14 @@ The current `fern-reporter` service violates single responsibility principle:
 
 **Complex Local Development:**
 ```bash
-# Current setup requires multiple terminal sessions:
+# Old setup required multiple terminal sessions:
 cd fern-reporter && docker-compose up -d && go run main.go
 cd ../fern-mycelium && go run main.go  
 cd ../fern-ui && npm install && npm run dev
 # Plus manual database setup and service discovery configuration
+
+# New unified platform:
+make cluster-setup && kubectl apply -f deployments/fern-platform-kubevela.yaml
 ```
 
 **Documentation Fragmentation:**
@@ -1121,10 +1124,10 @@ spec:
 ### Maintaining Dependency Simplicity
 
 One of the key success factors of the current Fern architecture is its **dependency simplicity**:
-- Single command setup (`docker-compose up`)
+- Single command setup (now `make cluster-setup`)
 - Minimal external dependencies
 - Fast iteration cycles
-- Runs on any developer laptop
+- Runs on any developer laptop with k3d
 
 The new platform architecture preserves this simplicity through **intelligent local substitutions**:
 

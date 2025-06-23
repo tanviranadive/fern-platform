@@ -47,65 +47,25 @@ The platform follows a unified monolithic architecture with modular components:
 - **Docker** - For dependencies
 - **kubectl** - Kubernetes CLI
 - **k3d** - Local Kubernetes cluster (optional)
-- **PostgreSQL** - Database (can be run via Docker)
+- **PostgreSQL** - Database (deployed via k3d cluster)
 
 ### Local Development Setup
 
+For comprehensive local development setup with k3d, KubeVela, and all dependencies, please follow the detailed instructions in our [Contributing Guide](CONTRIBUTING.md#local-deployment-with-kubevela).
+
+**Quick Overview:**
 1. **Clone the repository**
-   ```bash
-   git clone <repository-url>
-   cd fern-platform
-   ```
-
-2. **Install dependencies**
-   ```bash
-   go mod download
-   ```
-
-3. **Start dependencies (PostgreSQL, Redis)**
-   ```bash
-   docker-compose up -d postgres redis
-   ```
-
-4. **Run database migrations**
-   ```bash
-   go run cmd/fern-platform/main.go -config config/config.yaml
-   ```
-
-5. **Build and run the platform**
-   ```bash
-   make build
-   ./bin/fern-platform
-   ```
-
-6. **Access the platform**
-   - API: http://localhost:8080
-   - GraphQL Playground: http://localhost:8080/graphql
-   - UI: http://localhost:8080 (embedded)
-   - Health Check: http://localhost:8080/health
+2. **Set up k3d cluster** with KubeVela and CloudNativePG
+3. **Deploy the platform** using KubeVela
+4. **Access via port-forward** at http://localhost:8080
 
 ### Development Workflow
 
-```bash
-# Build the platform
-make build
-
-# Run unit tests
-make test
-
-# Run acceptance tests (requires k3d cluster)
-cd acceptance-go && make test
-
-# Run in development mode with hot reload
-make dev
-
-# Format and lint code
-make fmt
-make lint
-
-# Clean build artifacts
-make clean
-```
+See [Contributing Guide](CONTRIBUTING.md#development-workflow) for detailed development workflow including:
+- Building and testing the platform
+- Running acceptance tests in k3d
+- Code quality checks
+- Pull request process
 
 ## Configuration
 
@@ -201,10 +161,15 @@ The acceptance tests cover:
 
 ### Local Development
 
-Uses k3d with KubeVela for local development:
+For complete local deployment instructions with k3d and KubeVela, see our [Contributing Guide](CONTRIBUTING.md#local-deployment-with-kubevela).
 
+Quick commands:
 ```bash
-make dev-up
+# Complete k3d cluster setup
+make cluster-setup
+
+# Deploy application
+kubectl apply -f deployments/fern-platform-kubevela.yaml
 ```
 
 ### Production

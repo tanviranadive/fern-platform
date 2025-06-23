@@ -46,27 +46,6 @@ Ensure you have the following tools installed:
 
 ## Development Environment Setup
 
-### Quick Local Development
-
-For rapid iteration without Kubernetes:
-
-```bash
-# Install Go dependencies
-go mod download
-
-# Start dependencies with Docker
-docker-compose up -d postgres redis
-
-# Build and run the platform
-make build
-./bin/fern-platform
-
-# Or run with hot reload
-make dev
-```
-
-Access the platform at http://localhost:8080
-
 ## Local Deployment with KubeVela
 
 ### Step-by-Step Setup
