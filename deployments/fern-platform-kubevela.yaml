@@ -6,80 +6,89 @@ metadata:
   namespace: fern-platform
 spec:
   components:
-    # PostgreSQL Database
+    # PostgreSQL Database using simple deployment
     - name: postgres
-      type: webservice
+      type: cloud-native-postgres
       properties:
-        image: postgres:15
-        ports:
-          - port: 5432
-            expose: true
-        env:
-          - name: POSTGRES_DB
-            value: fern_platform
-          - name: POSTGRES_USER
-            value: fern_user
-          - name: POSTGRES_PASSWORD
-            value: fern_password
-        volumeMounts:
-          emptyDir:
-            - name: postgres-data
-              mountPath: /var/lib/postgresql/data
+        name: postgres
+        namespace: fern-platform
+        instances: 1
+        storageSize: 0.5Gi
 
     # Redis Cache
     - name: redis
       type: webservice
       properties:
         image: redis:7-alpine
+        namespace: fern-platform
+        imagePullPolicy: IfNotPresent
         ports:
           - port: 6379
             expose: true
+        cpu: "100m"
+        memory: "128Mi"
 
-    # Fern Reporter Service
-    - name: fern-reporter
+    # Fern Platform Service  
+    - name: fern-platform
       type: webservice
+      dependsOn:
+        - postgres
+        - redis
       properties:
-        image: anoop2811/fern-reporter-test:latest
+        image: anoop2811/fern-platform:ac9b42c-dirty5
+        imagePullPolicy: IfNotPresent
+        namespace: fern-platform
         ports:
           - port: 8080
             expose: true
         env:
-          - name: DB_HOST
-            value: postgres
-          - name: DB_PORT
-            value: "5432"
-          - name: DB_USER
-            value: fern_user
-          - name: DB_PASSWORD
-            value: fern_password
-          - name: DB_NAME
-            value: fern_platform
+          - name: LOG_LEVEL
+            value: debug
           - name: REDIS_HOST
             value: redis
           - name: REDIS_PORT
             value: "6379"
-          - name: LOG_LEVEL
-            value: debug
+        cpu: "200m"
+        memory: "256Mi"
         livenessProbe:
           httpGet:
             path: /health
             port: 8080
           initialDelaySeconds: 30
           periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 5
         readinessProbe:
           httpGet:
             path: /health
             port: 8080
-          initialDelaySeconds: 5
+          initialDelaySeconds: 15
           periodSeconds: 5
+          timeoutSeconds: 5
+          failureThreshold: 3
+      traits:
+        - type: service-binding
+          properties:
+            envMappings:
+              DB_USER:
+                secret: postgres-app
+                key: username
+              DB_PASSWORD:
+                secret: postgres-app
+                key: password
+              DB_HOST:
+                secret: postgres-app
+                key: host
+              DB_PORT:
+                secret: postgres-app
+                key: port
+              DB_NAME:
+                secret: postgres-app
+                key: dbname
 
   policies:
-    # Topology policy for deployment
-    - name: local-cluster
-      type: topology
-      properties:
-        clusters: ["local"]
-        namespace: fern-platform
+    - name: debug
+      type: debug
 
     # Override policy for environment-specific configs
     - name: fern-platform-config
@@ -89,52 +98,39 @@ spec:
           - name: postgres
             properties:
               replicas: 1
-              cpu: "500m"
-              memory: "512Mi"
           - name: redis
             properties:
               replicas: 1
-              cpu: "100m"
-              memory: "128Mi"
-          - name: fern-reporter
+          - name: fern-platform
             properties:
               replicas: 1
-              cpu: "200m"
-              memory: "256Mi"
 
   workflow:
     steps:
-      # Step 1: Deploy infrastructure first
-      - name: deploy-infrastructure
-        type: deploy
+      # Step 1: Deploy PostgreSQL database first
+      - name: deploy-database
+        type: apply-component
         properties:
-          policies: ["local-cluster"]
-        outputs:
-          - name: postgres-ready
-            valueFrom: postgres.status.readyReplicas
-          - name: redis-ready
-            valueFrom: redis.status.readyReplicas
-
-      # Step 2: Wait for infrastructure to be ready
+          component: postgres
+      
+      # Step 2: Deploy Redis cache
+      - name: deploy-redis
+        type: apply-component
+        properties:
+          component: redis
+      
+      # Step 3: Wait for infrastructure to be ready
       - name: wait-for-infrastructure
         type: suspend
-        timeout: 300s
-        inputs:
-          - from: postgres-ready
-          - from: redis-ready
-
-      # Step 3: Deploy application services
-      - name: deploy-services
-        type: deploy
+        properties:
+          duration: 60s
+      
+      # Step 4: Deploy fern-platform after infrastructure is ready
+      - name: deploy-application
+        type: apply-component
         dependsOn:
+          - deploy-database
+          - deploy-redis
           - wait-for-infrastructure
         properties:
-          policies: ["local-cluster", "fern-platform-config"]
-          auto: true
-
----
-# Namespace for the application
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: fern-platform
+          component: fern-platform

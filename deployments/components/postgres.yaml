@@ -13,6 +13,8 @@ spec:
   schematic:
     cue:
       template: |
+        import ("encoding/base64")
+
         output: {
         	apiVersion: "postgresql.cnpg.io/v1"
         	kind:       "Cluster"
@@ -51,7 +53,7 @@ spec:
         		}
         	}
         }
-        
+
         outputs: credentials: {
         	apiVersion: "v1"
         	kind:       "Secret"
@@ -65,7 +67,7 @@ spec:
         		password: base64.Encode(parameter.password)
         	}
         }
-        
+
         parameter: {
         	// +usage=Number of PostgreSQL instances
         	instances: *1 | int
