@@ -42,7 +42,9 @@
       "Bash(git add:*)",
       "Bash(git commit:*)",
       "Bash(kubectl create:*)",
-      "WebFetch(domain:kubevela.io)"
+      "WebFetch(domain:kubevela.io)",
+      "Bash(helm upgrade:*)",
+      "Bash(find:*)"
     ],
     "deny": []
   }
