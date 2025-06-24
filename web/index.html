@@ -3216,108 +3216,165 @@
                 }
             };
 
-            // Generate suite data from test run (using existing logic from dashboard)
-            const generateSuiteData = (testRun) => {
-                const suiteTemplates = [
-                    { name: 'API Tests', description: 'REST endpoints and GraphQL API tests', weight: 0.6, failureRate: 0.3 },
-                    { name: 'Integration Tests', description: 'End-to-end workflow tests', weight: 0.3, failureRate: 0.15 },
-                    { name: 'UI Tests', description: 'Frontend component and interaction tests', weight: 0.1, failureRate: 0.1 }
-                ];
 
-                return suiteTemplates.map((template, index) => {
-                    const totalTests = Math.floor((testRun.total_tests || 0) * template.weight);
-                    const failedTests = Math.floor(totalTests * template.failureRate);
-                    const passedTests = totalTests - failedTests;
-                    const skippedTests = Math.floor(totalTests * 0.05); // 5% skipped
-                    const adjustedPassed = Math.max(0, passedTests - skippedTests);
 
-                    // Calculate timing (in milliseconds)
-                    const baseDuration = (testRun.duration_ms || 30000) * template.weight;
-                    const variance = baseDuration * 0.3; // 30% variance
-                    const duration = Math.floor(baseDuration + (Math.random() - 0.5) * variance);
+            // Extract real suite data from test run metadata
+            const extractSuitesFromMetadata = (suiteRuns, testRun) => {
+                return suiteRuns.map(suiteRun => {
+                    // Calculate suite statistics from spec runs
+                    let totalTests = 0;
+                    let passedTests = 0;
+                    let failedTests = 0;
+                    let skippedTests = 0;
+                    
+                    suiteRun.spec_runs.forEach(specRun => {
+                        totalTests++;
+                        switch (specRun.status) {
+                            case 'passed':
+                                passedTests++;
+                                break;
+                            case 'failed':
+                                failedTests++;
+                                break;
+                            case 'skipped':
+                            case 'pending':
+                                skippedTests++;
+                                break;
+                        }
+                    });
+
+                    // Calculate duration from start/end times
+                    let duration = 0;
+                    if (suiteRun.start_time && suiteRun.end_time) {
+                        const start = new Date(suiteRun.start_time);
+                        const end = new Date(suiteRun.end_time);
+                        duration = end.getTime() - start.getTime();
+                    }
+
+                    // Determine overall suite status
+                    let status = 'passed';
+                    if (failedTests > 0) {
+                        status = 'failed';
+                    } else if (skippedTests > 0) {
+                        status = 'passed_with_skipped';
+                    }
 
                     return {
-                        id: index + 1,
-                        name: template.name,
-                        description: template.description,
+                        id: suiteRun.id,
+                        name: suiteRun.suite_name,
                         total_tests: totalTests,
-                        passed_tests: adjustedPassed,
+                        passed_tests: passedTests,
                         failed_tests: failedTests,
                         skipped_tests: skippedTests,
                         duration_ms: duration,
-                        status: failedTests > 0 ? 'failed' : (skippedTests > 0 ? 'passed_with_skipped' : 'passed'),
-                        test_run_id: testRun.id
+                        status: status,
+                        test_run_id: testRun.id,
+                        spec_runs: suiteRun.spec_runs // Store the real spec data
                     };
                 });
             };
 
-            // Generate spec data from suite
-            const generateSpecData = (suite) => {
-                const specTypes = [
-                    'Authentication flow validation',
-                    'Data persistence verification',
-                    'API response format check',
-                    'Error handling validation',
-                    'Performance boundary test',
-                    'Security validation',
-                    'Integration workflow test',
-                    'UI component rendering',
-                    'User interaction flow',
-                    'Database transaction test'
-                ];
-
-                const specs = [];
-                const totalSpecs = suite.total_tests;
-                
-                for (let i = 0; i < totalSpecs; i++) {
-                    let status;
-                    if (i < suite.passed_tests) {
-                        status = 'passed';
-                    } else if (i < suite.passed_tests + suite.failed_tests) {
-                        status = 'failed';
-                    } else {
-                        status = 'skipped';
-                    }
-
-                    // Random spec duration (100ms to 5000ms)
-                    const duration = Math.floor(Math.random() * 4900) + 100;
-                    
-                    // Error message for failed tests
-                    const errorMessages = [
-                        'Expected response status 200, got 500',
-                        'Assertion failed: element not found',
-                        'Database connection timeout',
-                        'Authentication token expired',
-                        'Invalid JSON response format'
-                    ];
-
-                    specs.push({
-                        id: i + 1,
-                        name: `${specTypes[i % specTypes.length]} ${Math.floor(i / specTypes.length) + 1}`,
-                        description: `Validates ${specTypes[i % specTypes.length].toLowerCase()} for the ${suite.name.toLowerCase()}`,
-                        status: status,
-                        duration_ms: duration,
-                        error_message: status === 'failed' ? errorMessages[Math.floor(Math.random() * errorMessages.length)] : null,
-                        suite_id: suite.id,
-                        started_at: new Date(Date.now() - Math.random() * 3600000).toISOString(), // Random time in last hour
-                        finished_at: new Date(Date.now() - Math.random() * 3600000 + duration).toISOString()
-                    });
-                }
-
-                return specs;
-            };
-
-            const handleRunClick = (run) => {
+            const handleRunClick = async (run) => {
                 setSelectedRun(run);
                 setSelectedSuite(null);
-                const suites = generateSuiteData(run);
+                
+                // Try to get detailed test run data with suite runs from API
+                let suites = [];
+                
+                try {
+                    const response = await fetch(`/api/v1/test-runs/by-run-id/${run.run_id}`);
+                    if (response.ok) {
+                        const detailedRun = await response.json();
+                        console.log('Fetched detailed run:', detailedRun);
+                        
+                        // Use the actual SuiteRuns relationship from the database
+                        if (detailedRun.suite_runs && detailedRun.suite_runs.length > 0) {
+                            suites = detailedRun.suite_runs.map(suiteRun => ({
+                                id: suiteRun.id,
+                                name: suiteRun.suite_name,
+                                total_tests: suiteRun.spec_runs ? suiteRun.spec_runs.length : 0,
+                                passed_tests: suiteRun.spec_runs ? suiteRun.spec_runs.filter(spec => spec.status === 'passed').length : 0,
+                                failed_tests: suiteRun.spec_runs ? suiteRun.spec_runs.filter(spec => spec.status === 'failed').length : 0,
+                                skipped_tests: suiteRun.spec_runs ? suiteRun.spec_runs.filter(spec => spec.status === 'skipped' || spec.status === 'pending').length : 0,
+                                duration_ms: suiteRun.duration_ms,
+                                status: suiteRun.status,
+                                test_run_id: run.id,
+                                spec_runs: suiteRun.spec_runs || [] // Include the spec runs
+                            }));
+                        } else if (detailedRun.metadata && detailedRun.metadata.suite_runs) {
+                            // Fallback to metadata if no database relationships exist
+                            console.log('Falling back to metadata suite_runs');
+                            suites = extractSuitesFromMetadata(detailedRun.metadata.suite_runs, run);
+                        }
+                    }
+                } catch (error) {
+                    console.warn('Failed to fetch detailed test run data:', error);
+                }
+                
+                // Show error if no real data available
+                if (suites.length === 0) {
+                    console.warn('No real suite data found for:', run.project_name || run.project_id);
+                    setError(`No test suite data available for this test run. The run may not have been properly reported by fern-ginkgo-client.`);
+                    return;
+                }
+                
                 setSuiteData(suites);
                 setView('suites');
             };
 
+            // Extract real spec data from suite metadata
+            const extractSpecsFromMetadata = (specRuns) => {
+                return specRuns.map((specRun, index) => {
+                    // Calculate duration from start/end times
+                    let duration = 0;
+                    if (specRun.start_time && specRun.end_time) {
+                        const start = new Date(specRun.start_time);
+                        const end = new Date(specRun.end_time);
+                        duration = end.getTime() - start.getTime();
+                    }
+
+                    return {
+                        id: specRun.id || index + 1,
+                        name: specRun.spec_description,
+                        status: specRun.status,
+                        duration_ms: duration,
+                        error_message: specRun.message || null,
+                        suite_id: specRun.suite_id,
+                        started_at: specRun.start_time,
+                        finished_at: specRun.end_time,
+                        tags: specRun.tags || []
+                    };
+                });
+            };
+
             const handleSuiteClick = (suite) => {
                 setSelectedSuite(suite);
-                const specs = generateSpecData(suite);
+                
+                let specs = [];
+                
+                // Use real spec data from database relationships or metadata
+                if (suite.spec_runs && suite.spec_runs.length > 0) {
+                    // Map database SpecRun entities to our spec format
+                    specs = suite.spec_runs.map((specRun, index) => {
+                        return {
+                            id: specRun.id || index + 1,
+                            name: specRun.spec_description || specRun.spec_name || '[Test Setup/Teardown]',
+                            status: specRun.status,
+                            duration_ms: specRun.duration_ms,
+                            error_message: specRun.error_message || null,
+                            suite_id: specRun.suite_run_id,
+                            started_at: specRun.start_time,
+                            finished_at: specRun.end_time,
+                            tags: []
+                        };
+                    });
+                } else {
+                    // Show error if no real spec data available
+                    console.warn('No real spec data found for suite:', suite.name);
+                    setError(`No test spec data available for this suite. The suite may not have been properly reported by fern-ginkgo-client.`);
+                    return;
+                }
+                
                 setSpecData(specs);
                 setView('specs');
             };
@@ -3492,7 +3549,6 @@
                                 <thead>
                                     <tr>
                                         <th>Suite Name</th>
-                                        <th>Description</th>
                                         <th>Test Results</th>
                                         <th>Status</th>
                                         <th>Duration</th>
@@ -3508,9 +3564,6 @@
                                         >
                                             <td>
                                                 <div style={{fontWeight: '600', fontSize: '0.875rem'}}>{suite.name}</div>
-                                            </td>
-                                            <td>
-                                                <div style={{fontSize: '0.875rem', color: 'var(--text-secondary)'}}>{suite.description}</div>
                                             </td>
                                             <td>
                                                 <div style={{display: 'flex', gap: '0.75rem', alignItems: 'center', fontSize: '0.875rem', fontWeight: '500'}}>
@@ -3572,9 +3625,6 @@
                                         <tr key={spec.id}>
                                             <td>
                                                 <div style={{fontWeight: '600', fontSize: '0.875rem'}}>{spec.name}</div>
-                                                <div style={{fontSize: '0.75rem', color: 'var(--text-tertiary)', marginTop: '0.25rem'}}>
-                                                    {spec.description}
-                                                </div>
                                             </td>
                                             <td>
                                                 <span className={`status ${spec.status === 'passed' ? 'healthy' : spec.status === 'failed' ? 'error' : 'warning'}`}>

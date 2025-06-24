@@ -49,6 +49,28 @@ type CreateTestRunInput struct {
 	PassedTests   int               `json:"passed_tests,omitempty"`
 	FailedTests   int               `json:"failed_tests,omitempty"`
 	SkippedTests  int               `json:"skipped_tests,omitempty"`
+	SuiteRuns     []CreateSuiteRunInput `json:"suite_runs,omitempty"`
+}
+
+// CreateSuiteRunInput represents input for creating a suite run
+type CreateSuiteRunInput struct {
+	SuiteName string              `json:"suite_name" binding:"required"`
+	StartTime string              `json:"start_time"`
+	EndTime   string              `json:"end_time"`
+	SpecRuns  []CreateSpecRunInput `json:"spec_runs,omitempty"`
+}
+
+// CreateSpecRunInput represents input for creating a spec run
+type CreateSpecRunInput struct {
+	SpecDescription string `json:"spec_description" binding:"required"`
+	Status          string `json:"status" binding:"required"`
+	Message         string `json:"message"`
+	StartTime       string `json:"start_time"`
+	EndTime         string `json:"end_time"`
+	Tags            []struct {
+		ID   uint64 `json:"id"`
+		Name string `json:"name"`
+	} `json:"tags"`
 }
 
 // CreateTestRun creates a new test run
@@ -108,6 +130,99 @@ func (s *TestRunService) CreateTestRun(input CreateTestRunInput) (*database.Test
 	s.logger.WithTestRun(input.RunID, input.ProjectID).
 		WithField("test_run_id", testRun.ID).
 		Info("Test run created successfully")
+
+	return testRun, nil
+}
+
+// CreateTestRunWithSuites creates a complete test run with suite runs and spec runs
+func (s *TestRunService) CreateTestRunWithSuites(input CreateTestRunInput) (*database.TestRun, error) {
+	s.logger.WithTestRun(input.RunID, input.ProjectID).Info("Creating test run with suites and specs")
+
+	// First create the test run
+	testRun, err := s.CreateTestRun(input)
+	if err != nil {
+		return nil, err
+	}
+
+	// Create suite runs and spec runs
+	for _, suiteInput := range input.SuiteRuns {
+		// Parse suite start time
+		var suiteStartTime time.Time
+		if suiteInput.StartTime != "" {
+			if parsedTime, err := time.Parse(time.RFC3339, suiteInput.StartTime); err == nil {
+				suiteStartTime = parsedTime
+			} else {
+				suiteStartTime = testRun.StartTime
+			}
+		} else {
+			suiteStartTime = testRun.StartTime
+		}
+
+		// Create suite run
+		suiteRun, err := s.AddSuiteRun(testRun.ID, suiteInput.SuiteName, suiteStartTime)
+		if err != nil {
+			s.logger.WithError(err).Error("Failed to create suite run")
+			continue
+		}
+
+		// Parse suite end time and update if provided
+		if suiteInput.EndTime != "" {
+			if parsedTime, err := time.Parse(time.RFC3339, suiteInput.EndTime); err == nil {
+				if err := s.UpdateSuiteRunStatus(suiteRun.ID, "completed", &parsedTime); err != nil {
+					s.logger.WithError(err).Warn("Failed to update suite run end time")
+				}
+			}
+		}
+
+		// Create spec runs
+		for _, specInput := range suiteInput.SpecRuns {
+			// Parse spec start and end times
+			var specStartTime, specEndTime time.Time
+			if specInput.StartTime != "" {
+				if parsedTime, err := time.Parse(time.RFC3339, specInput.StartTime); err == nil {
+					specStartTime = parsedTime
+				} else {
+					specStartTime = suiteStartTime
+				}
+			} else {
+				specStartTime = suiteStartTime
+			}
+
+			if specInput.EndTime != "" {
+				if parsedTime, err := time.Parse(time.RFC3339, specInput.EndTime); err == nil {
+					specEndTime = parsedTime
+				} else {
+					specEndTime = specStartTime.Add(time.Second) // Default 1 second duration
+				}
+			} else {
+				specEndTime = specStartTime.Add(time.Second) // Default 1 second duration
+			}
+
+			// Create spec run
+			_, err := s.AddSpecRun(
+				suiteRun.ID,
+				specInput.SpecDescription,
+				specInput.Status,
+				specStartTime,
+				specEndTime,
+				specInput.Message,
+				"", // No stack trace in input
+			)
+			if err != nil {
+				s.logger.WithError(err).Error("Failed to create spec run")
+			}
+		}
+	}
+
+	// Recalculate test run statistics from the actual suite runs
+	if err := s.calculateTestRunStats(testRun); err != nil {
+		s.logger.WithError(err).Warn("Failed to calculate test run stats")
+	}
+
+	s.logger.WithTestRun(input.RunID, input.ProjectID).
+		WithField("test_run_id", testRun.ID).
+		WithField("suite_count", len(input.SuiteRuns)).
+		Info("Test run with suites created successfully")
 
 	return testRun, nil
 }

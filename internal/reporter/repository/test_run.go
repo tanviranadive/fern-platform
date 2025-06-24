@@ -31,7 +31,8 @@ func (r *TestRunRepository) CreateTestRun(testRun *database.TestRun) error {
 // GetTestRunByID retrieves a test run by ID with all related data
 func (r *TestRunRepository) GetTestRunByID(id uint) (*database.TestRun, error) {
 	var testRun database.TestRun
-	err := r.db.Preload("Tags").
+	err := r.db.Select("id, created_at, updated_at, deleted_at, project_id, run_id, branch, commit_sha, status, start_time, end_time, total_tests, passed_tests, failed_tests, skipped_tests, duration_ms, environment").
+		Preload("Tags").
 		Preload("SuiteRuns").
 		Preload("SuiteRuns.SpecRuns").
 		First(&testRun, id).Error
@@ -41,7 +42,8 @@ func (r *TestRunRepository) GetTestRunByID(id uint) (*database.TestRun, error) {
 // GetTestRunByRunID retrieves a test run by run_id with all related data
 func (r *TestRunRepository) GetTestRunByRunID(runID string) (*database.TestRun, error) {
 	var testRun database.TestRun
-	err := r.db.Preload("Tags").
+	err := r.db.Select("id, created_at, updated_at, deleted_at, project_id, run_id, branch, commit_sha, status, start_time, end_time, total_tests, passed_tests, failed_tests, skipped_tests, duration_ms, environment").
+		Preload("Tags").
 		Preload("SuiteRuns").
 		Preload("SuiteRuns.SpecRuns").
 		Where("run_id = ?", runID).
@@ -138,100 +140,66 @@ func (r *TestRunRepository) ListTestRuns(filter ListTestRunsFilter) ([]*database
 		query = query.Offset(filter.Offset)
 	}
 
-	// Preload related data and exclude metadata to avoid scanning issues
-	query = query.Preload("Tags").Select("id, created_at, updated_at, deleted_at, project_id, run_id, branch, commit_sha, status, start_time, end_time, total_tests, passed_tests, failed_tests, skipped_tests, duration_ms, environment")
+	// Preload related data and relationships, exclude metadata to avoid scanning issues
+	query = query.Select("id, created_at, updated_at, deleted_at, project_id, run_id, branch, commit_sha, status, start_time, end_time, total_tests, passed_tests, failed_tests, skipped_tests, duration_ms, environment").
+		Preload("Tags").Preload("SuiteRuns").Preload("SuiteRuns.SpecRuns")
 
 	var testRuns []*database.TestRun
 	err := query.Find(&testRuns).Error
 	return testRuns, total, err
 }
 
-// ListTestRunsWithProjects retrieves test runs with project names via JOIN
+// ListTestRunsWithProjects retrieves test runs with project names and relationships
 func (r *TestRunRepository) ListTestRunsWithProjects(filter ListTestRunsFilter) ([]*TestRunWithProject, int64, error) {
-	query := r.db.Table("test_runs").
-		Select("test_runs.id, test_runs.created_at, test_runs.updated_at, test_runs.deleted_at, test_runs.project_id, test_runs.run_id, test_runs.branch, test_runs.commit_sha, test_runs.status, test_runs.start_time, test_runs.end_time, test_runs.total_tests, test_runs.passed_tests, test_runs.failed_tests, test_runs.skipped_tests, test_runs.duration_ms, test_runs.environment, project_details.name as project_name").
-		Joins("LEFT JOIN project_details ON test_runs.project_id = project_details.project_id")
-
-	// Apply filters
-	if filter.ProjectID != "" {
-		query = query.Where("test_runs.project_id = ?", filter.ProjectID)
-	}
-	if filter.Branch != "" {
-		query = query.Where("test_runs.branch = ?", filter.Branch)
-	}
-	if filter.Status != "" {
-		query = query.Where("test_runs.status = ?", filter.Status)
-	}
-	if filter.Environment != "" {
-		query = query.Where("test_runs.environment = ?", filter.Environment)
-	}
-	if filter.StartTime != nil {
-		query = query.Where("test_runs.start_time >= ?", filter.StartTime)
-	}
-	if filter.EndTime != nil {
-		query = query.Where("test_runs.start_time <= ?", filter.EndTime)
-	}
-
-	// Filter by tags if provided
-	if len(filter.Tags) > 0 {
-		query = query.Joins("JOIN test_run_tags ON test_runs.id = test_run_tags.test_run_id").
-			Joins("JOIN tags ON test_run_tags.tag_id = tags.id").
-			Where("tags.name IN ?", filter.Tags).
-			Group("test_runs.id, project_details.name").
-			Having("COUNT(DISTINCT tags.id) = ?", len(filter.Tags))
-	}
-
-	// Get total count
-	var total int64
-	countQuery := r.db.Table("test_runs").
-		Joins("LEFT JOIN project_details ON test_runs.project_id = project_details.project_id")
-	
-	// Apply the same filters for count
-	if filter.ProjectID != "" {
-		countQuery = countQuery.Where("test_runs.project_id = ?", filter.ProjectID)
-	}
-	if filter.Branch != "" {
-		countQuery = countQuery.Where("test_runs.branch = ?", filter.Branch)
-	}
-	if filter.Status != "" {
-		countQuery = countQuery.Where("test_runs.status = ?", filter.Status)
-	}
-	if filter.Environment != "" {
-		countQuery = countQuery.Where("test_runs.environment = ?", filter.Environment)
-	}
-	if filter.StartTime != nil {
-		countQuery = countQuery.Where("test_runs.start_time >= ?", filter.StartTime)
-	}
-	if filter.EndTime != nil {
-		countQuery = countQuery.Where("test_runs.start_time <= ?", filter.EndTime)
-	}
-	
-	if err := countQuery.Count(&total).Error; err != nil {
+	// First get the test runs with all relationships using the regular method
+	testRuns, total, err := r.ListTestRuns(filter)
+	if err != nil {
 		return nil, 0, err
 	}
 
-	// Apply ordering
-	orderBy := "test_runs.start_time"
-	if filter.OrderBy != "" {
-		orderBy = "test_runs." + filter.OrderBy
-	}
-	order := "DESC"
-	if filter.Order != "" {
-		order = filter.Order
-	}
-	query = query.Order(fmt.Sprintf("%s %s", orderBy, order))
-
-	// Apply pagination
-	if filter.Limit > 0 {
-		query = query.Limit(filter.Limit)
-	}
-	if filter.Offset > 0 {
-		query = query.Offset(filter.Offset)
+	// Convert to TestRunWithProject and add project names
+	var testRunsWithProjects []*TestRunWithProject
+	
+	// Get all unique project IDs to batch fetch project names
+	projectMap := make(map[string]string)
+	var projectIDs []string
+	for _, tr := range testRuns {
+		if _, exists := projectMap[tr.ProjectID]; !exists {
+			projectIDs = append(projectIDs, tr.ProjectID)
+			projectMap[tr.ProjectID] = ""
+		}
 	}
 
-	var testRuns []*TestRunWithProject
-	err := query.Scan(&testRuns).Error
-	return testRuns, total, err
+	// Batch fetch project names
+	if len(projectIDs) > 0 {
+		var projects []struct {
+			ProjectID string `gorm:"column:project_id"`
+			Name      string `gorm:"column:name"`
+		}
+		err := r.db.Table("project_details").
+			Select("project_id, name").
+			Where("project_id IN ?", projectIDs).
+			Scan(&projects).Error
+		if err != nil {
+			return nil, 0, err
+		}
+
+		// Build project name map
+		for _, p := range projects {
+			projectMap[p.ProjectID] = p.Name
+		}
+	}
+
+	// Convert to TestRunWithProject
+	for _, tr := range testRuns {
+		testRunWithProject := &TestRunWithProject{
+			TestRun:     *tr,
+			ProjectName: projectMap[tr.ProjectID],
+		}
+		testRunsWithProjects = append(testRunsWithProjects, testRunWithProject)
+	}
+
+	return testRunsWithProjects, total, nil
 }
 
 // GetTestRunStats returns aggregated statistics for test runs

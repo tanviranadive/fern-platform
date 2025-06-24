@@ -648,6 +648,29 @@ func (h *Handler) createFernTestReport(c *gin.Context) {
 	
 	commitSHA := input.GitSHA
 
+	// Convert suite runs from fern-ginkgo-client format to our service format
+	var suiteRuns []service.CreateSuiteRunInput
+	for _, suiteRun := range input.SuiteRuns {
+		var specRuns []service.CreateSpecRunInput
+		for _, specRun := range suiteRun.SpecRuns {
+			specRuns = append(specRuns, service.CreateSpecRunInput{
+				SpecDescription: specRun.SpecDescription,
+				Status:          specRun.Status,
+				Message:         specRun.Message,
+				StartTime:       specRun.StartTime,
+				EndTime:         specRun.EndTime,
+				Tags:            specRun.Tags,
+			})
+		}
+
+		suiteRuns = append(suiteRuns, service.CreateSuiteRunInput{
+			SuiteName: suiteRun.SuiteName,
+			StartTime: suiteRun.StartTime,
+			EndTime:   suiteRun.EndTime,
+			SpecRuns:  specRuns,
+		})
+	}
+
 	testRunInput := service.CreateTestRunInput{
 		ProjectID:     projectID,
 		RunID:         fmt.Sprintf("ginkgo-run-%d-%d", input.TestSeed, time.Now().Unix()),
@@ -663,9 +686,10 @@ func (h *Handler) createFernTestReport(c *gin.Context) {
 		PassedTests:   passedTests,
 		FailedTests:   failedTests,
 		SkippedTests:  skippedTests,
+		SuiteRuns:     suiteRuns,
 	}
 
-	testRun, err := h.testRunService.CreateTestRun(testRunInput)
+	testRun, err := h.testRunService.CreateTestRunWithSuites(testRunInput)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
