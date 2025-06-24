@@ -42,7 +42,7 @@ func TestIntegrationAcceptance(t *testing.T) {
 	RegisterFailHandler(Fail)
 
 	// Configure fern-ginkgo-client to report to the deployed platform
-	fernApiClient := fern.New("d04c8eed-6b99-40af-bf74-adeda2f2fd7b", fern.WithBaseURL("http://localhost:8080"))
+	fernApiClient := fern.New("8a02b62f-1bb4-408a-ad2d-1dca8c1f1449", fern.WithBaseURL("http://localhost:8080"))
 
 	// Register the fern reporter with correct signature for Ginkgo v2
 	ReportAfterSuite("Fern Platform Reporter", func(report types.Report) {
