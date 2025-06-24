@@ -35,7 +35,7 @@ spec:
         - postgres
         - redis
       properties:
-        image: fern-platform:latest
+        image: anoop2811/fern-platform:67a81b4-dirty8
         imagePullPolicy: IfNotPresent
         namespace: fern-platform
         ports:
