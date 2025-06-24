@@ -42,6 +42,15 @@
         .fas.fa-home::before { content: "🏠"; }
         .fas.fa-chevron-right::before { content: "▶"; }
         .fas.fa-arrow-left::before { content: "←"; }
+        .fas.fa-star::before { content: "⭐"; }
+        .far.fa-star::before { content: "☆"; }
+        .fas.fa-cog::before { content: "⚙️"; }
+        .fas.fa-adjust::before { content: "🌗"; }
+        .fas.fa-times::before { content: "✕"; }
+        .fas.fa-palette::before { content: "🎨"; }
+        .fas.fa-filter::before { content: "🔽"; }
+        .fas.fa-sort::before { content: "↕️"; }
+        .fas.fa-eye::before { content: "👁️"; }
         
         /* Ensure icons work when FontAwesome loads */
         .fas[class*="fa-"]::before {
@@ -977,6 +986,342 @@
             border-color: var(--primary);
             box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
         }
+
+        /* Settings Panel Styles */
+        .settings-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(8px);
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all var(--transition-normal);
+        }
+
+        .settings-overlay.open {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .settings-panel {
+            position: fixed;
+            top: 0;
+            right: 0;
+            height: 100vh;
+            width: 420px;
+            background: var(--bg-elevated);
+            border-left: 1px solid var(--border-light);
+            box-shadow: var(--shadow-xl);
+            transform: translateX(100%);
+            transition: transform var(--transition-normal);
+            z-index: 1001;
+            overflow-y: auto;
+        }
+
+        .settings-panel.open {
+            transform: translateX(0);
+        }
+
+        .settings-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1.5rem 2rem;
+            border-bottom: 1px solid var(--border-light);
+            background: var(--bg-primary);
+        }
+
+        .settings-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .settings-close {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 1.25rem;
+            padding: 0.5rem;
+            border-radius: var(--radius-md);
+            transition: all var(--transition-fast);
+        }
+
+        .settings-close:hover {
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+        }
+
+        .settings-content {
+            padding: 2rem;
+        }
+
+        .settings-section {
+            margin-bottom: 2rem;
+        }
+
+        .settings-section:last-child {
+            margin-bottom: 0;
+        }
+
+        .settings-section-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .settings-option {
+            margin-bottom: 1rem;
+        }
+
+        .settings-option:last-child {
+            margin-bottom: 0;
+        }
+
+        .settings-label {
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+            margin-bottom: 0.5rem;
+            display: block;
+        }
+
+        .theme-selector {
+            display: flex;
+            gap: 0.5rem;
+            background: var(--bg-secondary);
+            border-radius: var(--radius-lg);
+            padding: 0.25rem;
+        }
+
+        .theme-option {
+            flex: 1;
+            padding: 0.75rem;
+            border: none;
+            background: none;
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+            transition: all var(--transition-fast);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        .theme-option.active {
+            background: var(--primary);
+            color: white;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .theme-option:hover:not(.active) {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+
+        .settings-toggle {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.75rem 1rem;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-light);
+            border-radius: var(--radius-lg);
+            cursor: pointer;
+            transition: all var(--transition-fast);
+        }
+
+        .settings-toggle:hover {
+            border-color: var(--primary);
+        }
+
+        .toggle-label {
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+
+        .toggle-switch {
+            position: relative;
+            width: 44px;
+            height: 24px;
+            background: var(--bg-tertiary);
+            border-radius: 12px;
+            border: 1px solid var(--border-light);
+            transition: all var(--transition-fast);
+        }
+
+        .toggle-switch.active {
+            background: var(--primary);
+            border-color: var(--primary);
+        }
+
+        .toggle-switch::after {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 18px;
+            height: 18px;
+            background: white;
+            border-radius: 50%;
+            transition: transform var(--transition-fast);
+            box-shadow: var(--shadow-xs);
+        }
+
+        .toggle-switch.active::after {
+            transform: translateX(20px);
+        }
+
+        .order-selector {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-light);
+            border-radius: var(--radius-lg);
+            padding: 0.75rem 1rem;
+            color: var(--text-primary);
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            appearance: none;
+            width: 100%;
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
+            background-position: right 0.75rem center;
+            background-repeat: no-repeat;
+            background-size: 1rem;
+            padding-right: 2.5rem;
+        }
+
+        .order-selector:hover {
+            border-color: var(--primary);
+        }
+
+        .order-selector:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+        }
+
+        .project-checklist {
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid var(--border-light);
+            border-radius: var(--radius-lg);
+            background: var(--bg-secondary);
+        }
+
+        .project-checkbox {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--border-light);
+            cursor: pointer;
+            transition: background-color var(--transition-fast);
+        }
+
+        .project-checkbox:last-child {
+            border-bottom: none;
+        }
+
+        .project-checkbox:hover {
+            background: var(--bg-tertiary);
+        }
+
+        .project-checkbox input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+            accent-color: var(--primary);
+        }
+
+        .project-checkbox-label {
+            font-size: 0.875rem;
+            color: var(--text-primary);
+            font-weight: 500;
+            flex: 1;
+        }
+
+        .settings-actions {
+            display: flex;
+            gap: 1rem;
+            margin-top: 2rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid var(--border-light);
+        }
+
+        .settings-button {
+            flex: 1;
+            padding: 0.75rem 1.5rem;
+            border-radius: var(--radius-lg);
+            font-size: 0.875rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            border: 1px solid var(--border-light);
+        }
+
+        .settings-button.primary {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+
+        .settings-button.primary:hover {
+            background: var(--primary-dark);
+        }
+
+        .settings-button.secondary {
+            background: var(--bg-secondary);
+            color: var(--text-secondary);
+        }
+
+        .settings-button.secondary:hover {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+
+        .favorite-star {
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            color: var(--text-tertiary);
+            font-size: 1rem;
+        }
+
+        .favorite-star:hover {
+            color: #fbbf24;
+            transform: scale(1.1);
+        }
+
+        .favorite-star.favorited {
+            color: #fbbf24;
+        }
+
+        .favorites-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: var(--primary);
+            color: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: var(--radius-md);
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
     </style>
 </head>
 <body>
@@ -985,23 +1330,421 @@
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
 
-        // Theme Management
-        function useTheme() {
-            const [theme, setTheme] = useState(() => {
-                const saved = localStorage.getItem('theme');
-                return saved || 'light';
-            });
-
-            useEffect(() => {
-                document.documentElement.setAttribute('data-theme', theme);
-                localStorage.setItem('theme', theme);
-            }, [theme]);
-
-            const toggleTheme = () => {
-                setTheme(prev => prev === 'light' ? 'dark' : 'light');
+        // User preferences management system
+        function useUserPreferences() {
+            // Default preferences structure
+            const defaultPreferences = {
+                theme: 'auto', // 'light', 'dark', 'auto'
+                favorites: [], // Array of project IDs
+                showFavoritesOnly: false,
+                projectOrder: 'default', // 'default', 'alphabetical', 'recent', 'success-rate', 'custom'
+                customProjectOrder: [], // Array of project IDs in custom order
+                managerDashboard: {
+                    enabled: false,
+                    selectedProjects: [], // Array of project IDs to include in uber treemap
+                },
+                version: 1 // For future migrations
             };
 
-            return { theme, toggleTheme };
+            // Initialize preferences from localStorage or defaults
+            const [preferences, setPreferences] = useState(() => {
+                try {
+                    const saved = localStorage.getItem('fern-platform-preferences');
+                    const parsed = saved ? JSON.parse(saved) : {};
+                    return { ...defaultPreferences, ...parsed };
+                } catch (error) {
+                    console.warn('Failed to load preferences, using defaults:', error);
+                    return defaultPreferences;
+                }
+            });
+
+            // Computed theme based on preference and system
+            const [effectiveTheme, setEffectiveTheme] = useState('light');
+
+            // Update effective theme when preferences change or system preference changes
+            useEffect(() => {
+                const updateEffectiveTheme = () => {
+                    let newTheme = preferences.theme;
+                    
+                    if (newTheme === 'auto') {
+                        // Detect system preference
+                        newTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+                    }
+                    
+                    setEffectiveTheme(newTheme);
+                    document.documentElement.setAttribute('data-theme', newTheme);
+                };
+
+                updateEffectiveTheme();
+
+                // Listen for system theme changes when in auto mode
+                const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+                const handleSystemThemeChange = () => {
+                    if (preferences.theme === 'auto') {
+                        updateEffectiveTheme();
+                    }
+                };
+
+                mediaQuery.addEventListener('change', handleSystemThemeChange);
+                return () => mediaQuery.removeEventListener('change', handleSystemThemeChange);
+            }, [preferences.theme]);
+
+            // Save preferences to localStorage whenever they change
+            useEffect(() => {
+                try {
+                    localStorage.setItem('fern-platform-preferences', JSON.stringify(preferences));
+                } catch (error) {
+                    console.error('Failed to save preferences:', error);
+                }
+            }, [preferences]);
+
+            // Preference update functions
+            const updatePreferences = (updates) => {
+                setPreferences(prev => ({ ...prev, ...updates }));
+            };
+
+            const setTheme = (theme) => {
+                updatePreferences({ theme });
+            };
+
+            const toggleTheme = () => {
+                const themes = ['light', 'dark', 'auto'];
+                const currentIndex = themes.indexOf(preferences.theme);
+                const nextTheme = themes[(currentIndex + 1) % themes.length];
+                setTheme(nextTheme);
+            };
+
+            const toggleFavorite = (projectId) => {
+                const newFavorites = preferences.favorites.includes(projectId)
+                    ? preferences.favorites.filter(id => id !== projectId)
+                    : [...preferences.favorites, projectId];
+                updatePreferences({ favorites: newFavorites });
+            };
+
+            const isFavorite = (projectId) => {
+                return preferences.favorites.includes(projectId);
+            };
+
+            const setShowFavoritesOnly = (show) => {
+                updatePreferences({ showFavoritesOnly: show });
+            };
+
+            const setProjectOrder = (order) => {
+                updatePreferences({ projectOrder: order });
+            };
+
+            const setCustomProjectOrder = (projectIds) => {
+                updatePreferences({ 
+                    customProjectOrder: projectIds,
+                    projectOrder: 'custom'
+                });
+            };
+
+            const updateManagerDashboard = (updates) => {
+                updatePreferences({ 
+                    managerDashboard: { ...preferences.managerDashboard, ...updates }
+                });
+            };
+
+            const resetPreferences = () => {
+                setPreferences(defaultPreferences);
+            };
+
+            // Helper function to sort projects based on preferences
+            const sortProjects = (projects) => {
+                if (!projects || projects.length === 0) return projects;
+
+                const { projectOrder, customProjectOrder } = preferences;
+
+                switch (projectOrder) {
+                    case 'alphabetical':
+                        return [...projects].sort((a, b) => 
+                            (a.name || a.project_id || '').localeCompare(b.name || b.project_id || '')
+                        );
+                    
+                    case 'recent':
+                        return [...projects].sort((a, b) => 
+                            new Date(b.last_run_time || 0) - new Date(a.last_run_time || 0)
+                        );
+                    
+                    case 'success-rate':
+                        return [...projects].sort((a, b) => {
+                            const aRate = a.total_tests > 0 ? (a.passed_tests || 0) / a.total_tests : 0;
+                            const bRate = b.total_tests > 0 ? (b.passed_tests || 0) / b.total_tests : 0;
+                            return bRate - aRate;
+                        });
+                    
+                    case 'custom':
+                        const ordered = [];
+                        const remaining = [...projects];
+                        
+                        // Add projects in custom order
+                        customProjectOrder.forEach(projectId => {
+                            const index = remaining.findIndex(p => 
+                                (p.project_id || p.id) === projectId
+                            );
+                            if (index !== -1) {
+                                ordered.push(remaining.splice(index, 1)[0]);
+                            }
+                        });
+                        
+                        // Add any remaining projects at the end
+                        return [...ordered, ...remaining];
+                    
+                    default:
+                        return projects;
+                }
+            };
+
+            // Filter projects based on favorites preference
+            const filterProjects = (projects) => {
+                if (!preferences.showFavoritesOnly || preferences.favorites.length === 0) {
+                    return projects;
+                }
+                
+                return projects.filter(project => 
+                    preferences.favorites.includes(project.project_id || project.id)
+                );
+            };
+
+            return {
+                preferences,
+                effectiveTheme,
+                theme: effectiveTheme, // For backward compatibility
+                updatePreferences,
+                setTheme,
+                toggleTheme,
+                toggleFavorite,
+                isFavorite,
+                setShowFavoritesOnly,
+                setProjectOrder,
+                setCustomProjectOrder,
+                updateManagerDashboard,
+                resetPreferences,
+                sortProjects,
+                filterProjects
+            };
+        }
+
+        // Settings Panel Component
+        function SettingsPanel({ isOpen, onClose, projects = [] }) {
+            const userPrefs = useUserPreferences();
+            const {
+                preferences,
+                setTheme,
+                setShowFavoritesOnly,
+                setProjectOrder,
+                updateManagerDashboard,
+                resetPreferences
+            } = userPrefs;
+
+            const handleOverlayClick = (e) => {
+                if (e.target === e.currentTarget) {
+                    onClose();
+                }
+            };
+
+            const handleProjectToggle = (projectId, checked) => {
+                const currentSelected = preferences.managerDashboard.selectedProjects;
+                const newSelected = checked
+                    ? [...currentSelected, projectId]
+                    : currentSelected.filter(id => id !== projectId);
+                
+                updateManagerDashboard({ selectedProjects: newSelected });
+            };
+
+            const handleSelectAllProjects = () => {
+                const allProjectIds = projects.map(p => p.project_id || p.id);
+                updateManagerDashboard({ selectedProjects: allProjectIds });
+            };
+
+            const handleDeselectAllProjects = () => {
+                updateManagerDashboard({ selectedProjects: [] });
+            };
+
+            return (
+                <div className={`settings-overlay ${isOpen ? 'open' : ''}`} onClick={handleOverlayClick}>
+                    <div className={`settings-panel ${isOpen ? 'open' : ''}`}>
+                        <div className="settings-header">
+                            <div className="settings-title">
+                                <i className="fas fa-cog"></i>
+                                User Preferences
+                            </div>
+                            <button className="settings-close" onClick={onClose}>
+                                <i className="fas fa-times"></i>
+                            </button>
+                        </div>
+
+                        <div className="settings-content">
+                            {/* Theme Section */}
+                            <div className="settings-section">
+                                <div className="settings-section-title">
+                                    <i className="fas fa-palette"></i>
+                                    Appearance
+                                </div>
+                                <div className="settings-option">
+                                    <label className="settings-label">Theme</label>
+                                    <div className="theme-selector">
+                                        <button
+                                            className={`theme-option ${preferences.theme === 'light' ? 'active' : ''}`}
+                                            onClick={() => setTheme('light')}
+                                        >
+                                            <i className="fas fa-sun"></i>
+                                            Light
+                                        </button>
+                                        <button
+                                            className={`theme-option ${preferences.theme === 'dark' ? 'active' : ''}`}
+                                            onClick={() => setTheme('dark')}
+                                        >
+                                            <i className="fas fa-moon"></i>
+                                            Dark
+                                        </button>
+                                        <button
+                                            className={`theme-option ${preferences.theme === 'auto' ? 'active' : ''}`}
+                                            onClick={() => setTheme('auto')}
+                                        >
+                                            <i className="fas fa-adjust"></i>
+                                            Auto
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Projects Section */}
+                            <div className="settings-section">
+                                <div className="settings-section-title">
+                                    <i className="fas fa-star"></i>
+                                    Projects
+                                </div>
+                                <div className="settings-option">
+                                    <div 
+                                        className="settings-toggle"
+                                        onClick={() => setShowFavoritesOnly(!preferences.showFavoritesOnly)}
+                                    >
+                                        <span className="toggle-label">Show favorites only</span>
+                                        <div className={`toggle-switch ${preferences.showFavoritesOnly ? 'active' : ''}`}></div>
+                                    </div>
+                                </div>
+                                {preferences.favorites.length > 0 && (
+                                    <div className="settings-option">
+                                        <label className="settings-label">
+                                            Favorited Projects ({preferences.favorites.length})
+                                        </label>
+                                        <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', lineHeight: '1.4' }}>
+                                            {preferences.favorites.map(id => {
+                                                const project = projects.find(p => (p.project_id || p.id) === id);
+                                                return project ? (project.name || project.project_id || id) : id;
+                                            }).join(', ')}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Project Order Section */}
+                            <div className="settings-section">
+                                <div className="settings-section-title">
+                                    <i className="fas fa-sort"></i>
+                                    Project Order
+                                </div>
+                                <div className="settings-option">
+                                    <label className="settings-label">Sort projects by</label>
+                                    <select 
+                                        className="order-selector"
+                                        value={preferences.projectOrder}
+                                        onChange={(e) => setProjectOrder(e.target.value)}
+                                    >
+                                        <option value="default">Default order</option>
+                                        <option value="alphabetical">Alphabetical (A-Z)</option>
+                                        <option value="recent">Most recent activity</option>
+                                        <option value="success-rate">Success rate (highest first)</option>
+                                        <option value="custom">Custom order</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            {/* Manager Dashboard Section */}
+                            <div className="settings-section">
+                                <div className="settings-section-title">
+                                    <i className="fas fa-tachometer-alt"></i>
+                                    Manager Dashboard
+                                </div>
+                                <div className="settings-option">
+                                    <div 
+                                        className="settings-toggle"
+                                        onClick={() => updateManagerDashboard({ enabled: !preferences.managerDashboard.enabled })}
+                                    >
+                                        <span className="toggle-label">Enable uber treemap view</span>
+                                        <div className={`toggle-switch ${preferences.managerDashboard.enabled ? 'active' : ''}`}></div>
+                                    </div>
+                                </div>
+                                
+                                {preferences.managerDashboard.enabled && (
+                                    <div className="settings-option">
+                                        <label className="settings-label">
+                                            Select projects to include ({preferences.managerDashboard.selectedProjects.length} selected)
+                                        </label>
+                                        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                                            <button 
+                                                className="settings-button secondary"
+                                                onClick={handleSelectAllProjects}
+                                                style={{ fontSize: '0.75rem', padding: '0.5rem 0.75rem' }}
+                                            >
+                                                Select All
+                                            </button>
+                                            <button 
+                                                className="settings-button secondary"
+                                                onClick={handleDeselectAllProjects}
+                                                style={{ fontSize: '0.75rem', padding: '0.5rem 0.75rem' }}
+                                            >
+                                                Deselect All
+                                            </button>
+                                        </div>
+                                        <div className="project-checklist">
+                                            {projects.map(project => {
+                                                const projectId = project.project_id || project.id;
+                                                const isSelected = preferences.managerDashboard.selectedProjects.includes(projectId);
+                                                
+                                                return (
+                                                    <div 
+                                                        key={projectId}
+                                                        className="project-checkbox"
+                                                        onClick={() => handleProjectToggle(projectId, !isSelected)}
+                                                    >
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={isSelected}
+                                                            onChange={() => {}} // Handled by parent onClick
+                                                        />
+                                                        <span className="project-checkbox-label">
+                                                            {project.name || project.project_id || projectId}
+                                                        </span>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Actions */}
+                            <div className="settings-actions">
+                                <button 
+                                    className="settings-button secondary"
+                                    onClick={resetPreferences}
+                                >
+                                    Reset to Defaults
+                                </button>
+                                <button 
+                                    className="settings-button primary"
+                                    onClick={onClose}
+                                >
+                                    Save Preferences
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
         }
 
         // Utility functions
@@ -1046,14 +1789,32 @@
         }
 
         // Modern Header component
-        function Header({ health, projects, testRuns }) {
-            const { theme, toggleTheme } = useTheme();
+        function Header({ health, projects, testRuns, onOpenSettings }) {
+            const { theme, toggleTheme } = useUserPreferences();
             const activeProjects = projects.filter(p => p.is_active).length;
             const recentRuns = testRuns.filter(tr => {
                 const runDate = new Date(tr.start_time);
                 const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
                 return runDate > dayAgo;
             }).length;
+
+            const getThemeIcon = () => {
+                switch (theme) {
+                    case 'light': return 'fas fa-sun';
+                    case 'dark': return 'fas fa-moon';
+                    case 'auto': return 'fas fa-adjust';
+                    default: return 'fas fa-adjust';
+                }
+            };
+
+            const getThemeTooltip = () => {
+                switch (theme) {
+                    case 'light': return 'Switch to dark theme';
+                    case 'dark': return 'Switch to auto theme';
+                    case 'auto': return 'Switch to light theme';
+                    default: return 'Toggle theme';
+                }
+            };
 
             return (
                 <div className="header">
@@ -1095,8 +1856,12 @@
                                 </div>
                             </div>
                             
-                            <button className="theme-toggle" onClick={toggleTheme} title="Toggle theme">
-                                <i className={theme === 'light' ? 'fas fa-moon' : 'fas fa-sun'}></i>
+                            <button className="theme-toggle" onClick={toggleTheme} title={getThemeTooltip()}>
+                                <i className={getThemeIcon()}></i>
+                            </button>
+
+                            <button className="theme-toggle" onClick={onOpenSettings} title="Open user preferences">
+                                <i className="fas fa-cog"></i>
                             </button>
                         </div>
                     </div>
@@ -2083,6 +2848,17 @@
             const [showHistory, setShowHistory] = useState(false);
             const [selectedProject, setSelectedProject] = useState(null);
 
+            // User preferences integration
+            const userPrefs = useUserPreferences();
+            const {
+                preferences,
+                toggleFavorite,
+                isFavorite,
+                setShowFavoritesOnly,
+                sortProjects,
+                filterProjects
+            } = userPrefs;
+
             const showProjectHistory = (project) => {
                 setSelectedProject(project);
                 setShowHistory(true);
@@ -2114,6 +2890,24 @@
                     setError(err.message);
                     setLoading(false);
                 }
+            };
+
+            // Apply user preferences to projects
+            const getDisplayProjects = () => {
+                let displayProjects = [...projects];
+                
+                // First filter by favorites if enabled
+                displayProjects = filterProjects(displayProjects);
+                
+                // Then sort according to preferences
+                displayProjects = sortProjects(displayProjects);
+                
+                return displayProjects;
+            };
+
+            const handleStarClick = (e, projectId) => {
+                e.stopPropagation(); // Prevent card click events
+                toggleFavorite(projectId);
             };
 
             if (loading) {
@@ -2150,10 +2944,23 @@
             return (
                 <div className="container fade-in">
                     <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem'}}>
-                        <h2 style={{color: 'var(--text-primary)', fontSize: '2rem', fontWeight: '700', letterSpacing: '-0.025em'}}>
-                            <i className="fas fa-chart-pie" style={{marginRight: '0.75rem', color: 'var(--primary)'}}></i>
-                            Test Summaries
-                        </h2>
+                        <div style={{display: 'flex', alignItems: 'center', gap: '1.5rem'}}>
+                            <h2 style={{color: 'var(--text-primary)', fontSize: '2rem', fontWeight: '700', letterSpacing: '-0.025em', margin: 0}}>
+                                <i className="fas fa-chart-pie" style={{marginRight: '0.75rem', color: 'var(--primary)'}}></i>
+                                Test Summaries
+                            </h2>
+                            
+                            {preferences.favorites.length > 0 && (
+                                <button 
+                                    className={`toggle-button ${preferences.showFavoritesOnly ? 'active' : ''}`}
+                                    onClick={() => setShowFavoritesOnly(!preferences.showFavoritesOnly)}
+                                    style={{fontSize: '0.875rem', padding: '0.5rem 1rem', minWidth: 'auto'}}
+                                >
+                                    <i className="fas fa-star"></i>
+                                    {preferences.showFavoritesOnly ? 'Show All' : `Favorites (${preferences.favorites.length})`}
+                                </button>
+                            )}
+                        </div>
                         
                         <div className="view-toggle">
                             <button 
@@ -2174,12 +2981,12 @@
                     </div>
 
                     {viewMode === 'treemap' && (
-                        <TreemapVisualization projects={projects} testRuns={testRuns} />
+                        <TreemapVisualization projects={getDisplayProjects()} testRuns={testRuns} />
                     )}
                     
-                    {viewMode === 'grid' && projects.length > 0 && (
+                    {viewMode === 'grid' && getDisplayProjects().length > 0 && (
                         <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(400px, 1fr))', gap: '2rem'}}>
-                            {projects.map(project => {
+                            {getDisplayProjects().map(project => {
                                 const projectRuns = testRuns.filter(run => run.project_id === project.id);
                                 const totalTests = projectRuns.reduce((sum, run) => sum + (run.total_tests || 0), 0);
                                 const passedTests = projectRuns.reduce((sum, run) => sum + (run.passed_tests || 0), 0);
@@ -2188,13 +2995,22 @@
                                 return (
                                     <div key={project.id} className="card">
                                         <div className="card-header">
-                                            <div>
-                                                <h3 style={{margin: '0 0 0.5rem 0', color: 'var(--text-primary)', fontSize: '1.25rem', fontWeight: '600'}}>
-                                                    {project.name}
-                                                </h3>
-                                                <p style={{margin: 0, color: 'var(--text-secondary)', fontSize: '0.875rem'}}>
-                                                    {project.description || 'No description provided'}
-                                                </p>
+                                            <div style={{display: 'flex', alignItems: 'flex-start', gap: '0.75rem', flex: 1}}>
+                                                <div style={{flex: 1}}>
+                                                    <h3 style={{margin: '0 0 0.5rem 0', color: 'var(--text-primary)', fontSize: '1.25rem', fontWeight: '600'}}>
+                                                        {project.name}
+                                                    </h3>
+                                                    <p style={{margin: 0, color: 'var(--text-secondary)', fontSize: '0.875rem'}}>
+                                                        {project.description || 'No description provided'}
+                                                    </p>
+                                                </div>
+                                                <button
+                                                    onClick={(e) => handleStarClick(e, project.project_id || project.id)}
+                                                    className={`star-button ${isFavorite(project.project_id || project.id) ? 'favorite' : ''}`}
+                                                    title={isFavorite(project.project_id || project.id) ? 'Remove from favorites' : 'Add to favorites'}
+                                                >
+                                                    <i className={`${isFavorite(project.project_id || project.id) ? 'fas' : 'far'} fa-star`}></i>
+                                                </button>
                                             </div>
                                             <span className={`status ${project.is_active ? 'active' : 'inactive'}`}>
                                                 {project.is_active ? 'Active' : 'Inactive'}
@@ -2248,6 +3064,14 @@
                         </div>
                     )}
 
+                    {getDisplayProjects().length === 0 && projects.length > 0 && preferences.showFavoritesOnly && (
+                        <div className="empty-state">
+                            <i className="fas fa-star"></i>
+                            <h3>No favorite projects</h3>
+                            <p>Star some projects to add them to your favorites list.</p>
+                        </div>
+                    )}
+                    
                     {projects.length === 0 && (
                         <div className="empty-state">
                             <i className="fas fa-folder-open"></i>
@@ -2664,6 +3488,7 @@
         function FernPlatform() {
             const { route, navigate } = useRouter();
             const [appData, setAppData] = useState({ health: null, projects: [], testRuns: [] });
+            const [showSettings, setShowSettings] = useState(false);
 
             useEffect(() => {
                 fetchAppData();
@@ -2702,11 +3527,24 @@
                 }
             };
 
+            const handleOpenSettings = () => {
+                setShowSettings(true);
+            };
+
+            const handleCloseSettings = () => {
+                setShowSettings(false);
+            };
+
             return (
                 <div>
-                    <Header {...appData} />
+                    <Header {...appData} onOpenSettings={handleOpenSettings} />
                     <Navigation route={route} navigate={navigate} />
                     {renderPage()}
+                    <SettingsPanel 
+                        isOpen={showSettings} 
+                        onClose={handleCloseSettings}
+                        projects={appData.projects}
+                    />
                 </div>
             );
         }
