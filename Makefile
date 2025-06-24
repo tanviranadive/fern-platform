@@ -238,6 +238,189 @@ info: ## Show project information
 	@echo "Go Version: $(shell go version)"
 	@echo "Binary: $(BUILD_DIR)/$(BINARY_NAME)"
 
+# Complete deployment automation
+deploy-all: ## Complete automated deployment (k3d + prerequisites + build + deploy)
+	@echo "🚀 Starting complete automated deployment of Fern Platform..."
+	@echo ""
+	@echo "This will:"
+	@echo "1. Check/create k3d cluster"
+	@echo "2. Install prerequisites (KubeVela, CNPG)"
+	@echo "3. Build and load Docker image"
+	@echo "4. Deploy application with KubeVela"
+	@echo "5. Resume workflow and verify deployment"
+	@echo ""
+	@$(MAKE) check-or-create-cluster
+	@$(MAKE) check-and-install-prerequisites
+	@$(MAKE) build-and-load-image
+	@$(MAKE) deploy-and-verify
+	@$(MAKE) start-port-forward-and-open
+	@echo ""
+	@echo "🎉 Fern Platform deployment completed successfully!"
+	@echo ""
+	@echo "🌐 Application is now accessible at: http://localhost:8080"
+	@echo "📡 Port forwarding is running in the background"
+	@echo ""
+	@echo "📊 Useful commands:"
+	@echo "   make k8s-status          - Check deployment status"
+	@echo "   make verify-cluster      - Verify all components"
+	@echo "   make stop-port-forward   - Stop port forwarding"
+	@echo "   make k8s-delete          - Delete deployment"
+	@echo "   make k3d-delete          - Delete entire cluster"
+
+check-or-create-cluster: ## Check if k3d cluster exists, create if not
+	@echo "🔍 Checking k3d cluster status..."
+	@if k3d cluster list | grep -q "fern-platform.*running"; then \
+		echo "✅ k3d cluster 'fern-platform' already exists and is running"; \
+		kubectl cluster-info --context k3d-fern-platform > /dev/null 2>&1 || (echo "❌ Cluster not accessible, recreating..." && k3d cluster delete fern-platform && k3d cluster create fern-platform --port "8080:80@loadbalancer" --agents 2); \
+	else \
+		echo "📦 Creating new k3d cluster 'fern-platform'..."; \
+		k3d cluster create fern-platform --port "8080:80@loadbalancer" --agents 2; \
+		echo "✅ k3d cluster created successfully"; \
+	fi
+	@echo "🔗 Setting kubectl context..."
+	@kubectl config use-context k3d-fern-platform
+	@echo "✅ Cluster ready"
+
+check-and-install-prerequisites: ## Check and install KubeVela and CNPG if not present
+	@echo "🔍 Checking and installing prerequisites..."
+	@$(MAKE) check-install-kubevela
+	@$(MAKE) check-install-cnpg
+	@$(MAKE) check-install-components
+	@echo "✅ All prerequisites ready"
+
+check-install-kubevela: ## Check if KubeVela is installed, install if not
+	@echo "📦 Checking KubeVela installation..."
+	@if kubectl get deployment kubevela-vela-core -n vela-system > /dev/null 2>&1; then \
+		echo "✅ KubeVela already installed"; \
+		if kubectl get deployment kubevela-vela-core -n vela-system -o jsonpath='{.status.readyReplicas}' | grep -q "1"; then \
+			echo "✅ KubeVela is ready"; \
+		else \
+			echo "⏳ Waiting for KubeVela to be ready..."; \
+			kubectl wait --for=condition=Available deployment/kubevela-vela-core -n vela-system --timeout=300s; \
+		fi \
+	else \
+		echo "🔧 Installing KubeVela..."; \
+		if ! command -v vela &> /dev/null; then \
+			echo "📥 Installing KubeVela CLI..."; \
+			curl -fsSl https://kubevela.io/script/install.sh | bash; \
+		fi; \
+		echo "📦 Installing KubeVela operator..."; \
+		helm repo add kubevela https://kubevela.github.io/charts > /dev/null 2>&1 || true; \
+		helm repo update > /dev/null 2>&1; \
+		helm install --create-namespace -n vela-system kubevela kubevela/vela-core --wait --timeout=10m; \
+		echo "✅ KubeVela installed successfully"; \
+	fi
+
+check-install-cnpg: ## Check if CloudNativePG is installed, install if not
+	@echo "📦 Checking CloudNativePG installation..."
+	@if kubectl get deployment cnpg-controller-manager -n cnpg-system > /dev/null 2>&1; then \
+		echo "✅ CloudNativePG already installed"; \
+		if kubectl get deployment cnpg-controller-manager -n cnpg-system -o jsonpath='{.status.readyReplicas}' | grep -q "1"; then \
+			echo "✅ CloudNativePG is ready"; \
+		else \
+			echo "⏳ Waiting for CloudNativePG to be ready..."; \
+			kubectl wait --for=condition=Available deployment/cnpg-controller-manager -n cnpg-system --timeout=300s; \
+		fi \
+	else \
+		echo "🔧 Installing CloudNativePG..."; \
+		helm repo add cnpg https://cloudnative-pg.github.io/charts > /dev/null 2>&1 || true; \
+		helm repo update > /dev/null 2>&1; \
+		helm upgrade --install cnpg --namespace cnpg-system --create-namespace cnpg/cloudnative-pg --wait --timeout=10m; \
+		echo "✅ CloudNativePG installed successfully"; \
+	fi
+
+check-install-components: ## Check and install component definitions
+	@echo "📦 Checking component definitions..."
+	@if kubectl get componentdefinition cloud-native-postgres > /dev/null 2>&1; then \
+		echo "✅ Component definitions already installed"; \
+	else \
+		echo "🔧 Installing component definitions..."; \
+		kubectl apply -f deployments/components/ > /dev/null 2>&1 || true; \
+		echo "✅ Component definitions installed"; \
+	fi
+
+build-and-load-image: ## Build Docker image and load into k3d cluster
+	@echo "🐳 Building and loading Docker image..."
+	@$(MAKE) docker-build
+	@echo "📥 Loading image into k3d cluster..."
+	@k3d image import fern-platform:latest -c fern-platform
+	@echo "✅ Image loaded successfully"
+
+deploy-and-verify: ## Deploy application and verify it's running
+	@echo "☸️ Deploying Fern Platform application..."
+	@echo "📁 Creating namespace..."
+	@kubectl create namespace fern-platform > /dev/null 2>&1 || echo "✅ Namespace already exists"
+	@echo "🚀 Applying KubeVela application..."
+	@kubectl apply -f deployments/fern-platform-kubevela.yaml
+	@echo "⏳ Waiting for initial deployment (60s)..."
+	@sleep 60
+	@echo "▶️ Resuming workflow..."
+	@vela workflow resume fern-platform -n fern-platform > /dev/null 2>&1 || echo "⚠️ Workflow may already be running"
+	@echo "⏳ Waiting for deployment to be ready..."
+	@timeout=300; \
+	while [ $$timeout -gt 0 ]; do \
+		if kubectl get pods -n fern-platform | grep fern-platform | grep -q "Running"; then \
+			echo "✅ Application is running!"; \
+			break; \
+		fi; \
+		echo "⏳ Still waiting for pods to be ready... ($$timeout seconds remaining)"; \
+		sleep 10; \
+		timeout=$$((timeout-10)); \
+	done; \
+	if [ $$timeout -eq 0 ]; then \
+		echo "⚠️ Deployment may still be in progress. Check status with: vela status fern-platform -n fern-platform"; \
+	fi
+	@echo "📊 Final status check..."
+	@kubectl get pods -n fern-platform
+	@echo ""
+	@echo "🌐 Application should be accessible via:"
+	@echo "   kubectl port-forward -n fern-platform svc/fern-platform 8080:8080"
+
+start-port-forward-and-open: ## Start port forwarding and open browser
+	@echo "📡 Starting port forward and opening browser..."
+	@echo "⏳ Waiting a moment for service to be ready..."
+	@sleep 5
+	@echo "🔗 Starting port forward in background..."
+	@pkill -f "kubectl.*port-forward.*fern-platform.*8080:8080" > /dev/null 2>&1 || true
+	@kubectl port-forward -n fern-platform svc/fern-platform 8080:8080 > /dev/null 2>&1 &
+	@echo "⏳ Waiting for port forward to establish..."
+	@sleep 3
+	@echo "🏥 Checking application health..."
+	@timeout=60; \
+	while [ $$timeout -gt 0 ]; do \
+		if curl -s http://localhost:8080/health > /dev/null 2>&1; then \
+			echo "✅ Application is healthy and responding!"; \
+			break; \
+		fi; \
+		echo "⏳ Waiting for application to respond... ($$timeout seconds remaining)"; \
+		sleep 2; \
+		timeout=$$((timeout-2)); \
+	done; \
+	if [ $$timeout -eq 0 ]; then \
+		echo "⚠️ Application may not be responding yet. Check logs with: kubectl logs -n fern-platform deployment/fern-platform"; \
+	fi
+	@echo "🌐 Opening browser..."
+	@if command -v open >/dev/null 2>&1; then \
+		open http://localhost:8080; \
+	elif command -v xdg-open >/dev/null 2>&1; then \
+		xdg-open http://localhost:8080; \
+	elif command -v wslview >/dev/null 2>&1; then \
+		wslview http://localhost:8080; \
+	else \
+		echo "⚠️ Could not detect how to open browser. Please manually open: http://localhost:8080"; \
+	fi
+	@echo "✅ Port forwarding started (PID: $$(pgrep -f 'kubectl.*port-forward.*fern-platform.*8080:8080' | head -1))"
+	@echo "📝 To stop port forwarding: make stop-port-forward"
+
+stop-port-forward: ## Stop port forwarding
+	@echo "🛑 Stopping port forward..."
+	@pkill -f "kubectl.*port-forward.*fern-platform.*8080:8080" > /dev/null 2>&1 || echo "⚠️ No port forward found"
+	@echo "✅ Port forwarding stopped"
+
+# Quick deployment for development (assumes cluster exists)
+deploy-quick: build-and-load-image deploy-and-verify start-port-forward-and-open ## Quick deployment (assumes cluster and prerequisites exist)
+	@echo "🎉 Quick deployment completed!"
+
 # Local setup helpers
 setup-local: ## Setup local development environment
 	@echo "🔧 Setting up local development environment..."
@@ -246,8 +429,8 @@ setup-local: ## Setup local development environment
 	@echo "✅ Local development environment ready"
 	@echo ""
 	@echo "Next steps:"
-	@echo "1. Follow CONTRIBUTING.md for k3d cluster setup"
-	@echo "2. Run 'make cluster-setup' for complete k3d deployment"
+	@echo "1. Run 'make deploy-all' for complete automated deployment"
+	@echo "2. Or follow CONTRIBUTING.md for manual k3d cluster setup"
 
 teardown-local: ## Teardown local development environment
 	@echo "🧹 Tearing down local development environment..."
