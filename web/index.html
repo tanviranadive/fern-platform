@@ -21,36 +21,47 @@
             text-align: center;
         }
         
-        /* Only show fallback when FontAwesome fails to load */
-        .fas.fa-chart-line::before { content: "📈"; }
-        .fas.fa-chart-pie::before { content: "📊"; }
-        .fas.fa-list-alt::before { content: "📋"; }
-        .fas.fa-heartbeat::before { content: "💓"; }
-        .fas.fa-folder-open::before { content: "📂"; }
-        .fas.fa-play-circle::before { content: "▶️"; }
-        .fas.fa-code::before { content: "💻"; }
-        .fas.fa-th-large::before { content: "⊞"; }
-        .fas.fa-chart-bar::before { content: "📊"; }
-        .fas.fa-moon::before { content: "🌙"; }
-        .fas.fa-sun::before { content: "☀️"; }
-        .fas.fa-spinner::before { content: "⏳"; }
-        .fas.fa-exclamation-triangle::before { content: "⚠️"; }
-        .fas.fa-flask::before { content: "🧪"; }
-        .fas.fa-plus-circle::before { content: "➕"; }
-        .fas.fa-rocket::before { content: "🚀"; }
-        .fas.fa-code-branch::before { content: "🌿"; }
-        .fas.fa-home::before { content: "🏠"; }
-        .fas.fa-chevron-right::before { content: "▶"; }
-        .fas.fa-arrow-left::before { content: "←"; }
-        .fas.fa-star::before { content: "⭐"; }
-        .far.fa-star::before { content: "☆"; }
-        .fas.fa-cog::before { content: "⚙️"; }
-        .fas.fa-adjust::before { content: "🌗"; }
-        .fas.fa-times::before { content: "✕"; }
-        .fas.fa-palette::before { content: "🎨"; }
-        .fas.fa-filter::before { content: "🔽"; }
-        .fas.fa-sort::before { content: "↕️"; }
-        .fas.fa-eye::before { content: "👁️"; }
+        /* FontAwesome fallback system - these work when FontAwesome fails to load */
+        .fas::before, .far::before {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif !important;
+            font-style: normal !important;
+            font-weight: normal !important;
+            font-variant: normal !important;
+            text-transform: none !important;
+            line-height: 1 !important;
+            display: inline-block !important;
+        }
+        
+        .fas.fa-chart-line::before { content: "📈" !important; }
+        .fas.fa-chart-pie::before { content: "📊" !important; }
+        .fas.fa-list-alt::before { content: "📋" !important; }
+        .fas.fa-heartbeat::before { content: "💓" !important; }
+        .fas.fa-folder-open::before { content: "📂" !important; }
+        .fas.fa-play-circle::before { content: "▶️" !important; }
+        .fas.fa-code::before { content: "💻" !important; }
+        .fas.fa-th-large::before { content: "⊞" !important; }
+        .fas.fa-chart-bar::before { content: "📊" !important; }
+        .fas.fa-moon::before { content: "🌙" !important; }
+        .fas.fa-sun::before { content: "☀️" !important; }
+        .fas.fa-spinner::before { content: "⏳" !important; }
+        .fas.fa-exclamation-triangle::before { content: "⚠️" !important; }
+        .fas.fa-flask::before { content: "🧪" !important; }
+        .fas.fa-plus-circle::before { content: "➕" !important; }
+        .fas.fa-rocket::before { content: "🚀" !important; }
+        .fas.fa-code-branch::before { content: "🌿" !important; }
+        .fas.fa-home::before { content: "🏠" !important; }
+        .fas.fa-chevron-right::before { content: "▶" !important; }
+        .fas.fa-arrow-left::before { content: "←" !important; }
+        .fas.fa-star::before { content: "⭐" !important; }
+        .far.fa-star::before { content: "☆" !important; }
+        .fas.fa-cog::before { content: "⚙️" !important; }
+        .fas.fa-adjust::before { content: "🌗" !important; }
+        .fas.fa-times::before { content: "✕" !important; }
+        .fas.fa-palette::before { content: "🎨" !important; }
+        .fas.fa-filter::before { content: "🔽" !important; }
+        .fas.fa-sort::before { content: "↕️" !important; }
+        .fas.fa-eye::before { content: "👁️" !important; }
+        .fas.fa-tachometer-alt::before { content: "📊" !important; }
         
         /* Ensure icons work when FontAwesome loads */
         .fas[class*="fa-"]::before {
@@ -1339,6 +1350,7 @@
                 showFavoritesOnly: false,
                 projectOrder: 'default', // 'default', 'alphabetical', 'recent', 'success-rate', 'custom'
                 customProjectOrder: [], // Array of project IDs in custom order
+                defaultTestSummariesView: 'grid', // 'grid' or 'treemap'
                 managerDashboard: {
                     enabled: false,
                     selectedProjects: [], // Array of project IDs to include in uber treemap
@@ -1440,6 +1452,10 @@
                 });
             };
 
+            const setDefaultTestSummariesView = (view) => {
+                updatePreferences({ defaultTestSummariesView: view });
+            };
+
             const updateManagerDashboard = (updates) => {
                 updatePreferences({ 
                     managerDashboard: { ...preferences.managerDashboard, ...updates }
@@ -1519,6 +1535,7 @@
                 setShowFavoritesOnly,
                 setProjectOrder,
                 setCustomProjectOrder,
+                setDefaultTestSummariesView,
                 updateManagerDashboard,
                 resetPreferences,
                 sortProjects,
@@ -1534,6 +1551,7 @@
                 setTheme,
                 setShowFavoritesOnly,
                 setProjectOrder,
+                setDefaultTestSummariesView,
                 updateManagerDashboard,
                 resetPreferences
             } = userPrefs;
@@ -1658,6 +1676,25 @@
                                         <option value="recent">Most recent activity</option>
                                         <option value="success-rate">Success rate (highest first)</option>
                                         <option value="custom">Custom order</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            {/* Default View Section */}
+                            <div className="settings-section">
+                                <div className="settings-section-title">
+                                    <i className="fas fa-eye"></i>
+                                    Default Views
+                                </div>
+                                <div className="settings-option">
+                                    <label className="settings-label">Default Test Summaries view</label>
+                                    <select 
+                                        className="order-selector"
+                                        value={preferences.defaultTestSummariesView}
+                                        onChange={(e) => setDefaultTestSummariesView(e.target.value)}
+                                    >
+                                        <option value="grid">Grid View</option>
+                                        <option value="treemap">Treemap View</option>
                                     </select>
                                 </div>
                             </div>
@@ -1860,7 +1897,33 @@
                                 <i className={getThemeIcon()}></i>
                             </button>
 
-                            <button className="theme-toggle" onClick={onOpenSettings} title="Open user preferences">
+                            <button 
+                                className="theme-toggle settings-button" 
+                                onClick={onOpenSettings} 
+                                title="Open user preferences"
+                                style={{
+                                    marginLeft: '0.5rem',
+                                    background: 'rgba(255, 255, 255, 0.1)',
+                                    border: '1px solid rgba(255, 255, 255, 0.2)',
+                                    color: 'white',
+                                    padding: '0.75rem',
+                                    borderRadius: '0.5rem',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.2s ease',
+                                    fontSize: '1rem',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
+                                }}
+                                onMouseEnter={(e) => {
+                                    e.target.style.background = 'rgba(255, 255, 255, 0.2)';
+                                    e.target.style.transform = 'scale(1.05)';
+                                }}
+                                onMouseLeave={(e) => {
+                                    e.target.style.background = 'rgba(255, 255, 255, 0.1)';
+                                    e.target.style.transform = 'scale(1)';
+                                }}
+                            >
                                 <i className="fas fa-cog"></i>
                             </button>
                         </div>
@@ -1874,7 +1937,8 @@
             const navItems = [
                 { path: '/', label: 'Dashboard', icon: 'fas fa-chart-line' },
                 { path: '/test-summaries', label: 'Test Summaries', icon: 'fas fa-chart-pie' },
-                { path: '/test-runs', label: 'Test Runs', icon: 'fas fa-list-alt' }
+                { path: '/test-runs', label: 'Test Runs', icon: 'fas fa-list-alt' },
+                { path: '/manager-dashboard', label: 'Manager Dashboard', icon: 'fas fa-tachometer-alt' }
             ];
 
             return (
@@ -2844,7 +2908,6 @@
             const [testRuns, setTestRuns] = useState([]);
             const [loading, setLoading] = useState(true);
             const [error, setError] = useState(null);
-            const [viewMode, setViewMode] = useState('grid');
             const [showHistory, setShowHistory] = useState(false);
             const [selectedProject, setSelectedProject] = useState(null);
 
@@ -2858,6 +2921,8 @@
                 sortProjects,
                 filterProjects
             } = userPrefs;
+
+            const [viewMode, setViewMode] = useState(preferences?.defaultTestSummariesView || 'grid');
 
             const showProjectHistory = (project) => {
                 setSelectedProject(project);
@@ -2873,12 +2938,26 @@
                 fetchData();
             }, []);
 
+            // Update view mode when preferences change
+            useEffect(() => {
+                if (preferences?.defaultTestSummariesView) {
+                    setViewMode(preferences.defaultTestSummariesView);
+                }
+            }, [preferences?.defaultTestSummariesView]);
+
             const fetchData = async () => {
                 try {
                     const [projectsRes, testRunsRes] = await Promise.all([
                         fetch('/api/v1/projects'),
                         fetch('/api/v1/test-runs')
                     ]);
+
+                    if (!projectsRes.ok) {
+                        throw new Error(`Projects API failed: ${projectsRes.status} ${projectsRes.statusText}`);
+                    }
+                    if (!testRunsRes.ok) {
+                        throw new Error(`Test runs API failed: ${testRunsRes.status} ${testRunsRes.statusText}`);
+                    }
 
                     const projectsData = await projectsRes.json();
                     const testRunsData = await testRunsRes.json();
@@ -2887,6 +2966,7 @@
                     setTestRuns(testRunsData.data || []);
                     setLoading(false);
                 } catch (err) {
+                    console.error('Error fetching test summaries data:', err);
                     setError(err.message);
                     setLoading(false);
                 }
@@ -2894,19 +2974,31 @@
 
             // Apply user preferences to projects
             const getDisplayProjects = () => {
+                if (!projects || projects.length === 0) return [];
+                
                 let displayProjects = [...projects];
                 
-                // First filter by favorites if enabled
-                displayProjects = filterProjects(displayProjects);
+                // First filter by favorites if enabled (with null safety)
+                if (filterProjects && typeof filterProjects === 'function') {
+                    displayProjects = filterProjects(displayProjects);
+                }
                 
-                // Then sort according to preferences
-                displayProjects = sortProjects(displayProjects);
+                // Then sort according to preferences (with null safety)
+                if (sortProjects && typeof sortProjects === 'function') {
+                    displayProjects = sortProjects(displayProjects);
+                }
                 
                 return displayProjects;
             };
 
             const handleStarClick = (e, projectId) => {
                 e.stopPropagation(); // Prevent card click events
+                
+                // Don't allow favoriting projects without valid IDs
+                if (!projectId || projectId === '') {
+                    return;
+                }
+                
                 toggleFavorite(projectId);
             };
 
@@ -2950,14 +3042,14 @@
                                 Test Summaries
                             </h2>
                             
-                            {preferences.favorites.length > 0 && (
+                            {preferences?.favorites?.length > 0 && (
                                 <button 
-                                    className={`toggle-button ${preferences.showFavoritesOnly ? 'active' : ''}`}
-                                    onClick={() => setShowFavoritesOnly(!preferences.showFavoritesOnly)}
+                                    className={`toggle-button ${preferences?.showFavoritesOnly ? 'active' : ''}`}
+                                    onClick={() => setShowFavoritesOnly(!preferences?.showFavoritesOnly)}
                                     style={{fontSize: '0.875rem', padding: '0.5rem 1rem', minWidth: 'auto'}}
                                 >
                                     <i className="fas fa-star"></i>
-                                    {preferences.showFavoritesOnly ? 'Show All' : `Favorites (${preferences.favorites.length})`}
+                                    {preferences?.showFavoritesOnly ? 'Show All' : `Favorites (${preferences?.favorites?.length || 0})`}
                                 </button>
                             )}
                         </div>
@@ -3004,13 +3096,27 @@
                                                         {project.description || 'No description provided'}
                                                     </p>
                                                 </div>
-                                                <button
-                                                    onClick={(e) => handleStarClick(e, project.project_id || project.id)}
-                                                    className={`star-button ${isFavorite(project.project_id || project.id) ? 'favorite' : ''}`}
-                                                    title={isFavorite(project.project_id || project.id) ? 'Remove from favorites' : 'Add to favorites'}
-                                                >
-                                                    <i className={`${isFavorite(project.project_id || project.id) ? 'fas' : 'far'} fa-star`}></i>
-                                                </button>
+                                                {(project.project_id || project.id) && (
+                                                    <button
+                                                        onClick={(e) => handleStarClick(e, project.project_id || project.id)}
+                                                        className={`star-button ${isFavorite(project.project_id || project.id) ? 'favorite' : ''}`}
+                                                        title={isFavorite(project.project_id || project.id) ? 'Remove from favorites' : 'Add to favorites'}
+                                                        style={{
+                                                            background: 'none',
+                                                            border: 'none',
+                                                            cursor: 'pointer',
+                                                            padding: '0.5rem',
+                                                            borderRadius: '50%',
+                                                            transition: 'all 0.2s ease',
+                                                            fontSize: '1.25rem',
+                                                            color: isFavorite(project.project_id || project.id) ? '#fbbf24' : '#9ca3af'
+                                                        }}
+                                                        onMouseEnter={(e) => e.target.style.background = 'var(--bg-secondary)'}
+                                                        onMouseLeave={(e) => e.target.style.background = 'none'}
+                                                    >
+                                                        <i className={`${isFavorite(project.project_id || project.id) ? 'fas' : 'far'} fa-star`}></i>
+                                                    </button>
+                                                )}
                                             </div>
                                             <span className={`status ${project.is_active ? 'active' : 'inactive'}`}>
                                                 {project.is_active ? 'Active' : 'Inactive'}
@@ -3064,7 +3170,7 @@
                         </div>
                     )}
 
-                    {getDisplayProjects().length === 0 && projects.length > 0 && preferences.showFavoritesOnly && (
+                    {getDisplayProjects().length === 0 && projects.length > 0 && preferences?.showFavoritesOnly && (
                         <div className="empty-state">
                             <i className="fas fa-star"></i>
                             <h3>No favorite projects</h3>
@@ -3264,14 +3370,14 @@
                         {view === 'suites' && (
                             <>
                                 <span className="breadcrumb-separator">▶</span>
-                                <span>{selectedRun?.run_id}</span>
+                                <span>{selectedRun?.project_name || selectedRun?.project_id} - {selectedRun?.run_id}</span>
                             </>
                         )}
                         {view === 'specs' && (
                             <>
                                 <span className="breadcrumb-separator">▶</span>
                                 <button onClick={handleBackToSuites}>
-                                    {selectedRun?.run_id}
+                                    {selectedRun?.project_name || selectedRun?.project_id} - {selectedRun?.run_id}
                                 </button>
                                 <span className="breadcrumb-separator">▶</span>
                                 <span>{selectedSuite?.name}</span>
@@ -3371,8 +3477,15 @@
                         {renderBreadcrumb()}
                         <h2 style={{marginBottom: '2rem', color: 'var(--text-primary)', fontSize: '2rem', fontWeight: '700', letterSpacing: '-0.025em'}}>
                             <i className="fas fa-folder-open" style={{marginRight: '0.75rem', color: 'var(--primary)'}}></i>
-                            Test Suites for {selectedRun?.run_id}
+                            Test Suites for {selectedRun?.project_name || selectedRun?.project_id}
                         </h2>
+                        <div style={{marginBottom: '1.5rem', padding: '1rem', background: 'var(--bg-secondary)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-light)'}}>
+                            <div style={{fontSize: '0.875rem', color: 'var(--text-secondary)'}}>
+                                <strong>Run ID:</strong> {selectedRun?.run_id} | 
+                                <strong> Branch:</strong> {selectedRun?.branch || 'main'} | 
+                                <strong> Environment:</strong> {selectedRun?.environment || 'default'}
+                            </div>
+                        </div>
                         
                         <div className="table-container">
                             <table>
@@ -3435,6 +3548,13 @@
                             <i className="fas fa-flask" style={{marginRight: '0.75rem', color: 'var(--primary)'}}></i>
                             Test Specs for {selectedSuite?.name}
                         </h2>
+                        <div style={{marginBottom: '1.5rem', padding: '1rem', background: 'var(--bg-secondary)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-light)'}}>
+                            <div style={{fontSize: '0.875rem', color: 'var(--text-secondary)'}}>
+                                <strong>Project:</strong> {selectedRun?.project_name || selectedRun?.project_id} | 
+                                <strong> Run ID:</strong> {selectedRun?.run_id} | 
+                                <strong> Suite:</strong> {selectedSuite?.name}
+                            </div>
+                        </div>
                         
                         <div className="table-container">
                             <table>
@@ -3484,6 +3604,181 @@
             }
         }
 
+        // Manager Dashboard Component
+        function ManagerDashboard() {
+            const [projects, setProjects] = useState([]);
+            const [testRuns, setTestRuns] = useState([]);
+            const [loading, setLoading] = useState(true);
+            const [error, setError] = useState(null);
+
+            // User preferences integration
+            const userPrefs = useUserPreferences();
+            const { preferences, updateManagerDashboard } = userPrefs;
+
+            useEffect(() => {
+                fetchData();
+            }, []);
+
+            const fetchData = async () => {
+                try {
+                    const [projectsRes, testRunsRes] = await Promise.all([
+                        fetch('/api/v1/projects'),
+                        fetch('/api/v1/test-runs')
+                    ]);
+
+                    if (!projectsRes.ok) {
+                        throw new Error(`Projects API failed: ${projectsRes.status} ${projectsRes.statusText}`);
+                    }
+                    if (!testRunsRes.ok) {
+                        throw new Error(`Test runs API failed: ${testRunsRes.status} ${testRunsRes.statusText}`);
+                    }
+
+                    const projectsData = await projectsRes.json();
+                    const testRunsData = await testRunsRes.json();
+
+                    setProjects(projectsData.data || []);
+                    setTestRuns(testRunsData.data || []);
+                    setLoading(false);
+                } catch (err) {
+                    console.error('Error fetching manager dashboard data:', err);
+                    setError(err.message);
+                    setLoading(false);
+                }
+            };
+
+            // Get selected projects for the uber treemap
+            const getSelectedProjects = () => {
+                if (preferences.managerDashboard.selectedProjects.length === 0) {
+                    return projects; // Show all projects if none selected
+                }
+                return projects.filter(project => 
+                    preferences.managerDashboard.selectedProjects.includes(project.project_id || project.id)
+                );
+            };
+
+            if (loading) {
+                return (
+                    <div className="container">
+                        <div className="loading fade-in">
+                            <i className="fas fa-spinner"></i>
+                            <div style={{fontSize: '1.125rem', fontWeight: '500', marginTop: '1rem'}}>Loading manager dashboard...</div>
+                        </div>
+                    </div>
+                );
+            }
+
+            if (error) {
+                return (
+                    <div className="container">
+                        <div className="error-message fade-in">
+                            <i className="fas fa-exclamation-triangle"></i>
+                            <div style={{fontSize: '1.125rem', fontWeight: '500', marginTop: '1rem'}}>Error: {error}</div>
+                        </div>
+                    </div>
+                );
+            }
+
+            const selectedProjects = getSelectedProjects();
+
+            if (selectedProjects.length === 0) {
+                return (
+                    <div className="container fade-in">
+                        <h2 style={{color: 'var(--text-primary)', fontSize: '2rem', fontWeight: '700', letterSpacing: '-0.025em', marginBottom: '2rem'}}>
+                            <i className="fas fa-tachometer-alt" style={{marginRight: '0.75rem', color: 'var(--primary)'}}></i>
+                            Manager Dashboard
+                        </h2>
+                        
+                        <div className="empty-state">
+                            <i className="fas fa-tachometer-alt"></i>
+                            <h3>No projects selected</h3>
+                            <p>Go to Settings → Manager Dashboard to select which projects to include in your uber treemap view.</p>
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="container fade-in">
+                    <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem'}}>
+                        <h2 style={{color: 'var(--text-primary)', fontSize: '2rem', fontWeight: '700', letterSpacing: '-0.025em', margin: 0}}>
+                            <i className="fas fa-tachometer-alt" style={{marginRight: '0.75rem', color: 'var(--primary)'}}></i>
+                            Manager Dashboard
+                        </h2>
+                        <div style={{fontSize: '0.875rem', color: 'var(--text-secondary)', fontWeight: '500'}}>
+                            {selectedProjects.length} project{selectedProjects.length !== 1 ? 's' : ''} • Aggregated View
+                        </div>
+                    </div>
+
+                    <div style={{
+                        background: 'var(--bg-elevated)',
+                        border: '1px solid var(--border-light)',
+                        borderRadius: 'var(--radius-xl)',
+                        padding: '2rem',
+                        marginBottom: '2rem',
+                        boxShadow: 'var(--shadow-lg)'
+                    }}>
+                        <div style={{textAlign: 'center', marginBottom: '2rem'}}>
+                            <h3 style={{color: 'var(--text-primary)', fontSize: '1.5rem', fontWeight: '600', margin: '0 0 0.5rem 0'}}>
+                                Aggregated Project Status
+                            </h3>
+                            <p style={{color: 'var(--text-secondary)', fontSize: '0.875rem', margin: 0}}>
+                                Unified view of all selected projects for high-level oversight
+                            </p>
+                        </div>
+                        
+                        <TreemapVisualization 
+                            projects={selectedProjects} 
+                            testRuns={testRuns}
+                            title="Manager Overview"
+                        />
+                    </div>
+
+                    <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem'}}>
+                        {selectedProjects.map(project => {
+                            const projectRuns = testRuns.filter(run => run.project_id === project.id);
+                            const latestRun = projectRuns[0];
+                            const totalTests = projectRuns.reduce((sum, run) => sum + (run.total_tests || 0), 0);
+                            const passedTests = projectRuns.reduce((sum, run) => sum + (run.passed_tests || 0), 0);
+                            const failedTests = projectRuns.reduce((sum, run) => sum + (run.failed_tests || 0), 0);
+
+                            return (
+                                <div key={project.id} className="card" style={{background: 'var(--bg-elevated)'}}>
+                                    <div className="card-header">
+                                        <div>
+                                            <h3 style={{margin: '0 0 0.5rem 0', color: 'var(--text-primary)', fontSize: '1.125rem', fontWeight: '600'}}>
+                                                {project.name}
+                                            </h3>
+                                            <p style={{margin: 0, color: 'var(--text-secondary)', fontSize: '0.75rem'}}>
+                                                {projectRuns.length} total runs
+                                            </p>
+                                        </div>
+                                        <span className={`status ${latestRun?.status === 'completed' ? 'healthy' : 'active'}`}>
+                                            {latestRun?.status || 'No runs'}
+                                        </span>
+                                    </div>
+
+                                    <div style={{display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem', marginTop: '1rem'}}>
+                                        <div style={{textAlign: 'center', padding: '0.75rem', background: 'var(--bg-secondary)', borderRadius: 'var(--radius-md)'}}>
+                                            <div style={{fontSize: '1.25rem', fontWeight: '700', color: 'var(--text-primary)'}}>{totalTests}</div>
+                                            <div style={{fontSize: '0.625rem', color: 'var(--text-tertiary)', textTransform: 'uppercase'}}>Total</div>
+                                        </div>
+                                        <div style={{textAlign: 'center', padding: '0.75rem', background: 'var(--bg-secondary)', borderRadius: 'var(--radius-md)'}}>
+                                            <div style={{fontSize: '1.25rem', fontWeight: '700', color: 'var(--success)'}}>{passedTests}</div>
+                                            <div style={{fontSize: '0.625rem', color: 'var(--text-tertiary)', textTransform: 'uppercase'}}>Passed</div>
+                                        </div>
+                                        <div style={{textAlign: 'center', padding: '0.75rem', background: 'var(--bg-secondary)', borderRadius: 'var(--radius-md)'}}>
+                                            <div style={{fontSize: '1.25rem', fontWeight: '700', color: 'var(--error)'}}>{failedTests}</div>
+                                            <div style={{fontSize: '0.625rem', color: 'var(--text-tertiary)', textTransform: 'uppercase'}}>Failed</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            );
+        }
+
         // Main App component
         function FernPlatform() {
             const { route, navigate } = useRouter();
@@ -3522,6 +3817,8 @@
                         return <TestSummaries />;
                     case '/test-runs':
                         return <TestRuns />;
+                    case '/manager-dashboard':
+                        return <ManagerDashboard />;
                     default:
                         return <Dashboard />;
                 }
