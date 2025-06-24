@@ -44,7 +44,8 @@
       "Bash(kubectl create:*)",
       "WebFetch(domain:kubevela.io)",
       "Bash(helm upgrade:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(rg:*)"
     ],
     "deny": []
   }
