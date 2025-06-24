@@ -104,9 +104,9 @@ migrate-status: ## Check migration status
 # Docker operations
 docker-build: ## Build Docker image
 	@echo "🐳 Building Docker image..."
-	docker build -t anoop2811/fern-platform:$(VERSION)5 .
-	docker tag anoop2811/fern-platform:$(VERSION)5 fern-platform:latest
-	@echo "✅ Docker image built: anoop2811/fern-platform:$(VERSION)5"
+	docker build -t anoop2811/fern-platform:$(VERSION)8 .
+	docker tag anoop2811/fern-platform:$(VERSION)8 fern-platform:latest
+	@echo "✅ Docker image built: anoop2811/fern-platform:$(VERSION)8"
 
 docker-run: ## Run Docker container
 	@echo "🐳 Running Docker container..."
