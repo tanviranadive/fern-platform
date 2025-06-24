@@ -2,6 +2,29 @@
 
 Thank you for your interest in contributing to Fern Platform! This guide will help you get started with development, testing, and submitting contributions.
 
+## 🚀 Quick Start for Contributors
+
+**Want to start contributing right away?** Here's the fastest path:
+
+```bash
+# 1. Fork and clone the repository
+git clone https://github.com/YOUR_USERNAME/fern-platform.git
+cd fern-platform
+
+# 2. Deploy everything with one command
+make deploy-all
+
+# 3. Start developing! The app will be running at http://localhost:8080
+```
+
+**That's it!** The `make deploy-all` command handles everything:
+- ✅ Creates k3d cluster
+- ✅ Installs all prerequisites  
+- ✅ Builds and deploys the application
+- ✅ Opens your browser automatically
+
+For detailed instructions, continue reading below.
+
 ## Table of Contents
 
 - [Code of Conduct](#code-of-conduct)
@@ -48,7 +71,44 @@ Ensure you have the following tools installed:
 
 ## Local Deployment with KubeVela
 
-### Step-by-Step Setup
+### Quick Start (Recommended)
+
+The fastest way to get Fern Platform running locally is using our automated deployment:
+
+```bash
+# One command to deploy everything
+make deploy-all
+```
+
+This single command will:
+1. Check/create k3d cluster with proper configuration
+2. Install prerequisites (KubeVela, CloudNativePG) if needed
+3. Build and import Docker image
+4. Deploy the complete application stack
+5. Start port forwarding and open browser automatically
+
+**That's it!** The application will open in your browser at http://localhost:8080.
+
+#### Quick Start Commands
+
+```bash
+# Complete automated deployment
+make deploy-all
+
+# Quick deployment (assumes cluster and prerequisites exist)
+make deploy-quick
+
+# Stop port forwarding when done
+make stop-port-forward
+
+# Clean up everything
+make k8s-delete    # Delete application
+make k3d-delete    # Delete cluster
+```
+
+### Manual Step-by-Step Setup (Alternative)
+
+If you prefer manual control or need to troubleshoot, you can follow these detailed steps:
 
 #### 1. Create k3d Cluster
 
@@ -148,6 +208,9 @@ kubectl port-forward -n fern-platform svc/fern-platform 8080:8080
 
 # Access in browser
 open http://localhost:8080
+
+# OR use the automated port forwarding
+make start-port-forward-and-open
 ```
 
 ### Verify Deployment
@@ -175,6 +238,40 @@ curl http://localhost:8080/health
 ```
 
 ### Troubleshooting Common Issues
+
+#### Automated Deployment Issues
+
+```bash
+# If deployment fails, check individual components
+make k8s-status                    # Check application status
+kubectl get pods -A               # Check all pods
+vela status fern-platform -n fern-platform  # Check KubeVela status
+
+# Restart deployment if needed
+make k8s-delete && make deploy-all
+
+# Check logs
+kubectl logs -n fern-platform deployment/fern-platform
+kubectl logs -n vela-system deployment/kubevela-vela-core
+kubectl logs -n cnpg-system deployment/cnpg-controller-manager
+
+# Force cluster recreation
+make k3d-delete && make deploy-all
+```
+
+#### Port Forwarding Issues
+
+```bash
+# Check if port forwarding is running
+ps aux | grep "kubectl.*port-forward"
+
+# Stop and restart port forwarding
+make stop-port-forward
+make start-port-forward-and-open
+
+# Check if port 8080 is in use
+lsof -i :8080
+```
 
 #### Application Not Starting
 
@@ -218,11 +315,16 @@ vela workflow restart fern-platform -n fern-platform
 ### Cleanup
 
 ```bash
-# Delete the application
-kubectl delete -f deployments/fern-platform-kubevela.yaml
+# Quick cleanup using make commands
+make k8s-delete     # Delete the application
+make k3d-delete     # Delete the cluster
 
-# Delete the cluster
+# OR manual cleanup
+kubectl delete -f deployments/fern-platform-kubevela.yaml
 k3d cluster delete fern-platform
+
+# Stop port forwarding if running
+make stop-port-forward
 ```
 
 ## Testing
@@ -339,6 +441,21 @@ var _ = Describe("New Feature", func() {
 
 ## Development Workflow
 
+### Quick Development Setup
+
+For rapid development iteration:
+
+```bash
+# Initial setup
+make deploy-all
+
+# Make code changes, then quick rebuild and deploy
+make deploy-quick
+
+# Stop when done
+make stop-port-forward
+```
+
 ### Branch Management
 
 1. **Create feature branch** from `main`:
@@ -348,21 +465,31 @@ var _ = Describe("New Feature", func() {
    git checkout -b feature/your-feature-name
    ```
 
-2. **Make your changes** following the style guidelines
+2. **Set up development environment**:
+   ```bash
+   make deploy-all  # Complete setup with one command
+   ```
 
-3. **Test thoroughly**:
+3. **Make your changes** following the style guidelines
+
+4. **Test thoroughly**:
    ```bash
    make test
    cd acceptance-go && make test-existing
    ```
 
-4. **Commit with conventional commits**:
+5. **Test deployment** (optional):
+   ```bash
+   make deploy-quick  # Quick test of changes
+   ```
+
+6. **Commit with conventional commits**:
    ```bash
    git add .
    git commit -m "feat(component): add new feature description"
    ```
 
-5. **Push and create PR**:
+7. **Push and create PR**:
    ```bash
    git push origin feature/your-feature-name
    ```
@@ -422,12 +549,14 @@ make build
 
 3. **Verify deployment** works:
    ```bash
-   # Test local deployment
-   make build
-   ./bin/fern-platform
+   # Test automated deployment
+   make deploy-all
 
-   # Or test k3d deployment
-   kubectl apply -f deployments/fern-platform-kubevela.yaml
+   # Or quick test if cluster exists
+   make deploy-quick
+
+   # Clean up when done
+   make stop-port-forward
    ```
 
 ### PR Requirements
