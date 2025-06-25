@@ -2,6 +2,8 @@
 
 **Get Fern Platform running in 15 minutes with OAuth authentication and sample data**
 
+> ⚠️ **Development Status**: Fern Platform is under active development. Core features are stable and production-ready, but expect regular updates and API evolution. [See project status](../../README.md#️-project-status) for details.
+
 <div align="center">
   <img src="../images/quick-start-flow.png" alt="Quick Start Flow" width="600"/>
 </div>
@@ -90,6 +92,8 @@ curl -H "Accept: application/json" \
 ## 🏢 30-Minute Production Setup
 
 **Perfect for:** Teams ready to deploy to their Kubernetes cluster
+
+> ⚠️ **Production Note**: While Fern Platform is stable and used in production, it's under active development. Test thoroughly in staging, maintain backups, and monitor for updates. [See production guidance](../../README.md#-production-usage).
 
 ### Step 1: Customize Configuration (10 minutes)
 

@@ -9,7 +9,7 @@
 
   [![Go Version](https://img.shields.io/badge/go-1.21+-blue.svg)](https://golang.org)
   [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-  [![Docker Pulls](https://img.shields.io/badge/docker-pulls-blue.svg)](https://hub.docker.com/r/anoop2811/fern-platform)
+  [![Development Status](https://img.shields.io/badge/status-active%20development-orange.svg)](#-project-status)
   [![GitHub Stars](https://img.shields.io/github/stars/guidewire-oss/fern-platform?style=social)](https://github.com/guidewire-oss/fern-platform/stargazers)
 
   <p align="center">
@@ -20,6 +20,28 @@
     <a href="#-community">💬 Community</a>
   </p>
 </div>
+
+## ⚠️ Project Status
+
+**Fern Platform is under active development.** While the core functionality is working and stable, we're continuously adding features and improvements.
+
+### 🔨 **Current Status**
+- ✅ **Core features stable**: Test data ingestion, OAuth authentication, web dashboard
+- ✅ **Production ready**: Used by teams for test reporting and analysis
+- 🚧 **Active development**: Regular updates, new features, and improvements
+- 🚧 **API evolution**: APIs may change as we add capabilities
+
+### 🚀 **Production Usage**
+- **✅ Recommended for**: Development teams, staging environments, non-critical test reporting
+- **⚠️ Use with care for**: Mission-critical production systems
+- **📊 Monitor**: Keep backups, test upgrades in staging first
+
+### 💬 **We Need Your Feedback!**
+As an actively developed project, your feedback is invaluable:
+- 🐛 **Found a bug?** [Report it](../../issues/new?labels=bug)
+- 💡 **Have ideas?** [Share them](../../discussions/new?category=ideas)
+- 🤝 **Want to contribute?** [Join us](CONTRIBUTING.md)
+- 📈 **Using in production?** [Tell us about it](../../discussions/new?category=show-and-tell)
 
 ## 🎯 Why Choose Fern Platform?
 
