@@ -32,7 +32,6 @@ https://guidewire-oss.github.io/fern-platform/
 ```
 fern-platform/
 ├── index.html          ← Landing page (GitHub Pages homepage)
-├── landing.html        ← Original landing page (backup)
 ├── README.md           ← Developer documentation
 ├── docs/
 │   └── images/         ← All screenshots and assets
