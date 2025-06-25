@@ -50,13 +50,13 @@ func (h *Handler) createProject(c *gin.Context) {
 }
 
 func (h *Handler) getProject(c *gin.Context) {
-	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
-	if err != nil {
+	projectId := c.Param("projectId")
+	if projectId == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid project ID"})
 		return
 	}
 
-	project, err := h.projectService.GetProject(uint(id))
+	project, err := h.projectService.GetProjectByProjectID(projectId)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Project not found"})
 		return
@@ -125,8 +125,8 @@ func (h *Handler) listProjects(c *gin.Context) {
 }
 
 func (h *Handler) updateProject(c *gin.Context) {
-	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
-	if err != nil {
+	projectId := c.Param("projectId")
+	if projectId == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid project ID"})
 		return
 	}
@@ -137,7 +137,7 @@ func (h *Handler) updateProject(c *gin.Context) {
 		return
 	}
 
-	project, err := h.projectService.UpdateProject(uint(id), input)
+	project, err := h.projectService.UpdateProjectByProjectID(projectId, input)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -147,13 +147,13 @@ func (h *Handler) updateProject(c *gin.Context) {
 }
 
 func (h *Handler) deleteProject(c *gin.Context) {
-	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
-	if err != nil {
+	projectId := c.Param("projectId")
+	if projectId == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid project ID"})
 		return
 	}
 
-	if err := h.projectService.DeleteProject(uint(id)); err != nil {
+	if err := h.projectService.DeleteProjectByProjectID(projectId); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}

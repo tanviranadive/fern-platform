@@ -94,9 +94,46 @@ type UpdateProjectInput struct {
 	Settings      map[string]interface{} `json:"settings,omitempty"`
 }
 
-// UpdateProject updates an existing project
+// UpdateProject updates an existing project by numeric ID
 func (s *ProjectService) UpdateProject(id uint, input UpdateProjectInput) (*database.ProjectDetails, error) {
 	project, err := s.projectRepo.GetProjectByID(id)
+	if err != nil {
+		return nil, fmt.Errorf("project not found: %w", err)
+	}
+
+	// Update fields if provided
+	if input.Name != "" {
+		project.Name = input.Name
+	}
+	if input.Description != "" {
+		project.Description = input.Description
+	}
+	if input.Repository != "" {
+		project.Repository = input.Repository
+	}
+	if input.DefaultBranch != "" {
+		project.DefaultBranch = input.DefaultBranch
+	}
+
+	if err := s.projectRepo.UpdateProject(project); err != nil {
+		s.logger.WithFields(map[string]interface{}{
+			"project_id": project.ProjectID,
+			"id":         project.ID,
+		}).WithError(err).Error("Failed to update project")
+		return nil, fmt.Errorf("failed to update project: %w", err)
+	}
+
+	s.logger.WithFields(map[string]interface{}{
+		"project_id": project.ProjectID,
+		"id":         project.ID,
+	}).Info("Project updated successfully")
+
+	return project, nil
+}
+
+// UpdateProjectByProjectID updates an existing project by project ID string
+func (s *ProjectService) UpdateProjectByProjectID(projectID string, input UpdateProjectInput) (*database.ProjectDetails, error) {
+	project, err := s.projectRepo.GetProjectByProjectID(projectID)
 	if err != nil {
 		return nil, fmt.Errorf("project not found: %w", err)
 	}
@@ -144,7 +181,7 @@ func (s *ProjectService) ListProjects(filter ListProjectsFilter) ([]*database.Pr
 	return s.projectRepo.ListProjects(filter.Search, filter.ActiveOnly, filter.Limit, filter.Offset)
 }
 
-// DeleteProject deletes a project
+// DeleteProject deletes a project by numeric ID
 func (s *ProjectService) DeleteProject(id uint) error {
 	project, err := s.projectRepo.GetProjectByID(id)
 	if err != nil {
@@ -152,6 +189,25 @@ func (s *ProjectService) DeleteProject(id uint) error {
 	}
 
 	if err := s.projectRepo.DeleteProject(id); err != nil {
+		return fmt.Errorf("failed to delete project: %w", err)
+	}
+
+	s.logger.WithFields(map[string]interface{}{
+		"project_id": project.ProjectID,
+		"id":         project.ID,
+	}).Info("Project deleted")
+
+	return nil
+}
+
+// DeleteProjectByProjectID deletes a project by project ID string
+func (s *ProjectService) DeleteProjectByProjectID(projectID string) error {
+	project, err := s.projectRepo.GetProjectByProjectID(projectID)
+	if err != nil {
+		return fmt.Errorf("project not found: %w", err)
+	}
+
+	if err := s.projectRepo.DeleteProject(project.ID); err != nil {
 		return fmt.Errorf("failed to delete project: %w", err)
 	}
 
