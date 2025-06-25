@@ -61,6 +61,36 @@ type AuthConfig struct {
 	Audience      string        `mapstructure:"audience"`
 	TokenExpiry   time.Duration `mapstructure:"tokenExpiry"`
 	RefreshExpiry time.Duration `mapstructure:"refreshExpiry"`
+	OAuth         OAuthConfig   `mapstructure:"oauth"`
+}
+
+type OAuthConfig struct {
+	Enabled      bool     `mapstructure:"enabled"`
+	ClientID     string   `mapstructure:"clientId"`
+	ClientSecret string   `mapstructure:"clientSecret"`
+	RedirectURL  string   `mapstructure:"redirectUrl"`
+	Scopes       []string `mapstructure:"scopes"`
+	
+	// OAuth 2.0/OpenID Connect endpoints (required for any provider)
+	AuthURL      string `mapstructure:"authUrl"`      // Authorization endpoint
+	TokenURL     string `mapstructure:"tokenUrl"`     // Token endpoint  
+	UserInfoURL  string `mapstructure:"userInfoUrl"`  // UserInfo endpoint
+	JWKSUrl      string `mapstructure:"jwksUrl"`      // JWKS endpoint for token validation
+	IssuerURL    string `mapstructure:"issuerUrl"`    // OpenID Connect Discovery URL (optional)
+	LogoutURL    string `mapstructure:"logoutUrl"`    // Logout endpoint (optional)
+	
+	// User and role mapping
+	AdminUsers       []string          `mapstructure:"adminUsers"`       // List of admin user emails/IDs
+	AdminGroups      []string          `mapstructure:"adminGroups"`      // List of admin groups from token claims
+	UserRoleMapping  map[string]string `mapstructure:"userRoleMapping"`  // Map specific users to roles
+	GroupRoleMapping map[string]string `mapstructure:"groupRoleMapping"` // Map groups to roles
+	
+	// Token claim field mappings (customize based on your provider)
+	UserIDField    string `mapstructure:"userIdField"`    // Field in token containing user ID (default: "sub")
+	EmailField     string `mapstructure:"emailField"`     // Field containing email (default: "email") 
+	NameField      string `mapstructure:"nameField"`      // Field containing display name (default: "name")
+	GroupsField    string `mapstructure:"groupsField"`    // Field containing user groups (default: "groups")
+	RolesField     string `mapstructure:"rolesField"`     // Field containing user roles (default: "roles")
 }
 
 type LoggingConfig struct {
@@ -218,6 +248,15 @@ func (m *Manager) setDefaults() {
 	viper.SetDefault("auth.enabled", false)
 	viper.SetDefault("auth.tokenExpiry", "24h")
 	viper.SetDefault("auth.refreshExpiry", "168h")
+	
+	// OAuth defaults
+	viper.SetDefault("auth.oauth.enabled", false)
+	viper.SetDefault("auth.oauth.scopes", []string{"openid", "profile", "email"})
+	viper.SetDefault("auth.oauth.userIdField", "sub")
+	viper.SetDefault("auth.oauth.emailField", "email")
+	viper.SetDefault("auth.oauth.nameField", "name")
+	viper.SetDefault("auth.oauth.groupsField", "groups")
+	viper.SetDefault("auth.oauth.rolesField", "roles")
 
 	// Logging defaults
 	viper.SetDefault("logging.level", "info")
@@ -267,6 +306,27 @@ func (m *Manager) bindEnvVars() {
 	viper.BindEnv("auth.jwksUrl", "JWKS_URL")
 	viper.BindEnv("auth.issuer", "AUTH_ISSUER")
 	viper.BindEnv("auth.audience", "AUTH_AUDIENCE")
+	
+	// OAuth
+	viper.BindEnv("auth.oauth.enabled", "OAUTH_ENABLED")
+	viper.BindEnv("auth.oauth.clientId", "OAUTH_CLIENT_ID")
+	viper.BindEnv("auth.oauth.clientSecret", "OAUTH_CLIENT_SECRET")
+	viper.BindEnv("auth.oauth.redirectUrl", "OAUTH_REDIRECT_URL")
+	viper.BindEnv("auth.oauth.authUrl", "OAUTH_AUTH_URL")
+	viper.BindEnv("auth.oauth.tokenUrl", "OAUTH_TOKEN_URL")
+	viper.BindEnv("auth.oauth.userInfoUrl", "OAUTH_USERINFO_URL")
+	viper.BindEnv("auth.oauth.jwksUrl", "OAUTH_JWKS_URL")
+	viper.BindEnv("auth.oauth.issuerUrl", "OAUTH_ISSUER_URL")
+	viper.BindEnv("auth.oauth.logoutUrl", "OAUTH_LOGOUT_URL")
+	
+	// OAuth Admin and Field Mappings
+	viper.BindEnv("auth.oauth.adminUsers", "OAUTH_ADMIN_USERS")
+	viper.BindEnv("auth.oauth.adminGroups", "OAUTH_ADMIN_GROUPS")
+	viper.BindEnv("auth.oauth.userIdField", "OAUTH_USER_ID_FIELD")
+	viper.BindEnv("auth.oauth.emailField", "OAUTH_EMAIL_FIELD")
+	viper.BindEnv("auth.oauth.nameField", "OAUTH_NAME_FIELD")
+	viper.BindEnv("auth.oauth.groupsField", "OAUTH_GROUPS_FIELD")
+	viper.BindEnv("auth.oauth.rolesField", "OAUTH_ROLES_FIELD")
 
 	// Redis
 	viper.BindEnv("redis.host", "REDIS_HOST")
@@ -296,8 +356,30 @@ func (m *Manager) validate(config *Config) error {
 	}
 
 	// Auth validation
-	if config.Auth.Enabled && config.Auth.JWTSecret == "" && config.Auth.JWKSUrl == "" {
-		return fmt.Errorf("auth is enabled but no JWT secret or JWKS URL provided")
+	if config.Auth.Enabled {
+		if config.Auth.OAuth.Enabled {
+			// OAuth validation
+			if config.Auth.OAuth.ClientID == "" {
+				return fmt.Errorf("oauth is enabled but client ID is missing")
+			}
+			if config.Auth.OAuth.ClientSecret == "" {
+				return fmt.Errorf("oauth is enabled but client secret is missing")
+			}
+			if config.Auth.OAuth.AuthURL == "" {
+				return fmt.Errorf("oauth is enabled but auth URL is missing")
+			}
+			if config.Auth.OAuth.TokenURL == "" {
+				return fmt.Errorf("oauth is enabled but token URL is missing")
+			}
+			if config.Auth.OAuth.RedirectURL == "" {
+				return fmt.Errorf("oauth is enabled but redirect URL is missing")
+			}
+		} else {
+			// JWT validation for non-OAuth auth
+			if config.Auth.JWTSecret == "" && config.Auth.JWKSUrl == "" {
+				return fmt.Errorf("auth is enabled but no JWT secret or JWKS URL provided")
+			}
+		}
 	}
 
 	return nil

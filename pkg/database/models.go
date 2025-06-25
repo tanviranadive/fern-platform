@@ -115,6 +115,73 @@ type FlakyTest struct {
 	LastErrorMessage string    `gorm:"type:text" json:"last_error_message,omitempty"`
 }
 
+// User represents a system user with OAuth authentication
+type User struct {
+	BaseModel
+	UserID       string     `gorm:"uniqueIndex;not null" json:"user_id"`        // OAuth provider user ID
+	Email        string     `gorm:"uniqueIndex;not null" json:"email"`          // User email
+	Name         string     `gorm:"not null" json:"name"`                       // Display name
+	Role         string     `gorm:"default:'user';index" json:"role"`           // user, admin
+	Status       string     `gorm:"default:'active';index" json:"status"`       // active, suspended, inactive
+	LastLoginAt  *time.Time `json:"last_login_at,omitempty"`
+	ProfileURL   string     `json:"profile_url,omitempty"`                      // Avatar/profile picture URL
+	FirstName    string     `json:"first_name,omitempty"`                       // First name from OAuth
+	LastName     string     `json:"last_name,omitempty"`                        // Last name from OAuth
+	EmailVerified bool      `gorm:"default:false" json:"email_verified"`        // Email verification status
+	ProjectAccess []ProjectAccess `gorm:"foreignKey:UserID;references:UserID" json:"project_access,omitempty"`
+	UserGroups   []UserGroup `gorm:"foreignKey:UserID;references:UserID" json:"user_groups,omitempty"`
+}
+
+// UserGroup represents a user's group membership
+type UserGroup struct {
+	BaseModel
+	UserID    string `gorm:"not null;index;references:users(user_id)" json:"user_id"`
+	GroupName string `gorm:"not null;index" json:"group_name"`
+}
+
+// UserSession represents an active user session
+type UserSession struct {
+	BaseModel
+	UserID       string    `gorm:"not null;index;references:users(user_id)" json:"user_id"`
+	SessionID    string    `gorm:"uniqueIndex;not null" json:"session_id"`
+	AccessToken  string    `gorm:"type:text" json:"-"`                    // Don't serialize to JSON
+	RefreshToken string    `gorm:"type:text" json:"-"`                    // Don't serialize to JSON  
+	IDToken      string    `gorm:"type:text" json:"-"`                    // ID token for logout
+	ExpiresAt    time.Time `gorm:"index" json:"expires_at"`
+	IsActive     bool      `gorm:"default:true;index" json:"is_active"`
+	IPAddress    string    `json:"ip_address,omitempty"`
+	UserAgent    string    `gorm:"type:text" json:"user_agent,omitempty"`
+	LastActivity time.Time `gorm:"index" json:"last_activity"`
+}
+
+// ProjectAccess represents user access permissions for specific projects
+type ProjectAccess struct {
+	BaseModel
+	UserID       string `gorm:"not null;index;references:users(user_id)" json:"user_id"`
+	ProjectID    string `gorm:"not null;index" json:"project_id"`
+	Role         string `gorm:"not null" json:"role"`               // viewer, editor, admin
+	GrantedBy    string `json:"granted_by,omitempty"`              // Who granted this access
+	GrantedAt    time.Time `json:"granted_at"`
+	ExpiresAt    *time.Time `json:"expires_at,omitempty"`          // Optional expiration
+}
+
+// UserRole represents possible user roles
+type UserRole string
+
+const (
+	RoleUser  UserRole = "user"
+	RoleAdmin UserRole = "admin"
+)
+
+// ProjectRole represents possible project-level roles
+type ProjectRole string
+
+const (
+	ProjectRoleViewer ProjectRole = "viewer"
+	ProjectRoleEditor ProjectRole = "editor"
+	ProjectRoleAdmin  ProjectRole = "admin"
+)
+
 // Repository interface defines common database operations
 type Repository interface {
 	Create(entity interface{}) error
