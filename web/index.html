@@ -1825,9 +1825,301 @@
             return { route, navigate };
         }
 
+        // Authentication state management
+        function useAuth() {
+            const [user, setUser] = useState(null);
+            const [loading, setLoading] = useState(true);
+            
+            useEffect(() => {
+                checkAuth();
+            }, []);
+            
+            const checkAuth = async () => {
+                try {
+                    const response = await fetch('/auth/user', {
+                        credentials: 'include'
+                    });
+                    if (response.ok) {
+                        const userData = await response.json();
+                        setUser(userData);
+                    }
+                } catch (error) {
+                    console.log('Not authenticated:', error);
+                } finally {
+                    setLoading(false);
+                }
+            };
+            
+            const login = () => {
+                window.location.href = '/auth/start';
+            };
+            
+            const logout = async () => {
+                try {
+                    const response = await fetch('/auth/logout', {
+                        method: 'POST',
+                        credentials: 'include',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest'
+                        }
+                    });
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        setUser(null);
+                        
+                        // Redirect to provider logout URL to destroy provider session
+                        // This will redirect back to our login page via post_logout_redirect_uri
+                        window.location.href = data.logout_url;
+                    } else {
+                        throw new Error('Logout request failed');
+                    }
+                } catch (error) {
+                    console.error('Logout failed:', error);
+                    // Even if logout fails, clear user state and redirect
+                    setUser(null);
+                    window.location.href = '/auth/login';
+                }
+            };
+            
+            return { user, loading, login, logout, isAdmin: user?.role === 'admin' };
+        }
+
+        // User menu component
+        function UserMenu({ user, onLogout, onOpenSettings }) {
+            const [isOpen, setIsOpen] = useState(false);
+            
+            const toggleMenu = () => setIsOpen(!isOpen);
+            
+            const handleLogout = () => {
+                setIsOpen(false);
+                onLogout();
+            };
+            
+            const handleSettings = () => {
+                setIsOpen(false);
+                onOpenSettings();
+            };
+            
+            return (
+                <div className="user-menu" style={{position: 'relative'}}>
+                    <button 
+                        className="user-menu-trigger"
+                        onClick={toggleMenu}
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem',
+                            background: 'rgba(255, 255, 255, 0.1)',
+                            border: '1px solid rgba(255, 255, 255, 0.2)',
+                            borderRadius: '8px',
+                            padding: '0.5rem 0.75rem',
+                            color: 'white',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s ease'
+                        }}
+                        onMouseEnter={(e) => {
+                            e.target.style.background = 'rgba(255, 255, 255, 0.15)';
+                            e.target.style.borderColor = 'rgba(255, 255, 255, 0.3)';
+                        }}
+                        onMouseLeave={(e) => {
+                            e.target.style.background = 'rgba(255, 255, 255, 0.1)';
+                            e.target.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+                        }}
+                    >
+                        <div className="user-avatar" style={{
+                            width: '24px',
+                            height: '24px',
+                            borderRadius: '50%',
+                            background: user.profile_url ? `url(${user.profile_url})` : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                            backgroundSize: 'cover',
+                            backgroundPosition: 'center',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '12px',
+                            fontWeight: '600',
+                            color: 'white'
+                        }}>
+                            {!user.profile_url && (user.name ? user.name.charAt(0).toUpperCase() : '👤')}
+                        </div>
+                        <span style={{fontSize: '14px', fontWeight: '500'}}>
+                            {user.name || user.email}
+                        </span>
+                        {user.role === 'admin' && (
+                            <span style={{
+                                fontSize: '10px',
+                                padding: '2px 6px',
+                                background: 'rgba(16, 185, 129, 0.2)',
+                                color: '#10b981',
+                                borderRadius: '4px',
+                                fontWeight: '600'
+                            }}>
+                                ADMIN
+                            </span>
+                        )}
+                        <i className="fas fa-chevron-down" style={{
+                            fontSize: '12px',
+                            transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                            transition: 'transform 0.2s ease'
+                        }}></i>
+                    </button>
+                    
+                    {isOpen && (
+                        <div className="user-menu-dropdown" style={{
+                            position: 'absolute',
+                            top: '100%',
+                            right: '0',
+                            marginTop: '0.5rem',
+                            background: 'var(--bg-elevated)',
+                            border: '1px solid var(--border-color)',
+                            borderRadius: '8px',
+                            boxShadow: '0 10px 40px rgba(0, 0, 0, 0.1)',
+                            minWidth: '200px',
+                            zIndex: 1000,
+                            overflow: 'hidden'
+                        }}>
+                            <div style={{
+                                padding: '1rem',
+                                borderBottom: '1px solid var(--border-color)',
+                                background: 'var(--bg-secondary)'
+                            }}>
+                                <div style={{fontWeight: '600', color: 'var(--text-primary)', marginBottom: '0.25rem'}}>
+                                    {user.name}
+                                </div>
+                                <div style={{fontSize: '0.875rem', color: 'var(--text-secondary)'}}>
+                                    {user.email}
+                                </div>
+                                <div style={{fontSize: '0.75rem', color: 'var(--text-tertiary)', marginTop: '0.25rem'}}>
+                                    Role: {user.role}
+                                </div>
+                            </div>
+                            
+                            <div style={{padding: '0.5rem'}}>
+                                <button
+                                    onClick={handleSettings}
+                                    style={{
+                                        width: '100%',
+                                        padding: '0.75rem',
+                                        background: 'transparent',
+                                        border: 'none',
+                                        borderRadius: '6px',
+                                        textAlign: 'left',
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '0.75rem',
+                                        color: 'var(--text-primary)',
+                                        transition: 'background-color 0.2s ease'
+                                    }}
+                                    onMouseEnter={(e) => e.target.style.background = 'var(--bg-secondary)'}
+                                    onMouseLeave={(e) => e.target.style.background = 'transparent'}
+                                >
+                                    <i className="fas fa-cog"></i>
+                                    <span>Settings & Preferences</span>
+                                </button>
+                                
+                                {user.role === 'admin' && (
+                                    <button
+                                        onClick={() => window.location.href = '/admin'}
+                                        style={{
+                                            width: '100%',
+                                            padding: '0.75rem',
+                                            background: 'transparent',
+                                            border: 'none',
+                                            borderRadius: '6px',
+                                            textAlign: 'left',
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '0.75rem',
+                                            color: 'var(--text-primary)',
+                                            transition: 'background-color 0.2s ease'
+                                        }}
+                                        onMouseEnter={(e) => e.target.style.background = 'var(--bg-secondary)'}
+                                        onMouseLeave={(e) => e.target.style.background = 'transparent'}
+                                    >
+                                        <i className="fas fa-shield-alt"></i>
+                                        <span>Admin Panel</span>
+                                    </button>
+                                )}
+                                
+                                <div style={{
+                                    height: '1px',
+                                    background: 'var(--border-color)',
+                                    margin: '0.5rem 0'
+                                }}></div>
+                                
+                                <button
+                                    onClick={handleLogout}
+                                    style={{
+                                        width: '100%',
+                                        padding: '0.75rem',
+                                        background: 'transparent',
+                                        border: 'none',
+                                        borderRadius: '6px',
+                                        textAlign: 'left',
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '0.75rem',
+                                        color: 'var(--error)',
+                                        transition: 'background-color 0.2s ease'
+                                    }}
+                                    onMouseEnter={(e) => e.target.style.background = 'rgba(239, 68, 68, 0.1)'}
+                                    onMouseLeave={(e) => e.target.style.background = 'transparent'}
+                                >
+                                    <i className="fas fa-sign-out-alt"></i>
+                                    <span>Sign Out</span>
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        // Login button component
+        function LoginButton({ onLogin }) {
+            return (
+                <button
+                    onClick={onLogin}
+                    style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.5rem',
+                        background: 'rgba(255, 255, 255, 0.1)',
+                        border: '1px solid rgba(255, 255, 255, 0.2)',
+                        borderRadius: '8px',
+                        padding: '0.5rem 1rem',
+                        color: 'white',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease',
+                        fontSize: '14px',
+                        fontWeight: '500'
+                    }}
+                    onMouseEnter={(e) => {
+                        e.target.style.background = 'rgba(255, 255, 255, 0.15)';
+                        e.target.style.borderColor = 'rgba(255, 255, 255, 0.3)';
+                        e.target.style.transform = 'translateY(-1px)';
+                    }}
+                    onMouseLeave={(e) => {
+                        e.target.style.background = 'rgba(255, 255, 255, 0.1)';
+                        e.target.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+                        e.target.style.transform = 'translateY(0px)';
+                    }}
+                >
+                    <i className="fas fa-sign-in-alt">🔑</i>
+                    <span>Sign In</span>
+                </button>
+            );
+        }
+
         // Modern Header component
         function Header({ health, projects, testRuns, onOpenSettings }) {
             const { theme, toggleTheme } = useUserPreferences();
+            const { user, loading, login, logout } = useAuth();
             const activeProjects = projects.filter(p => p.is_active).length;
             const recentRuns = testRuns.filter(tr => {
                 const runDate = new Date(tr.start_time);
@@ -1897,35 +2189,28 @@
                                 <i className={getThemeIcon()}></i>
                             </button>
 
-                            <button 
-                                className="theme-toggle settings-button" 
-                                onClick={onOpenSettings} 
-                                title="Open user preferences"
-                                style={{
-                                    marginLeft: '0.5rem',
-                                    background: 'rgba(255, 255, 255, 0.1)',
-                                    border: '1px solid rgba(255, 255, 255, 0.2)',
-                                    color: 'white',
-                                    padding: '0.75rem',
-                                    borderRadius: '0.5rem',
-                                    cursor: 'pointer',
-                                    transition: 'all 0.2s ease',
-                                    fontSize: '1rem',
+                            {/* Authentication UI */}
+                            {loading ? (
+                                <div style={{
                                     display: 'flex',
                                     alignItems: 'center',
-                                    justifyContent: 'center'
-                                }}
-                                onMouseEnter={(e) => {
-                                    e.target.style.background = 'rgba(255, 255, 255, 0.2)';
-                                    e.target.style.transform = 'scale(1.05)';
-                                }}
-                                onMouseLeave={(e) => {
-                                    e.target.style.background = 'rgba(255, 255, 255, 0.1)';
-                                    e.target.style.transform = 'scale(1)';
-                                }}
-                            >
-                                <i className="fas fa-cog"></i>
-                            </button>
+                                    gap: '0.5rem',
+                                    padding: '0.5rem 1rem',
+                                    color: 'rgba(255, 255, 255, 0.7)',
+                                    fontSize: '14px'
+                                }}>
+                                    <i className="fas fa-spinner fa-spin"></i>
+                                    <span>Loading...</span>
+                                </div>
+                            ) : user ? (
+                                <UserMenu 
+                                    user={user} 
+                                    onLogout={logout} 
+                                    onOpenSettings={onOpenSettings}
+                                />
+                            ) : (
+                                <LoginButton onLogin={login} />
+                            )}
                         </div>
                     </div>
                 </div>
@@ -1934,23 +2219,43 @@
 
         // Modern Navigation component
         function Navigation({ route, navigate }) {
+            const { user, isAdmin } = useAuth();
+            
             const navItems = [
-                { path: '/', label: 'Dashboard', icon: 'fas fa-chart-line' },
-                { path: '/test-summaries', label: 'Test Summaries', icon: 'fas fa-chart-pie' },
-                { path: '/test-runs', label: 'Test Runs', icon: 'fas fa-list-alt' },
-                { path: '/manager-dashboard', label: 'Manager Dashboard', icon: 'fas fa-tachometer-alt' }
+                { path: '/', label: 'Dashboard', icon: 'fas fa-chart-line', fallback: '📊' },
+                { path: '/test-summaries', label: 'Test Summaries', icon: 'fas fa-chart-pie', fallback: '📈' },
+                { path: '/test-runs', label: 'Test Runs', icon: 'fas fa-list-alt', fallback: '📋' },
+                { path: '/manager-dashboard', label: 'Manager Dashboard', icon: 'fas fa-tachometer-alt', fallback: '🎛️' }
             ];
+
+            // Add admin navigation items if user is admin
+            const adminItems = [
+                { path: '/admin/users', label: 'User Management', icon: 'fas fa-users', fallback: '👥', adminOnly: true },
+                { path: '/admin/projects', label: 'Project Management', icon: 'fas fa-folder-open', fallback: '📁', adminOnly: true },
+                { path: '/admin/system', label: 'System Settings', icon: 'fas fa-cogs', fallback: '⚙️', adminOnly: true }
+            ];
+
+            const allItems = isAdmin ? [...navItems, ...adminItems] : navItems;
 
             return (
                 <div className="navigation">
                     <div className="nav-content">
-                        {navItems.map(item => (
+                        {allItems.map(item => (
                             <button 
                                 key={item.path}
                                 onClick={() => navigate(item.path)}
-                                className={`nav-button ${route === item.path ? 'active' : ''}`}
+                                className={`nav-button ${route === item.path ? 'active' : ''} ${item.adminOnly ? 'admin-nav-item' : ''}`}
+                                style={item.adminOnly ? {
+                                    borderLeft: '3px solid var(--primary)',
+                                    background: 'linear-gradient(90deg, rgba(16, 185, 129, 0.05) 0%, transparent 100%)'
+                                } : {}}
                             >
-                                <i className={item.icon}></i>
+                                <i className={item.icon} style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    minWidth: '16px'
+                                }}></i>
                                 {item.label}
                             </button>
                         ))}
@@ -3829,6 +4134,289 @@
             );
         }
 
+        // Admin Pages Components
+
+        // Admin Users Management Page
+        function AdminUsers() {
+            const [users, setUsers] = useState([]);
+            const [loading, setLoading] = useState(true);
+            const [error, setError] = useState(null);
+
+            useEffect(() => {
+                fetchUsers();
+            }, []);
+
+            const fetchUsers = async () => {
+                try {
+                    const response = await fetch('/api/v1/admin/users', {
+                        credentials: 'include'
+                    });
+                    if (response.ok) {
+                        const data = await response.json();
+                        setUsers(data.users || []);
+                    } else {
+                        setError('Failed to load users');
+                    }
+                } catch (err) {
+                    setError('Error loading users: ' + err.message);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            const updateUserRole = async (userId, newRole) => {
+                try {
+                    const response = await fetch(`/api/v1/admin/users/${userId}/role`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'include',
+                        body: JSON.stringify({ role: newRole })
+                    });
+                    if (response.ok) {
+                        fetchUsers(); // Refresh the list
+                    } else {
+                        setError('Failed to update user role');
+                    }
+                } catch (err) {
+                    setError('Error updating user: ' + err.message);
+                }
+            };
+
+            if (loading) return <div className="page-container"><div style={{textAlign: 'center', padding: '2rem'}}>Loading users...</div></div>;
+            if (error) return <div className="page-container"><div style={{textAlign: 'center', padding: '2rem', color: 'var(--error)'}}>{error}</div></div>;
+
+            return (
+                <div className="page-container">
+                    <div className="page-header">
+                        <h1>👥 User Management</h1>
+                        <p>Manage user accounts and permissions</p>
+                    </div>
+
+                    <div className="card">
+                        <div className="card-header">
+                            <h3>All Users</h3>
+                            <span className="badge">{users.length} users</span>
+                        </div>
+
+                        <div style={{overflow: 'auto'}}>
+                            <table style={{width: '100%', borderCollapse: 'collapse'}}>
+                                <thead>
+                                    <tr style={{borderBottom: '1px solid var(--border-color)'}}>
+                                        <th style={{textAlign: 'left', padding: '1rem', color: 'var(--text-secondary)', fontWeight: '600'}}>User</th>
+                                        <th style={{textAlign: 'left', padding: '1rem', color: 'var(--text-secondary)', fontWeight: '600'}}>Role</th>
+                                        <th style={{textAlign: 'left', padding: '1rem', color: 'var(--text-secondary)', fontWeight: '600'}}>Status</th>
+                                        <th style={{textAlign: 'left', padding: '1rem', color: 'var(--text-secondary)', fontWeight: '600'}}>Last Login</th>
+                                        <th style={{textAlign: 'left', padding: '1rem', color: 'var(--text-secondary)', fontWeight: '600'}}>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {users.map(user => (
+                                        <tr key={user.user_id} style={{borderBottom: '1px solid var(--border-color)'}}>
+                                            <td style={{padding: '1rem'}}>
+                                                <div style={{display: 'flex', alignItems: 'center', gap: '0.75rem'}}>
+                                                    <div style={{
+                                                        width: '32px', height: '32px', borderRadius: '50%',
+                                                        background: user.profile_url ? `url(${user.profile_url})` : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                                                        backgroundSize: 'cover', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                        fontSize: '14px', fontWeight: '600', color: 'white'
+                                                    }}>
+                                                        {!user.profile_url && (user.name ? user.name.charAt(0).toUpperCase() : '👤')}
+                                                    </div>
+                                                    <div>
+                                                        <div style={{fontWeight: '600', color: 'var(--text-primary)'}}>{user.name}</div>
+                                                        <div style={{fontSize: '0.875rem', color: 'var(--text-secondary)'}}>{user.email}</div>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td style={{padding: '1rem'}}>
+                                                <select 
+                                                    value={user.role} 
+                                                    onChange={(e) => updateUserRole(user.user_id, e.target.value)}
+                                                    style={{
+                                                        background: 'var(--bg-secondary)', border: '1px solid var(--border-color)',
+                                                        borderRadius: '4px', padding: '0.25rem 0.5rem', color: 'var(--text-primary)'
+                                                    }}
+                                                >
+                                                    <option value="user">User</option>
+                                                    <option value="admin">Admin</option>
+                                                </select>
+                                            </td>
+                                            <td style={{padding: '1rem'}}>
+                                                <span className={`status ${user.status === 'active' ? 'healthy' : 'inactive'}`}>
+                                                    {user.status}
+                                                </span>
+                                            </td>
+                                            <td style={{padding: '1rem', color: 'var(--text-secondary)', fontSize: '0.875rem'}}>
+                                                {user.last_login ? new Date(user.last_login).toLocaleDateString() : 'Never'}
+                                            </td>
+                                            <td style={{padding: '1rem'}}>
+                                                <button 
+                                                    onClick={() => console.log('Edit user:', user.user_id)}
+                                                    style={{
+                                                        background: 'var(--primary)', color: 'white', border: 'none',
+                                                        borderRadius: '4px', padding: '0.25rem 0.5rem', cursor: 'pointer',
+                                                        fontSize: '0.875rem'
+                                                    }}
+                                                >
+                                                    Edit
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // Admin Projects Management Page
+        function AdminProjects() {
+            return (
+                <div className="page-container">
+                    <div className="page-header">
+                        <h1>📁 Project Management</h1>
+                        <p>Manage projects and access controls</p>
+                    </div>
+
+                    <div className="card">
+                        <div className="card-header">
+                            <h3>Projects</h3>
+                            <button style={{
+                                background: 'var(--primary)', color: 'white', border: 'none',
+                                borderRadius: '4px', padding: '0.5rem 1rem', cursor: 'pointer'
+                            }}>
+                                + Create Project
+                            </button>
+                        </div>
+                        <div style={{textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)'}}>
+                            Project management interface coming soon...
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // Admin System Settings Page
+        function AdminSystem() {
+            const [stats, setStats] = useState(null);
+            const [loading, setLoading] = useState(true);
+
+            useEffect(() => {
+                fetchSystemStats();
+            }, []);
+
+            const fetchSystemStats = async () => {
+                try {
+                    const response = await fetch('/api/v1/admin/system/stats', {
+                        credentials: 'include'
+                    });
+                    if (response.ok) {
+                        const data = await response.json();
+                        setStats(data);
+                    }
+                } catch (err) {
+                    console.error('Failed to fetch system stats:', err);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            return (
+                <div className="page-container">
+                    <div className="page-header">
+                        <h1>⚙️ System Administration</h1>
+                        <p>System statistics and maintenance tools</p>
+                    </div>
+
+                    <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1.5rem', marginBottom: '2rem'}}>
+                        <div className="card">
+                            <div className="card-header">
+                                <h3>System Stats</h3>
+                            </div>
+                            {loading ? (
+                                <div style={{textAlign: 'center', padding: '1rem'}}>Loading...</div>
+                            ) : stats ? (
+                                <div style={{display: 'grid', gap: '1rem'}}>
+                                    <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+                                        <span>Total Users:</span>
+                                        <strong>{stats.total_users}</strong>
+                                    </div>
+                                    <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+                                        <span>Total Projects:</span>
+                                        <strong>{stats.total_projects}</strong>
+                                    </div>
+                                    <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+                                        <span>Total Test Runs:</span>
+                                        <strong>{stats.total_test_runs}</strong>
+                                    </div>
+                                    <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+                                        <span>Active Sessions:</span>
+                                        <strong>{stats.active_sessions}</strong>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div style={{textAlign: 'center', padding: '1rem', color: 'var(--text-secondary)'}}>
+                                    No data available
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="card">
+                            <div className="card-header">
+                                <h3>Quick Actions</h3>
+                            </div>
+                            <div style={{display: 'grid', gap: '0.5rem'}}>
+                                <button style={{
+                                    background: 'var(--primary)', color: 'white', border: 'none',
+                                    borderRadius: '4px', padding: '0.75rem', cursor: 'pointer', textAlign: 'left'
+                                }}>
+                                    🧹 Run System Cleanup
+                                </button>
+                                <button style={{
+                                    background: 'var(--secondary)', color: 'white', border: 'none',
+                                    borderRadius: '4px', padding: '0.75rem', cursor: 'pointer', textAlign: 'left'
+                                }}>
+                                    📊 Generate Report
+                                </button>
+                                <button style={{
+                                    background: 'var(--warning)', color: 'white', border: 'none',
+                                    borderRadius: '4px', padding: '0.75rem', cursor: 'pointer', textAlign: 'left'
+                                }}>
+                                    🔧 Maintenance Mode
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // Access Denied Component
+        function AccessDenied() {
+            return (
+                <div className="page-container">
+                    <div style={{textAlign: 'center', padding: '4rem'}}>
+                        <div style={{fontSize: '4rem', marginBottom: '1rem'}}>🚫</div>
+                        <h1 style={{color: 'var(--error)', marginBottom: '1rem'}}>Access Denied</h1>
+                        <p style={{color: 'var(--text-secondary)', marginBottom: '2rem'}}>
+                            You don't have permission to access this page.
+                        </p>
+                        <button 
+                            onClick={() => window.location.href = '/'}
+                            style={{
+                                background: 'var(--primary)', color: 'white', border: 'none',
+                                borderRadius: '8px', padding: '0.75rem 1.5rem', cursor: 'pointer'
+                            }}
+                        >
+                            Go to Dashboard
+                        </button>
+                    </div>
+                </div>
+            );
+        }
+
         // Main App component
         function FernPlatform() {
             const { route, navigate } = useRouter();
@@ -3862,6 +4450,8 @@
             };
 
             const renderPage = () => {
+                const { user, isAdmin } = useAuth();
+                
                 switch (route) {
                     case '/test-summaries':
                         return <TestSummaries />;
@@ -3869,6 +4459,15 @@
                         return <TestRuns />;
                     case '/manager-dashboard':
                         return <ManagerDashboard />;
+                    
+                    // Admin routes - require admin access
+                    case '/admin/users':
+                        return isAdmin ? <AdminUsers /> : <AccessDenied />;
+                    case '/admin/projects':
+                        return isAdmin ? <AdminProjects /> : <AccessDenied />;
+                    case '/admin/system':
+                        return isAdmin ? <AdminSystem /> : <AccessDenied />;
+                    
                     default:
                         return <Dashboard />;
                 }
