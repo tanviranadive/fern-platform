@@ -25,8 +25,389 @@ spec:
         ports:
           - port: 6379
             expose: true
-        cpu: "100m"
-        memory: "128Mi"
+        resources:
+          requests:
+            cpu: "50m"
+            memory: "64Mi"
+          limits:
+            cpu: "200m"
+            memory: "128Mi"
+
+    # Keycloak OAuth Provider
+    - name: keycloak
+      type: webservice
+      properties:
+        image: quay.io/keycloak/keycloak:23.0
+        namespace: fern-platform
+        imagePullPolicy: IfNotPresent
+        cmd: ["/opt/keycloak/bin/kc.sh", "start-dev", "--import-realm"]
+        ports:
+          - port: 8080
+            expose: true
+            protocol: TCP
+        env:
+          - name: KEYCLOAK_ADMIN
+            value: "admin"
+          - name: KEYCLOAK_ADMIN_PASSWORD
+            value: "admin123"
+          - name: KC_DB
+            value: "dev-file"
+          - name: KC_HOSTNAME_STRICT
+            value: "false"
+          - name: KC_HOSTNAME_STRICT_HTTPS
+            value: "false"
+          - name: KC_HTTP_ENABLED
+            value: "true"
+          - name: KC_METRICS_ENABLED
+            value: "true"
+          - name: KC_HEALTH_ENABLED
+            value: "true"
+          - name: KC_LOG_LEVEL
+            value: "INFO"
+        # Mount realm configuration for import
+        volumeMounts:
+          configMap:
+            - name: realm-config
+              mountPath: /opt/keycloak/data/import
+              cmName: keycloak-realm-config
+        resources:
+          requests:
+            cpu: "200m"
+            memory: "768Mi"
+          limits:
+            cpu: "500m"
+            memory: "1Gi"
+        livenessProbe:
+          httpGet:
+            path: /health/live
+            port: 8080
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health/ready
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+      traits:
+        - type: gateway
+          properties:
+            domain: keycloak
+            http:
+              "/": 8080
+            class: traefik
+
+    # Keycloak Realm Configuration
+    - name: keycloak-realm-config
+      type: raw
+      properties:
+        apiVersion: v1
+        kind: ConfigMap
+        metadata:
+          name: keycloak-realm-config
+          namespace: fern-platform
+        data:
+          realm.json: |
+            {
+              "realm": "fern-platform",
+              "displayName": "Fern Platform",
+              "enabled": true,
+              "sslRequired": "none",
+              "registrationAllowed": false,
+              "resetPasswordAllowed": true,
+              "editUsernameAllowed": false,
+              "bruteForceProtected": true,
+              "permanentLockout": false,
+              "maxFailureWaitSeconds": 900,
+              "minimumQuickLoginWaitSeconds": 60,
+              "waitIncrementSeconds": 60,
+              "quickLoginCheckMilliSeconds": 1000,
+              "maxDeltaTimeSeconds": 43200,
+              "failureFactor": 30,
+              "loginTheme": "keycloak",
+              "adminTheme": "keycloak",
+              "accountTheme": "keycloak",
+              "emailTheme": "keycloak",
+              "internationalizationEnabled": false,
+              "defaultLocale": "en",
+              "accessTokenLifespan": 300,
+              "accessTokenLifespanForImplicitFlow": 900,
+              "ssoSessionIdleTimeout": 1800,
+              "ssoSessionMaxLifespan": 36000,
+              "ssoSessionIdleTimeoutRememberMe": 0,
+              "ssoSessionMaxLifespanRememberMe": 0,
+              "offlineSessionIdleTimeout": 2592000,
+              "offlineSessionMaxLifespanEnabled": false,
+              "offlineSessionMaxLifespan": 5184000,
+              "accessCodeLifespan": 60,
+              "accessCodeLifespanUserAction": 300,
+              "accessCodeLifespanLogin": 1800,
+              "actionTokenGeneratedByAdminLifespan": 43200,
+              "actionTokenGeneratedByUserLifespan": 300,
+              "oauth2DeviceCodeLifespan": 600,
+              "oauth2DevicePollingInterval": 5,
+              "clients": [
+                {
+                  "clientId": "fern-platform-web",
+                  "name": "Fern Platform Web Application",
+                  "description": "Main web application client for Fern Platform",
+                  "enabled": true,
+                  "clientAuthenticatorType": "client-secret",
+                  "secret": "fern-platform-client-secret",
+                  "directAccessGrantsEnabled": true,
+                  "standardFlowEnabled": true,
+                  "implicitFlowEnabled": false,
+                  "serviceAccountsEnabled": false,
+                  "publicClient": false,
+                  "bearerOnly": false,
+                  "consentRequired": false,
+                  "frontchannelLogout": false,
+                  "protocol": "openid-connect",
+                  "fullScopeAllowed": true,
+                  "nodeReRegistrationTimeout": -1,
+                  "validPostLogoutRedirectUris": [
+                    "http://fern-platform.local:8080/auth/login",
+                    "http://localhost:8080/auth/login"
+                  ],
+                  "defaultClientScopes": [
+                    "web-origins",
+                    "acr",
+                    "profile",
+                    "roles",
+                    "email",
+                    "groups"
+                  ],
+                  "optionalClientScopes": [
+                    "address",
+                    "phone",
+                    "offline_access",
+                    "microprofile-jwt"
+                  ],
+                  "access": {
+                    "view": true,
+                    "configure": true,
+                    "manage": true
+                  },
+                  "baseUrl": "http://fern-platform.local:8080",
+                  "rootUrl": "http://fern-platform.local:8080",
+                  "adminUrl": "http://fern-platform.local:8080",
+                  "frontchannelLogoutUrl": "http://fern-platform.local:8080/auth/login",
+                  "redirectUris": [
+                    "http://localhost:8080/auth/callback",
+                    "http://fern-platform.local:8080/auth/callback",
+                    "http://fern-platform.local:8080/auth/login",
+                    "http://fern-platform.local:8080/*"
+                  ],
+                  "webOrigins": [
+                    "http://localhost:8080",
+                    "http://fern-platform.local:8080"
+                  ],
+                  "attributes": {
+                    "post.logout.redirect.uris": "http://fern-platform.local:8080/auth/login",
+                    "frontchannel.logout.url": "http://fern-platform.local:8080/auth/login",
+                    "frontchannel.logout.session.required": "false",
+                    "backchannel.logout.session.required": "false",
+                    "backchannel.logout.revoke.offline.tokens": "false"
+                  },
+                  "protocolMappers": [
+                    {
+                      "name": "groups",
+                      "protocol": "openid-connect",
+                      "protocolMapper": "oidc-group-membership-mapper",
+                      "config": {
+                        "access.token.claim": "true",
+                        "claim.name": "groups",
+                        "full.path": "false",
+                        "id.token.claim": "true",
+                        "userinfo.token.claim": "true"
+                      }
+                    },
+                    {
+                      "name": "realm_roles",
+                      "protocol": "openid-connect",
+                      "protocolMapper": "oidc-usermodel-realm-role-mapper",
+                      "config": {
+                        "access.token.claim": "true",
+                        "claim.name": "realm_roles",
+                        "id.token.claim": "true",
+                        "userinfo.token.claim": "true",
+                        "multivalued": "true"
+                      }
+                    },
+                    {
+                      "name": "username",
+                      "protocol": "openid-connect",
+                      "protocolMapper": "oidc-usermodel-property-mapper",
+                      "config": {
+                        "access.token.claim": "true",
+                        "claim.name": "preferred_username",
+                        "id.token.claim": "true",
+                        "user.attribute": "username",
+                        "userinfo.token.claim": "true"
+                      }
+                    },
+                    {
+                      "name": "email verified",
+                      "protocol": "openid-connect",
+                      "protocolMapper": "oidc-usermodel-property-mapper",
+                      "config": {
+                        "access.token.claim": "true",
+                        "claim.name": "email_verified",
+                        "id.token.claim": "true",
+                        "user.attribute": "emailVerified",
+                        "userinfo.token.claim": "true"
+                      }
+                    },
+                    {
+                      "name": "audience resolve",
+                      "protocol": "openid-connect",
+                      "protocolMapper": "oidc-audience-mapper",
+                      "config": {
+                        "access.token.claim": "true",
+                        "included.client.audience": "fern-platform-web"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "clientScopes": [
+                {
+                  "name": "groups",
+                  "description": "User groups",
+                  "protocol": "openid-connect",
+                  "attributes": {
+                    "include.in.token.scope": "true",
+                    "display.on.consent.screen": "true",
+                    "consent.screen.text": "User groups"
+                  },
+                  "protocolMappers": [
+                    {
+                      "name": "groups",
+                      "protocol": "openid-connect",
+                      "protocolMapper": "oidc-group-membership-mapper",
+                      "config": {
+                        "access.token.claim": "true",
+                        "claim.name": "groups",
+                        "full.path": "false",
+                        "id.token.claim": "true",
+                        "userinfo.token.claim": "true"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "defaultDefaultClientScopes": [
+                "role_list",
+                "profile",
+                "email",
+                "web-origins",
+                "acr"
+              ],
+              "defaultOptionalClientScopes": [
+                "offline_access",
+                "address",
+                "phone",
+                "microprofile-jwt",
+                "groups"
+              ],
+              "groups": [
+                {
+                  "name": "fern-platform-admins",
+                  "path": "/fern-platform-admins",
+                  "attributes": {
+                    "description": ["Administrative group for fern-platform"]
+                  }
+                },
+                {
+                  "name": "fern-platform-users", 
+                  "path": "/fern-platform-users",
+                  "attributes": {
+                    "description": ["Regular users group for fern-platform"]
+                  }
+                }
+              ],
+              "roles": {
+                "realm": [
+                  {
+                    "name": "admin",
+                    "description": "Administrative role with full access"
+                  },
+                  {
+                    "name": "user",
+                    "description": "Regular user role with limited access"
+                  }
+                ]
+              },
+              "passwordPolicy": "length(8) and digits(1) and lowerCase(1) and upperCase(1) and specialChars(1) and notUsername and notEmail",
+              "otpPolicyType": "totp",
+              "otpPolicyAlgorithm": "HmacSHA1",
+              "otpPolicyInitialCounter": 0,
+              "otpPolicyDigits": 6,
+              "otpPolicyLookAheadWindow": 1,
+              "otpPolicyPeriod": 30,
+              "otpSupportedApplications": [
+                "totpAppFreeOTPName",
+                "totpAppGoogleName"
+              ],
+              "webAuthnPolicyRpEntityName": "keycloak",
+              "webAuthnPolicySignatureAlgorithms": [
+                "ES256"
+              ],
+              "webAuthnPolicyRpId": "",
+              "webAuthnPolicyAttestationConveyancePreference": "not specified",
+              "webAuthnPolicyAuthenticatorAttachment": "not specified",
+              "webAuthnPolicyRequireResidentKey": "not specified",
+              "webAuthnPolicyUserVerificationRequirement": "not specified",
+              "webAuthnPolicyCreateTimeout": 0,
+              "webAuthnPolicyAvoidSameAuthenticatorRegister": false,
+              "webAuthnPolicyAcceptableAaguids": [],
+              "defaultGroups": [
+                "/fern-platform-users"
+              ],
+              "requiredCredentials": [
+                "password"
+              ],
+              "users": [
+                {
+                  "username": "admin@fern.com",
+                  "email": "admin@fern.com",
+                  "firstName": "Platform",
+                  "lastName": "Admin",
+                  "enabled": true,
+                  "emailVerified": true,
+                  "credentials": [
+                    {
+                      "type": "password",
+                      "value": "admin123",
+                      "temporary": false
+                    }
+                  ],
+                  "groups": ["/fern-platform-admins"],
+                  "realmRoles": ["admin"]
+                },
+                {
+                  "username": "user@fern.com",
+                  "email": "user@fern.com", 
+                  "firstName": "Test",
+                  "lastName": "User",
+                  "enabled": true,
+                  "emailVerified": true,
+                  "credentials": [
+                    {
+                      "type": "password",
+                      "value": "user123",
+                      "temporary": false
+                    }
+                  ],
+                  "groups": ["/fern-platform-users"],
+                  "realmRoles": ["user"]
+                }
+              ]
+            }
 
     # Fern Platform Service  
     - name: fern-platform
@@ -34,8 +415,9 @@ spec:
       dependsOn:
         - postgres
         - redis
+        - keycloak
       properties:
-        image: anoop2811/fern-platform:67a81b4-dirty8
+        image: anoop2811/fern-platform:d9c627b-dirty8
         imagePullPolicy: IfNotPresent
         namespace: fern-platform
         ports:
@@ -48,8 +430,67 @@ spec:
             value: redis
           - name: REDIS_PORT
             value: "6379"
-        cpu: "200m"
-        memory: "256Mi"
+          
+          # Core Authentication Configuration
+          - name: AUTH_ENABLED
+            value: "true"
+          - name: JWKS_URL
+            value: "http://keycloak:8080/realms/fern-platform/protocol/openid-connect/certs"
+          - name: AUTH_ISSUER
+            value: "http://keycloak:8080/realms/fern-platform"
+          - name: AUTH_AUDIENCE
+            value: "fern-platform-web"
+          
+          # OAuth 2.0/OpenID Connect Configuration
+          - name: OAUTH_ENABLED
+            value: "true"
+          - name: OAUTH_CLIENT_ID
+            value: "fern-platform-web"
+          - name: OAUTH_CLIENT_SECRET
+            value: "fern-platform-client-secret"
+          - name: OAUTH_REDIRECT_URL
+            value: "http://fern-platform.local:8080/auth/callback"
+          - name: OAUTH_SCOPES
+            value: "openid,profile,email,groups"
+          
+          # OAuth Provider Endpoints
+          - name: OAUTH_AUTH_URL
+            value: "http://keycloak:8080/realms/fern-platform/protocol/openid-connect/auth"
+          - name: OAUTH_TOKEN_URL
+            value: "http://keycloak:8080/realms/fern-platform/protocol/openid-connect/token"
+          - name: OAUTH_USERINFO_URL
+            value: "http://keycloak:8080/realms/fern-platform/protocol/openid-connect/userinfo"
+          - name: OAUTH_JWKS_URL
+            value: "http://keycloak:8080/realms/fern-platform/protocol/openid-connect/certs"
+          - name: OAUTH_ISSUER_URL
+            value: "http://keycloak:8080/realms/fern-platform"
+          - name: OAUTH_LOGOUT_URL
+            value: "http://keycloak:8080/realms/fern-platform/protocol/openid-connect/logout"
+          
+          # Admin User and Group Configuration
+          - name: OAUTH_ADMIN_USERS
+            value: "admin@fern.com"
+          - name: OAUTH_ADMIN_GROUPS
+            value: "fern-platform-admins"
+          
+          # Token Claim Field Mappings
+          - name: OAUTH_USER_ID_FIELD
+            value: "sub"
+          - name: OAUTH_EMAIL_FIELD
+            value: "email"
+          - name: OAUTH_NAME_FIELD
+            value: "name"
+          - name: OAUTH_GROUPS_FIELD
+            value: "groups"
+          - name: OAUTH_ROLES_FIELD
+            value: "realm_roles"
+        resources:
+          requests:
+            cpu: "200m"
+            memory: "768Mi"
+          limits:
+            cpu: "300m"
+            memory: "768Mi"
         livenessProbe:
           httpGet:
             path: /health
@@ -67,6 +508,12 @@ spec:
           timeoutSeconds: 5
           failureThreshold: 3
       traits:
+        - type: gateway
+          properties:
+            domain: fern-platform.local
+            http:
+              "/": 8080
+            class: traefik
         - type: service-binding
           properties:
             envMappings:
@@ -101,6 +548,9 @@ spec:
           - name: redis
             properties:
               replicas: 1
+          - name: keycloak
+            properties:
+              replicas: 1
           - name: fern-platform
             properties:
               replicas: 1
@@ -119,18 +569,34 @@ spec:
         properties:
           component: redis
       
-      # Step 3: Wait for infrastructure to be ready
+      # Step 3: Deploy Keycloak realm configuration
+      - name: deploy-keycloak-config
+        type: apply-component
+        properties:
+          component: keycloak-realm-config
+      
+      # Step 4: Deploy Keycloak OAuth provider
+      - name: deploy-keycloak
+        type: apply-component
+        dependsOn:
+          - deploy-keycloak-config
+        properties:
+          component: keycloak
+      
+      # Step 5: Wait for infrastructure to be ready
       - name: wait-for-infrastructure
         type: suspend
         properties:
-          duration: 60s
+          duration: 90s
       
-      # Step 4: Deploy fern-platform after infrastructure is ready
+      # Step 6: Deploy fern-platform after all infrastructure is ready
       - name: deploy-application
         type: apply-component
         dependsOn:
           - deploy-database
           - deploy-redis
+          - deploy-keycloak-config
+          - deploy-keycloak
           - wait-for-infrastructure
         properties:
           component: fern-platform
