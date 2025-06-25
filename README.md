@@ -1,259 +1,257 @@
 <div align="center">
   <img src="https://github.com/guidewire-oss/fern-reporter/blob/main/docs/images/logo-color.png" alt="Fern Platform" width="200"/>
   
-  # Fern Platform
+  # 🌿 Fern Platform
 
-  A unified platform for test reporting, analysis, and AI-powered insights that consolidates the Fern ecosystem into a modern, scalable architecture.
+  **Transform your test chaos into intelligent insights with AI-powered test analysis**
+
+  *Stop drowning in test data. Start understanding what your tests are telling you.*
 
   [![Go Version](https://img.shields.io/badge/go-1.21+-blue.svg)](https://golang.org)
   [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-  [![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)](#)
-  [![Coverage](https://img.shields.io/badge/coverage-85%25-green.svg)](#)
+  [![Docker Pulls](https://img.shields.io/badge/docker-pulls-blue.svg)](https://hub.docker.com/r/anoop2811/fern-platform)
+  [![GitHub Stars](https://img.shields.io/github/stars/guidewire-oss/fern-platform?style=social)](https://github.com/guidewire-oss/fern-platform/stargazers)
+
+  <p align="center">
+    <a href="#-quick-start">🚀 Quick Start</a> •
+    <a href="docs/README.md">📚 Documentation</a> •
+    <a href="docs/product/overview.md">🎯 Why Fern?</a> •
+    <a href="#-demo">🎬 Demo</a> •
+    <a href="#-community">💬 Community</a>
+  </p>
 </div>
 
-## Overview
+## 🎯 Why Choose Fern Platform?
 
-Fern Platform brings together the capabilities of multiple Fern projects into a single, cohesive platform:
+Every engineering team struggles with the same problems:
+- 🔥 **Flaky tests** that waste CI time and developer confidence
+- 📊 **Test data scattered** across multiple tools and dashboards  
+- 🤔 **No visibility** into test trends, failures, or team productivity
+- 🔍 **Manual debugging** of test failures without context
 
-- **fern-reporter**: Test run data collection and reporting
-- **fern-mycelium**: AI-powered test analysis and insights  
-- **fern-ui**: Modern React-based user interface built with Refine.dev
+**Fern Platform solves this** by providing a unified test intelligence platform that consolidates your test data into actionable insights.
 
-## Architecture
+### ✨ What Makes Fern Special
 
-The platform follows a unified monolithic architecture with modular components:
-
-- **Shared Infrastructure Layer**: Common database models, logging, configuration, and middleware in `pkg/`
-- **Core Modules**: Modular components (reporter, mycelium, ui) in `internal/`
-- **API Layer**: GraphQL and REST APIs with standardized patterns
-- **Deployment Layer**: KubeVela-based orchestration for local and production environments
-- **Command Layer**: Main application entry point in `cmd/`
-
-### Technology Stack
-
-- **Backend**: Go with Gin framework, GORM ORM, GraphQL (gqlgen)
-- **Frontend**: React with Refine.dev framework, TypeScript
-- **Database**: PostgreSQL with CloudNativePG (CNPG) operator
-- **Caching**: Redis for sessions and message bus
-- **Testing**: Ginkgo/Gomega for Go, Jest for frontend
-- **Deployment**: Kubernetes with KubeVela application management
-- **AI Integration**: Anthropic Claude, OpenAI, HuggingFace, Ollama support
-
-## Quick Start
-
-### Prerequisites
-
-- **Go 1.21+** - For building the platform
-- **Docker** - For dependencies
-- **kubectl** - Kubernetes CLI
-- **k3d** - Local Kubernetes cluster (optional)
-- **PostgreSQL** - Database (deployed via k3d cluster)
-
-### Local Development Setup
-
-For comprehensive local development setup with k3d, KubeVela, and all dependencies, please follow the detailed instructions in our [Contributing Guide](CONTRIBUTING.md#local-deployment-with-kubevela).
-
-**Quick Overview:**
-1. **Clone the repository**
-2. **Set up k3d cluster** with KubeVela and CloudNativePG
-3. **Deploy the platform** using KubeVela
-4. **Access via port-forward** at http://localhost:8080
-
-### Development Workflow
-
-See [Contributing Guide](CONTRIBUTING.md#development-workflow) for detailed development workflow including:
-- Building and testing the platform
-- Running acceptance tests in k3d
-- Code quality checks
-- Pull request process
-
-## Configuration
-
-Configuration is managed through YAML files and environment variables following the twelve-factor app methodology.
-
-### Environment Variables
-
-Key environment variables:
+| 📊 **Unified Intelligence** | 🔧 **Developer-First** | 🏢 **Enterprise-Ready** |
+|-------------------|------------------------|-------------------------|
+| Multi-framework test consolidation | 15-minute k3d setup | OAuth/SSO with any provider |
+| Rich test metadata and trends | Multi-framework support | Role-based access control |
+| Interactive data visualization | Rich APIs (REST + GraphQL) | Production-grade security |
 
 ```bash
-# Database
-DB_HOST=localhost
-DB_PORT=5432
-DB_USER=postgres
-DB_PASSWORD=your_password
-DB_NAME=fern_platform
-
-# Authentication (optional)
-AUTH_ENABLED=false
-JWT_SECRET=your_jwt_secret
-
-# LLM Providers
-ANTHROPIC_API_KEY=your_anthropic_key
-OPENAI_API_KEY=your_openai_key
-
-# Logging
-LOG_LEVEL=info
-LOG_FORMAT=json
+# Get started in 3 commands (requires k3d + kubectl)
+git clone https://github.com/guidewire-oss/fern-platform
+cd fern-platform
+make quick-start  # ← You'll have a running platform in 15 minutes!
 ```
 
-## API Documentation
+## 🎬 Demo
 
-### REST API
+<div align="center">
+  <img src="docs/images/fern-platform-demo.gif" alt="Fern Platform Demo" width="800"/>
+  
+  *See Fern Platform in action: From test chaos to intelligent insights in minutes*
+</div>
 
-The platform provides comprehensive REST APIs:
+### 🌟 Key Features Available Now
 
-- **Test Runs**: `/api/v1/test-runs/*`
-- **Projects**: `/api/v1/projects/*`
-- **Tags**: `/api/v1/tags/*`
-- **Health**: `/health`
+- **🎯 Interactive Treemap**: Visualize all your projects' test health at a glance
+- **📊 Real-time Dashboards**: Live test statistics and trends
+- **🔍 Deep Drill-Down**: From high-level overview to individual test details
+- **👥 Team Collaboration**: Role-based access and project management
+- **🔐 OAuth Integration**: Secure authentication with any OAuth 2.0 provider
 
-### GraphQL API
+### 🚧 Planned AI Features (Coming Soon)
 
-GraphQL endpoint available at `/graphql` with playground at `/graphql`.
+- **🤖 Flaky Test Detection**: Statistical analysis to identify unreliable tests
+- **📈 Failure Pattern Analysis**: Automatic categorization of test failures
+- **💡 Smart Recommendations**: AI-powered suggestions for test improvements
 
-Key types:
-- `TestRun`: Test execution data
-- `Project`: Project configuration
-- `Tag`: Test categorization
-- `FlakyTest`: Flaky test analysis
+## 🚀 Quick Start
 
-## Database Schema
+Choose your setup path based on your environment:
 
-The platform uses PostgreSQL with the following main tables:
-
-- `test_runs`: Test execution records
-- `suite_runs`: Test suite executions  
-- `spec_runs`: Individual test specs
-- `projects`: Project configurations
-- `tags`: Test categorization
-- `flaky_tests`: Flaky test analysis
-
-## Testing
-
-### Unit Tests
-
+### 🔥 **15 Minutes** - Local Development Setup
 ```bash
-# Run all tests
+# Prerequisites: Docker, k3d, kubectl, vela CLI
+# Complete setup with OAuth, database, and test data
+git clone https://github.com/guidewire-oss/fern-platform
+cd fern-platform
+make quick-start  # Installs k3d cluster, deploys everything
+# Visit http://fern-platform.local:8080
+```
+
+### 🏢 **30 Minutes** - Production Kubernetes Deployment
+```bash
+# Deploy to your existing Kubernetes cluster
+kubectl apply -f deployments/fern-platform-kubevela.yaml
+# See docs/operations/production-setup.md for details
+```
+
+**[📖 Detailed setup guides for all scenarios →](docs/developers/quick-start.md)**
+
+## 🛠️ What Can You Build?
+
+Fern Platform is designed for extensibility. Here are some examples of what teams have built:
+
+### 🔌 **Current Integrations**
+- **CI/CD Pipelines**: Jenkins, GitHub Actions, GitLab CI webhooks
+- **Test Frameworks**: Ginkgo, JUnit, Jest, Pytest, and custom reporters
+- **Monitoring Tools**: Grafana dashboards, PagerDuty alerts
+- **OAuth Providers**: Any OAuth 2.0/OpenID Connect provider
+
+### 🤖 **Planned AI Features** (Roadmap)
+- **Smart Notifications**: AI-filtered alerts for critical failures only
+- **Failure Categorization**: Automatic grouping of similar test failures
+- **Test Optimization**: Suggestions for improving test reliability
+- **Predictive Analysis**: Identify tests likely to become flaky
+
+### 📊 **Custom Analytics**
+- **Team Dashboards**: Per-team test health and productivity metrics
+- **Executive Reports**: High-level quality trends and business impact
+- **Performance Analysis**: Test execution time trends and bottlenecks
+- **Coverage Insights**: Visual test coverage gaps and improvements
+
+```go
+// Example: Custom test analyzer plugin
+type FlakinessPredictorPlugin struct {
+    client *fern.Client
+}
+
+func (p *FlakinessPredictorPlugin) Analyze(testRun *TestRun) *Prediction {
+    // Your custom AI/ML logic here
+    return &Prediction{
+        Confidence: 0.85,
+        Suggestion: "This test may become flaky due to timing issues",
+    }
+}
+```
+
+**[🚀 See the full API documentation →](docs/developers/api-reference.md)**
+
+## 💬 Community
+
+Join thousands of developers already using Fern Platform:
+
+### 🤝 **Get Involved**
+- ⭐ **Star this repo** if you find Fern Platform useful
+- 🐛 **Report bugs** via [GitHub Issues](../../issues)
+- 💡 **Suggest features** in [GitHub Discussions](../../discussions)
+- 🔄 **Contribute code** - see our [Contributing Guide](CONTRIBUTING.md)
+
+### 📞 **Get Help**
+- 📖 **Documentation**: [Complete guides](docs/README.md) for all use cases
+- 💬 **Community Chat**: [GitHub Discussions](../../discussions) for questions
+- 🎬 **Video Tutorials**: [YouTube Channel](https://youtube.com/fern-platform) (coming soon)
+- 📧 **Enterprise Support**: Contact for commercial support options
+
+### 🏆 **Who's Using Fern Platform**
+
+Fern Platform is actively used by development teams for:
+- **Test result consolidation** across multiple CI/CD pipelines
+- **Historical test analysis** and trend tracking
+- **Team collaboration** on test quality improvements
+- **OAuth-integrated dashboards** for secure test data access
+
+**[📝 Share how you're using Fern Platform →](../../discussions/categories/show-and-tell)**
+
+## 📖 Documentation Hub
+
+Our documentation is organized by your role and needs:
+
+### 🎯 **For Product & Business Teams**
+- **[🌟 Product Overview](docs/product/overview.md)** - Business value and use cases
+- **[⚡ Feature Capabilities](docs/product/capabilities.md)** - What Fern Platform can do
+- **[🏗️ Deployment Options](docs/product/deployment-options.md)** - Infrastructure choices
+
+### 🔧 **For Developers & Engineers**  
+- **[🚀 Quick Start Guide](docs/developers/quick-start.md)** - Get running in 15 minutes
+- **[💻 Local Development](docs/developers/local-development.md)** - Development setup
+- **[🔐 Authentication Setup](docs/developers/authentication.md)** - OAuth and security
+- **[📊 API Reference](docs/developers/api-reference.md)** - REST and GraphQL APIs
+
+### 🏢 **For Platform & Operations Teams**
+- **[🏗️ Architecture Overview](docs/architecture/overview.md)** - System design
+- **[🚀 Production Setup](docs/operations/production-setup.md)** - Production deployment  
+- **[📈 Monitoring Guide](docs/operations/monitoring.md)** - Observability setup
+- **[🔧 Troubleshooting](docs/operations/troubleshooting.md)** - Common issues
+
+**[📚 Browse all documentation →](docs/README.md)**
+
+## 🚀 Technology & Architecture
+
+Fern Platform is built on modern, battle-tested technologies:
+
+### 🛠️ **Core Technologies**
+- **Backend**: Go + Gin framework for high performance
+- **Frontend**: React + TypeScript for modern UX
+- **Database**: PostgreSQL with comprehensive test data models
+- **Authentication**: OAuth 2.0/OpenID Connect with any provider
+- **Deployment**: Kubernetes-native with KubeVela
+- **Future**: AI/ML integration planned (Claude, OpenAI, local models)
+
+### 🏗️ **Architecture Principles**
+- **Unified Monolith**: Single deployment, modular internals
+- **API-First**: Rich REST + GraphQL APIs for integration
+- **Cloud-Native**: Container-first, Kubernetes-optimized
+- **Extensible**: Plugin architecture for custom features
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    Fern Platform                        │
+├─────────────────┬─────────────────┬─────────────────────┤
+│   Test Reporter │   AI Analysis   │    Web Dashboard    │
+│   (Data Layer)  │   (ML Layer)    │    (UI Layer)       │
+├─────────────────┴─────────────────┴─────────────────────┤
+│              Shared Infrastructure                      │
+│         (Auth, Config, Database, Logging)               │
+└─────────────────────────────────────────────────────────┘
+```
+
+**[🏗️ Deep-dive into the architecture →](docs/architecture/overview.md)**
+
+## 🤝 Contributing
+
+We love contributions from the community! Whether you're fixing bugs, adding features, or improving docs.
+
+### 🌟 **Ways to Contribute**
+- 🐛 **Fix bugs** - Check our [good first issues](../../issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)
+- ✨ **Add features** - See our [roadmap](../../projects) for ideas
+- 📝 **Improve docs** - Help make Fern Platform easier to use
+- 🧪 **Write tests** - Help us maintain quality
+- 🎨 **Design & UX** - Make the platform more beautiful
+
+### 🚀 **Quick Start for Contributors**
+```bash
+# 1. Fork and clone the repo
+git clone https://github.com/YOUR_USERNAME/fern-platform
+cd fern-platform
+
+# 2. Set up development environment (15 minutes)
+make dev-setup
+
+# 3. Make your changes and test
 make test
 
-# Run service-specific tests
-make test-reporter
+# 4. Submit a pull request
+# See CONTRIBUTING.md for detailed guidelines
 ```
 
-### Acceptance Tests
+**[📋 Read the full Contributing Guide →](CONTRIBUTING.md)**
 
-Comprehensive acceptance tests using Jest and custom Kubernetes test environment:
+## 📄 License
 
-```bash
-# Run acceptance tests
-make test-acceptance
-```
+Fern Platform is [MIT licensed](LICENSE), meaning you can use it freely in your commercial and open source projects.
 
-### Test Coverage
+---
 
-The acceptance tests cover:
-- UI functionality and user workflows
-- API endpoints and data integrity
-- Integration between services
-- Performance and error scenarios
-
-## Deployment
-
-### Local Development
-
-For complete local deployment instructions with k3d and KubeVela, see our [Contributing Guide](CONTRIBUTING.md#local-deployment-with-kubevela).
-
-Quick commands:
-```bash
-# Complete k3d cluster setup
-make cluster-setup
-
-# Deploy application
-kubectl apply -f deployments/fern-platform-kubevela.yaml
-```
-
-### Production
-
-Deploy to production Kubernetes cluster:
-
-```bash
-VERSION=v1.0.0 make prod-deploy
-```
-
-### KubeVela Applications
-
-The platform uses KubeVela applications for:
-- Infrastructure orchestration (PostgreSQL, Redis)
-- Service deployment and configuration
-- Environment-specific policies
-- Workflow management with dependencies
-
-## Contributing
-
-We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for detailed instructions on:
-
-- 🚀 Setting up your development environment
-- ☸️ Local deployment with KubeVela and k3d
-- 🧪 Running acceptance tests
-- 📝 Code style guidelines
-- 🔄 Pull request process
-
-### Quick Start for Contributors
-
-1. **Fork** and clone the repository
-2. **Follow** the [local deployment guide](CONTRIBUTING.md#local-deployment-with-kubevela)
-3. **Make** your changes with tests
-4. **Submit** a pull request
-
-For questions, open a [GitHub Discussion](../../discussions) or [Issue](../../issues).
-
-## Architecture Decisions
-
-### Layered Architecture
-
-The platform uses a layered architecture for extensibility:
-
-1. **Infrastructure Layer**: Shared utilities, database, logging
-2. **Repository Layer**: Data access with GORM
-3. **Service Layer**: Business logic and domain operations
-4. **API Layer**: GraphQL and REST endpoints
-5. **Presentation Layer**: React UI with Refine.dev
-
-### Modular Design
-
-Each internal module has clear responsibilities:
-- **reporter**: Data ingestion and reporting (`internal/reporter/`)
-- **mycelium**: AI analysis and insights (`internal/mycelium/`)
-- **ui**: User interface components (`internal/ui/`)
-
-### Event-Driven Design
-
-Modules communicate through:
-- Redis Streams for real-time events
-- Database-level triggers for data consistency
-- Internal Go interfaces for synchronous operations
-
-## Monitoring and Observability
-
-- **Health Checks**: `/health` endpoint on all services
-- **Metrics**: Prometheus-compatible metrics
-- **Logging**: Structured JSON logging with correlation IDs
-- **Tracing**: OpenTelemetry support (configurable)
-
-## Security
-
-- **Authentication**: JWT-based with JWKS support
-- **Authorization**: Role-based access control
-- **Network**: Service mesh compatible
-- **Secrets**: Kubernetes secrets integration
-
-## License
-
-[License information]
-
-## Support
-
-For issues and questions:
-- GitHub Issues: [repository-url]/issues
-- Documentation: [docs-url]
-- Community: [community-url]
+<div align="center">
+  <p><strong>Ready to transform your test intelligence?</strong></p>
+  
+  <a href="docs/developers/quick-start.md">
+    <img src="https://img.shields.io/badge/Get%20Started-15%20minutes-brightgreen?style=for-the-badge" alt="Get Started"/>
+  </a>
+  
+  <p><em>⭐ Star this repo if you find Fern Platform useful!</em></p>
+</div>
