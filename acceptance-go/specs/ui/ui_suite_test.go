@@ -39,14 +39,14 @@ var (
 	//   - true: Use deployed platform at existingPlatformURL (faster, for sending reports to fern-platform)
 	//   - false: Deploy fresh platform in k3d cluster (full isolation, for testing platform itself)
 	useExistingPlatform = true
-	existingPlatformURL = "http://localhost:8080"
+	existingPlatformURL = "http://fern-platform.local:8080"
 )
 
 func TestUIAcceptance(t *testing.T) {
 	RegisterFailHandler(Fail)
 
 	// Configure fern-ginkgo-client to report to the deployed platform
-	fernApiClient := fern.New("8a02b62f-1bb4-408a-ad2d-1dca8c1f1449", fern.WithBaseURL("http://localhost:8080"))
+	fernApiClient := fern.New("0d2b01f8-26ce-499e-8734-3e42394eb513", fern.WithBaseURL(existingPlatformURL))
 
 	// Register the fern reporter with correct signature for Ginkgo v2
 	ReportAfterSuite("Fern Platform Reporter", func(report types.Report) {

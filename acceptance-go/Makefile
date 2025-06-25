@@ -15,7 +15,7 @@ VERBOSE := false
 # Platform configuration
 # Set to true to use existing deployed platform instead of creating k3d environment
 USE_EXISTING_PLATFORM := true
-EXISTING_PLATFORM_URL := http://localhost:8080
+EXISTING_PLATFORM_URL := http://fern-platform.local:8080
 
 # Cluster and deployment settings
 KUBEVELA_APP_FILE := ../deployments/fern-platform-local.yaml

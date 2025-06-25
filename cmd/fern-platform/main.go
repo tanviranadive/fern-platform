@@ -95,9 +95,10 @@ func main() {
 
 	// Auth middleware
 	authMiddleware := middleware.NewAuthMiddleware(&cfg.Auth, logger)
+	oauthMiddleware := middleware.NewOAuthMiddleware(&cfg.Auth, db.DB, logger)
 
 	// REST API routes
-	apiHandler := api.NewHandler(testRunService, projectService, tagService, authMiddleware, logger)
+	apiHandler := api.NewHandler(testRunService, projectService, tagService, authMiddleware, oauthMiddleware, logger)
 	apiHandler.RegisterRoutes(router)
 
 	// GraphQL routes
