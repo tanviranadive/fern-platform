@@ -1,0 +1,12 @@
+# Claude Code settings
+.claude/
+
+# Test results and artifacts
+acceptance-go/test-results/
+test-session.txt
+cookies*.txt
+
+# Temporary configuration files
+config/oauth-keycloak-example.yaml
+deployments/keycloak-endpoint.yaml
+DEPLOYMENT.md
