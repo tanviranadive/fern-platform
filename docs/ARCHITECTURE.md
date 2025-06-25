@@ -183,11 +183,12 @@ PUT    /api/v1/test-runs/{id}      # Update test run
 DELETE /api/v1/test-runs/{id}      # Delete test run
 ```
 
-### GraphQL API
+### GraphQL API (Planned)
 
-Single endpoint with rich querying capabilities:
+GraphQL endpoint is planned for future release to provide rich querying capabilities:
 
 ```graphql
+# Example of planned GraphQL query support
 query {
   testRuns(
     projectId: "abc123"
@@ -207,6 +208,8 @@ query {
   }
 }
 ```
+
+**Note:** GraphQL schema is defined in `internal/reporter/graphql/schema.graphql` but implementation is pending.
 
 ## Testing Strategy
 

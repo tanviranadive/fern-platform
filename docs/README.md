@@ -18,7 +18,7 @@ Choose your path based on your role and goals:
 ### 🛠️ **For Developers & Operators**
 - [**Quick Start Guide**](developers/quick-start.md) - Get running in 15 minutes
 - [**Local Development**](developers/local-development.md) - Development environment setup
-- [**API Documentation**](developers/api-reference.md) - REST and GraphQL APIs
+- [**API Documentation**](developers/api-reference.md) - REST API reference
 - [**Authentication Setup**](developers/authentication.md) - OAuth and security configuration
 
 ### 🏗️ **For Platform Engineers & Architects**

@@ -24,12 +24,12 @@
 ### Prerequisites (2 minutes)
 ```bash
 # Install dependencies (macOS with Homebrew)
-brew install k3d kubectl
+brew install k3d kubectl helm
 
-# Install KubeVela
-curl -fsSl https://kubevela.io/script/install.sh | bash
-
-# For other OS, see: https://kubevela.io/docs/installation/
+# For other OS:
+# - k3d: https://k3d.io/stable/#installation
+# - kubectl: https://kubernetes.io/docs/tasks/tools/
+# - helm: https://helm.sh/docs/intro/install/
 ```
 
 ### One-Command Setup (13 minutes)
@@ -40,14 +40,19 @@ cd fern-platform
 
 # This single command:
 # 1. Creates k3d cluster with port mappings
-# 2. Installs KubeVela 
-# 3. Deploys PostgreSQL, Redis, Keycloak, and Fern Platform
-# 4. Configures OAuth with test users
-# 5. Sets up DNS resolution
-make quick-start
+# 2. Installs KubeVela and CloudNativePG operators
+# 3. Deploys PostgreSQL and Fern Platform
+# 4. Builds and loads Docker image
+# 5. Opens browser automatically
+make deploy-all
 
-# After 10-15 minutes, visit:
-# http://fern-platform.local:8080
+# After deployment completes, the browser will open to:
+# http://localhost:8080
+
+# IMPORTANT: For OAuth to work properly, add these to /etc/hosts:
+# 127.0.0.1 keycloak
+# 127.0.0.1 fern-platform.local
+# See docs/developers/networking-and-dns.md for details
 ```
 
 ### Test Credentials
@@ -75,16 +80,14 @@ Password: user123
 # 1. Check all pods are running
 kubectl get pods -n fern-platform
 
-# 2. Test health endpoint
-curl http://fern-platform.local:8080/health
+# 2. Test health endpoint  
+curl http://localhost:8080/health
 
-# 3. Test OAuth login (browser)
-open http://fern-platform.local:8080
+# 3. Access the application
+open http://localhost:8080
 
-# 4. Test admin API
-curl -H "Accept: application/json" \
-  http://fern-platform.local:8080/api/v1/admin/users \
-  # (This should redirect to OAuth login)
+# Note: OAuth authentication requires /etc/hosts configuration.
+# See docs/developers/networking-and-dns.md for details.
 ```
 
 ---

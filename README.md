@@ -8,7 +8,7 @@
   *Stop drowning in test data. Start understanding what your tests are telling you.*
 
   [![Go Version](https://img.shields.io/badge/go-1.21+-blue.svg)](https://golang.org)
-  [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+  [![License](https://img.shields.io/badge/license-Apache%202.0-green.svg)](LICENSE)
   [![Development Status](https://img.shields.io/badge/status-active%20development-orange.svg)](#-project-status)
   [![GitHub Stars](https://img.shields.io/github/stars/guidewire-oss/fern-platform?style=social)](https://github.com/guidewire-oss/fern-platform/stargazers)
 
@@ -96,12 +96,12 @@ Choose your setup path based on your environment:
 
 ### 🔥 **15 Minutes** - Local Development Setup
 ```bash
-# Prerequisites: Docker, k3d, kubectl, vela CLI
+# Prerequisites: Docker, k3d, kubectl, helm
 # Complete setup with OAuth, database, and test data
 git clone https://github.com/guidewire-oss/fern-platform
 cd fern-platform
-make quick-start  # Installs k3d cluster, deploys everything
-# Visit http://fern-platform.local:8080
+make deploy-all  # Installs k3d cluster, deploys everything
+# Visit http://localhost:8080
 ```
 
 ### 🏢 **30 Minutes** - Production Kubernetes Deployment
@@ -119,7 +119,7 @@ Fern Platform is designed for extensibility. Here are some examples of what team
 
 ### 🔌 **Current Integrations**
 - **CI/CD Pipelines**: Jenkins, GitHub Actions, GitLab CI webhooks
-- **Test Frameworks**: Ginkgo, JUnit, Jest, Pytest, and custom reporters
+- **Test Frameworks**: Ginkgo, JUnit, Jest (clients available)
 - **Monitoring Tools**: Grafana dashboards, PagerDuty alerts
 - **OAuth Providers**: Any OAuth 2.0/OpenID Connect provider
 

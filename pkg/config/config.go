@@ -428,12 +428,10 @@ func (d *DatabaseConfig) ConnectionString() string {
 
 // MigrationURL returns the PostgreSQL URL for migrations
 func (d *DatabaseConfig) MigrationURL() string {
-	dbString := fmt.Sprintf(
+	return fmt.Sprintf(
 		"postgres://%s:%s@%s.fern-platform:%d/%s?sslmode=%s",
 		d.User, d.Password, d.Host, d.Port, d.DBName, d.SSLMode,
 	)
-	fmt.Printf("db string is : [%s]\n", dbString)
-	return dbString
 }
 
 // RedisConnectionString returns the Redis connection string

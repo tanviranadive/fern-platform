@@ -89,6 +89,8 @@ This single command will:
 
 **That's it!** The application will open in your browser at http://localhost:8080.
 
+> **Note**: If you plan to use OAuth authentication with Keycloak, you'll need to configure DNS entries. See [Networking and DNS Configuration](docs/developers/networking-and-dns.md) for details.
+
 #### Quick Start Commands
 
 ```bash
@@ -212,6 +214,26 @@ open http://localhost:8080
 # OR use the automated port forwarding
 make start-port-forward-and-open
 ```
+
+##### OAuth Authentication Setup (Optional)
+
+If you're deploying with OAuth/Keycloak authentication:
+
+1. **Add DNS entries** to `/etc/hosts`:
+   ```bash
+   sudo echo "127.0.0.1 keycloak" >> /etc/hosts
+   sudo echo "127.0.0.1 fern-platform.local" >> /etc/hosts
+   ```
+
+2. **Access via configured domains**:
+   - Application: http://fern-platform.local:8080
+   - Keycloak Admin: http://keycloak:8080
+
+3. **Test credentials**:
+   - Admin: admin@fern.com / admin123
+   - User: user@fern.com / user123
+
+For detailed explanation, see [Networking and DNS Configuration](docs/developers/networking-and-dns.md).
 
 ### Verify Deployment
 

@@ -226,7 +226,8 @@ func (m *OAuthMiddleware) StartOAuthFlow() gin.HandlerFunc {
 		}
 
 		// Store state in session/cookie for validation
-		c.SetCookie("oauth_state", state, 600, "/", "", false, true) // 10 minutes
+		isSecure := c.Request.TLS != nil || c.GetHeader("X-Forwarded-Proto") == "https"
+		c.SetCookie("oauth_state", state, 600, "/", "", isSecure, true) // 10 minutes
 
 		// Build authorization URL
 		authURL := m.buildAuthURL(state)
@@ -295,7 +296,8 @@ func (m *OAuthMiddleware) HandleOAuthCallback() gin.HandlerFunc {
 		m.setSessionCookie(c, session.SessionID)
 
 		// Clear state cookie
-		c.SetCookie("oauth_state", "", -1, "/", "", false, true)
+		isSecure := c.Request.TLS != nil || c.GetHeader("X-Forwarded-Proto") == "https"
+		c.SetCookie("oauth_state", "", -1, "/", "", isSecure, true)
 
 		// Update last login
 		m.updateUserLastLogin(user.UserID)
@@ -321,7 +323,8 @@ func (m *OAuthMiddleware) Logout() gin.HandlerFunc {
 		}
 
 		// Clear session cookie
-		c.SetCookie("session_id", "", -1, "/", "", false, true)
+		isSecure := c.Request.TLS != nil || c.GetHeader("X-Forwarded-Proto") == "https"
+		c.SetCookie("session_id", "", -1, "/", "", isSecure, true)
 
 		// Build provider logout URL with ID token hint
 		providerLogoutURL := m.buildProviderLogoutURL(idToken)
@@ -806,7 +809,9 @@ func (m *OAuthMiddleware) createSession(user *database.User, token *TokenRespons
 
 func (m *OAuthMiddleware) setSessionCookie(c *gin.Context, sessionID string) {
 	// Set secure cookie for 24 hours
-	c.SetCookie("session_id", sessionID, 86400, "/", "", false, true)
+	// Use Secure flag in production (HTTPS)
+	isSecure := c.Request.TLS != nil || c.GetHeader("X-Forwarded-Proto") == "https"
+	c.SetCookie("session_id", sessionID, 86400, "/", "", isSecure, true)
 }
 
 func (m *OAuthMiddleware) updateUserLastLogin(userID string) {

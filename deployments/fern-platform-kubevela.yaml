@@ -171,7 +171,8 @@ spec:
                   "nodeReRegistrationTimeout": -1,
                   "validPostLogoutRedirectUris": [
                     "http://fern-platform.local:8080/auth/login",
-                    "http://localhost:8080/auth/login"
+                    "http://localhost:8080/auth/login",
+                    "http://fern-platform.local:8080/*"
                   ],
                   "defaultClientScopes": [
                     "web-origins",
@@ -204,7 +205,8 @@ spec:
                   ],
                   "webOrigins": [
                     "http://localhost:8080",
-                    "http://fern-platform.local:8080"
+                    "http://fern-platform.local:8080",
+                    "+"
                   ],
                   "attributes": {
                     "post.logout.redirect.uris": "http://fern-platform.local:8080/auth/login",
@@ -453,7 +455,7 @@ spec:
           - name: OAUTH_SCOPES
             value: "openid,profile,email,groups"
           
-          # OAuth Provider Endpoints
+          # OAuth Provider Endpoints (using internal service name for server-to-server communication)
           - name: OAUTH_AUTH_URL
             value: "http://keycloak:8080/realms/fern-platform/protocol/openid-connect/auth"
           - name: OAUTH_TOKEN_URL
