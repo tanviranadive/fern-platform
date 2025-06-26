@@ -2,6 +2,8 @@
 package repository
 
 import (
+	"time"
+	
 	"gorm.io/gorm"
 	"github.com/guidewire-oss/fern-platform/pkg/database"
 )
@@ -161,13 +163,39 @@ func (r *ProjectRepository) GetProjectStats(projectID string) (*ProjectStats, er
 		stats.SuccessRate = float64(successfulRuns) / float64(stats.RecentTestRuns) * 100
 	}
 	
+	// Get average duration from recent test runs
+	var avgDuration float64
+	err = r.db.Model(&database.TestRun{}).
+		Where("project_id = ? AND duration_ms > 0 AND start_time >= NOW() - INTERVAL '30 days'", projectID).
+		Select("AVG(duration_ms)").
+		Scan(&avgDuration).Error
+	if err != nil {
+		return nil, err
+	}
+	stats.AverageDuration = int64(avgDuration)
+	
+	// Get last run time
+	var lastRun database.TestRun
+	err = r.db.Model(&database.TestRun{}).
+		Where("project_id = ?", projectID).
+		Order("start_time DESC").
+		First(&lastRun).Error
+	if err != nil && err != gorm.ErrRecordNotFound {
+		return nil, err
+	}
+	if err != gorm.ErrRecordNotFound {
+		stats.LastRunTime = &lastRun.StartTime
+	}
+	
 	return &stats, nil
 }
 
 // ProjectStats represents project statistics
 type ProjectStats struct {
-	TotalTestRuns   int64   `json:"total_test_runs"`
-	RecentTestRuns  int64   `json:"recent_test_runs"`  // Last 30 days
-	UniqueBranches  int64   `json:"unique_branches"`
-	SuccessRate     float64 `json:"success_rate"`      // Last 30 days
+	TotalTestRuns   int64      `json:"total_test_runs"`
+	RecentTestRuns  int64      `json:"recent_test_runs"`  // Last 30 days
+	UniqueBranches  int64      `json:"unique_branches"`
+	SuccessRate     float64    `json:"success_rate"`      // Last 30 days
+	AverageDuration int64      `json:"average_duration"`  // Average duration in milliseconds
+	LastRunTime     *time.Time `json:"last_run_time"`     // Most recent test run time
 }

@@ -184,20 +184,20 @@ Our documentation is organized by your role and needs:
 
 ### 🎯 **For Product & Business Teams**
 - **[🌟 Product Overview](docs/product/overview.md)** - Business value and use cases
-- **[⚡ Feature Capabilities](docs/product/capabilities.md)** - What Fern Platform can do
-- **[🏗️ Deployment Options](docs/product/deployment-options.md)** - Infrastructure choices
+- **[📊 UI Enhancements](docs/UI_ENHANCEMENTS.md)** - Modern dashboard features
+- **[🏗️ Architecture](docs/ARCHITECTURE.md)** - Technical design and principles
 
 ### 🔧 **For Developers & Engineers**  
 - **[🚀 Quick Start Guide](docs/developers/quick-start.md)** - Get running in 15 minutes
-- **[💻 Local Development](docs/developers/local-development.md)** - Development setup
-- **[🔐 Authentication Setup](docs/developers/authentication.md)** - OAuth and security
-- **[📊 API Reference](docs/developers/api-reference.md)** - REST and GraphQL APIs
+- **[🔐 OAuth Configuration](docs/configuration/oauth.md)** - Authentication setup
+- **[📊 REST API Reference](docs/developers/api-reference.md)** - RESTful endpoints
+- **[📈 GraphQL API](docs/graphql-api.md)** - GraphQL schema and queries
+- **[🌐 Networking & DNS](docs/developers/networking-and-dns.md)** - Local DNS setup
 
 ### 🏢 **For Platform & Operations Teams**
-- **[🏗️ Architecture Overview](docs/architecture/overview.md)** - System design
-- **[🚀 Production Setup](docs/operations/production-setup.md)** - Production deployment  
-- **[📈 Monitoring Guide](docs/operations/monitoring.md)** - Observability setup
-- **[🔧 Troubleshooting](docs/operations/troubleshooting.md)** - Common issues
+- **[🐳 Local k3d Installation](docs/installation/local-k3d.md)** - Kubernetes local setup
+- **[🏗️ Architecture Overview](docs/ARCHITECTURE.md)** - System design
+- **[📋 RFCs](docs/rfc/)** - Design proposals and future plans
 
 **[📚 Browse all documentation →](docs/README.md)**
 
@@ -231,7 +231,7 @@ Fern Platform is built on modern, battle-tested technologies:
 └─────────────────────────────────────────────────────────┘
 ```
 
-**[🏗️ Deep-dive into the architecture →](docs/architecture/overview.md)**
+**[🏗️ Deep-dive into the architecture →](docs/ARCHITECTURE.md)**
 
 ## 🤝 Contributing
 

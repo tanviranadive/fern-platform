@@ -1,0 +1,20 @@
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: strip-host-port
+  namespace: fern-platform
+spec:
+  headers:
+    customRequestHeaders:
+      Host: "keycloak"  # Override Host header to remove port
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: keycloak-headers
+  namespace: fern-platform
+spec:
+  headers:
+    customRequestHeaders:
+      X-Forwarded-Host: "keycloak:8080"  # Preserve original host for Keycloak
+      X-Forwarded-Port: "8080"

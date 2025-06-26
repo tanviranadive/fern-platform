@@ -2,10 +2,44 @@
 package database
 
 import (
+	"database/sql/driver"
+	"encoding/json"
+	"errors"
 	"time"
 
 	"gorm.io/gorm"
 )
+
+// JSONMap is a custom type for handling JSONB columns
+type JSONMap map[string]interface{}
+
+// Value implements the driver.Valuer interface for JSONMap
+func (j JSONMap) Value() (driver.Value, error) {
+	if j == nil {
+		return nil, nil
+	}
+	return json.Marshal(j)
+}
+
+// Scan implements the sql.Scanner interface for JSONMap
+func (j *JSONMap) Scan(value interface{}) error {
+	if value == nil {
+		*j = nil
+		return nil
+	}
+	
+	var bytes []byte
+	switch v := value.(type) {
+	case []byte:
+		bytes = v
+	case string:
+		bytes = []byte(v)
+	default:
+		return errors.New("failed to scan JSONMap: invalid type")
+	}
+	
+	return json.Unmarshal(bytes, j)
+}
 
 // BaseModel provides common fields for all database models
 type BaseModel struct {
@@ -33,7 +67,7 @@ type TestRun struct {
 	Environment   string    `gorm:"index" json:"environment"`
 	Tags          []Tag     `gorm:"many2many:test_run_tags;" json:"tags"`
 	SuiteRuns     []SuiteRun `gorm:"foreignKey:TestRunID" json:"suite_runs,omitempty"`
-	Metadata      map[string]interface{} `gorm:"type:jsonb" json:"metadata,omitempty"`
+	Metadata      JSONMap `gorm:"type:jsonb" json:"metadata,omitempty"`
 }
 
 // SuiteRun represents a test suite execution within a test run

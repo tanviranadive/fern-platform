@@ -40,7 +40,7 @@ type CreateTestRunInput struct {
 	Branch        string            `json:"branch"`
 	CommitSHA     string            `json:"commit_sha"`
 	Environment   string            `json:"environment"`
-	Metadata      map[string]interface{} `json:"metadata,omitempty"`
+	Metadata      database.JSONMap `json:"metadata,omitempty"`
 	Tags          []string          `json:"tags,omitempty"`
 	StartTime     *time.Time        `json:"start_time,omitempty"`
 	EndTime       *time.Time        `json:"end_time,omitempty"`
@@ -176,32 +176,29 @@ func (s *TestRunService) CreateTestRunWithSuites(input CreateTestRunInput) (*dat
 
 		// Create spec runs
 		for _, specInput := range suiteInput.SpecRuns {
-			// Parse spec start and end times
-			var specStartTime, specEndTime time.Time
-			if specInput.StartTime != "" {
-				if parsedTime, err := time.Parse(time.RFC3339, specInput.StartTime); err == nil {
-					specStartTime = parsedTime
-				} else {
-					specStartTime = suiteStartTime
-				}
-			} else {
-				specStartTime = suiteStartTime
+			// Parse spec start and end times - these should always be provided
+			specStartTime, err := time.Parse(time.RFC3339, specInput.StartTime)
+			if err != nil {
+				s.logger.WithField("spec", specInput.SpecDescription).WithField("start_time", specInput.StartTime).WithError(err).Error("Failed to parse spec start time")
+				continue // Skip this spec if we can't parse the time
 			}
 
-			if specInput.EndTime != "" {
-				if parsedTime, err := time.Parse(time.RFC3339, specInput.EndTime); err == nil {
-					specEndTime = parsedTime
-				} else {
-					specEndTime = specStartTime.Add(time.Second) // Default 1 second duration
-				}
-			} else {
-				specEndTime = specStartTime.Add(time.Second) // Default 1 second duration
+			specEndTime, err := time.Parse(time.RFC3339, specInput.EndTime)
+			if err != nil {
+				s.logger.WithField("spec", specInput.SpecDescription).WithField("end_time", specInput.EndTime).WithError(err).Error("Failed to parse spec end time")
+				continue // Skip this spec if we can't parse the time
 			}
 
-			// Create spec run
-			_, err := s.AddSpecRun(
+			// Create spec run with improved naming
+			specName := specInput.SpecDescription
+			if specName == "" || specName == "[Test Setup/Teardown]" {
+				// Generate a more descriptive name for empty specs
+				specName = fmt.Sprintf("[%s Setup/Teardown]", suiteInput.SuiteName)
+			}
+			
+			_, err = s.AddSpecRun(
 				suiteRun.ID,
-				specInput.SpecDescription,
+				specName,
 				specInput.Status,
 				specStartTime,
 				specEndTime,
@@ -212,11 +209,21 @@ func (s *TestRunService) CreateTestRunWithSuites(input CreateTestRunInput) (*dat
 				s.logger.WithError(err).Error("Failed to create spec run")
 			}
 		}
+		
+		// Update suite run statistics after all specs are created
+		if err := s.suiteRunRepo.UpdateSuiteRunStats(suiteRun.ID); err != nil {
+			s.logger.WithError(err).Warn("Failed to update suite run stats")
+		}
 	}
 
 	// Recalculate test run statistics from the actual suite runs
 	if err := s.calculateTestRunStats(testRun); err != nil {
 		s.logger.WithError(err).Warn("Failed to calculate test run stats")
+	}
+	
+	// Save the updated test run with recalculated stats
+	if err := s.testRunRepo.UpdateTestRun(testRun); err != nil {
+		s.logger.WithError(err).Warn("Failed to save updated test run stats")
 	}
 
 	s.logger.WithTestRun(input.RunID, input.ProjectID).
@@ -305,6 +312,11 @@ func (s *TestRunService) UpdateSuiteRunStatus(suiteRunID uint, status string, en
 
 // AddSpecRun adds a spec run to a suite run
 func (s *TestRunService) AddSpecRun(suiteRunID uint, specName, status string, startTime, endTime time.Time, errorMessage, stackTrace string) (*database.SpecRun, error) {
+	// Handle empty or generic spec names
+	if specName == "" {
+		specName = "[Unnamed Spec]"
+	}
+	
 	specRun := &database.SpecRun{
 		SuiteRunID:   suiteRunID,
 		SpecName:     specName,
@@ -418,4 +430,27 @@ func (s *TestRunService) GetRecentTestRuns(projectID string, limit int) ([]*data
 // AssignTagsToTestRun assigns tags to a test run
 func (s *TestRunService) AssignTagsToTestRun(testRunID uint, tagIDs []uint) error {
 	return s.testRunRepo.AssignTagsToTestRun(testRunID, tagIDs)
+}
+
+// UpdateSuiteRunStats updates the statistics for a suite run
+func (s *TestRunService) UpdateSuiteRunStats(suiteRunID uint) error {
+	return s.suiteRunRepo.UpdateSuiteRunStats(suiteRunID)
+}
+
+// RecalculateTestRunStats recalculates and saves test run statistics
+func (s *TestRunService) RecalculateTestRunStats(testRunID uint) error {
+	testRun, err := s.testRunRepo.GetTestRunByID(testRunID)
+	if err != nil {
+		return fmt.Errorf("test run not found: %w", err)
+	}
+	
+	if err := s.calculateTestRunStats(testRun); err != nil {
+		return fmt.Errorf("failed to calculate test run stats: %w", err)
+	}
+	
+	if err := s.testRunRepo.UpdateTestRun(testRun); err != nil {
+		return fmt.Errorf("failed to save test run stats: %w", err)
+	}
+	
+	return nil
 }

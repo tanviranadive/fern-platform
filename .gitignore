@@ -1,6 +1,9 @@
 # Claude Code settings
 .claude/
 
+# macOS system files
+.DS_Store
+
 # Test results and artifacts
 acceptance-go/test-results/
 test-session.txt
@@ -10,3 +13,7 @@ cookies*.txt
 config/oauth-keycloak-example.yaml
 deployments/keycloak-endpoint.yaml
 DEPLOYMENT.md
+
+# Log files
+*.log
+deploy.log

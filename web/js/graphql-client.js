@@ -62,7 +62,7 @@ const QUERIES = {
                 averageTestDuration
             }
             
-            projects(first: 10) {
+            projects(first: 100) {
                 edges {
                     node {
                         id
@@ -106,6 +106,8 @@ const QUERIES = {
                         specName
                         status
                         duration
+                        startTime
+                        endTime
                         errorMessage
                         stackTrace
                         isFlaky
@@ -191,6 +193,8 @@ const QUERIES = {
                         specName
                         status
                         duration
+                        startTime
+                        endTime
                         errorMessage
                         stackTrace
                         isFlaky

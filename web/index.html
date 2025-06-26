@@ -1787,7 +1787,10 @@
 
         // Utility functions
         const formatDate = (dateString) => {
-            return new Date(dateString).toLocaleDateString('en-US', {
+            if (!dateString) return '-';
+            const date = new Date(dateString);
+            if (isNaN(date.getTime())) return '-';
+            return date.toLocaleDateString('en-US', {
                 month: 'short',
                 day: 'numeric',
                 hour: '2-digit',
@@ -2600,7 +2603,7 @@
                     }
                 ];
 
-                const totalTests = testRun.total_tests || 0;
+                const totalTests = testRun.totalTests || 0;
                 if (totalTests === 0) return [];
 
                 return suiteTemplates.map(template => {
@@ -2673,6 +2676,10 @@
 
             useEffect(() => {
                 if (!projects.length) return;
+                
+                console.log('TreemapVisualization - projects:', projects);
+                console.log('TreemapVisualization - testRuns:', testRuns);
+                console.log('TreemapVisualization - currentView:', currentView);
 
                 const svg = d3.select(svgRef.current);
                 svg.selectAll("*").remove();
@@ -2693,14 +2700,23 @@
                     projects.forEach(project => {
                         const projectRuns = testRuns.filter(run => run.projectId === project.projectId);
                         const latestRun = projectRuns[0];
+                        console.log(`Project ${project.name} - Latest run:`, latestRun);
 
                         if (latestRun) {
-                            const suites = generateTestSuites(latestRun);
-                            const totalDuration = suites.reduce((sum, suite) => sum + suite.duration, 0);
-                            const totalTests = suites.reduce((sum, suite) => sum + suite.total, 0);
-                            const totalPassed = suites.reduce((sum, suite) => sum + suite.passed, 0);
-                            const totalFailed = suites.reduce((sum, suite) => sum + suite.failed, 0);
-                            const totalSkipped = suites.reduce((sum, suite) => sum + suite.skipped, 0);
+                            // Use real test run data
+                            const totalTests = latestRun.totalTests || 0;
+                            const totalPassed = latestRun.passedTests || 0;
+                            const totalFailed = latestRun.failedTests || 0;
+                            const totalSkipped = latestRun.skippedTests || 0;
+                            const totalDuration = latestRun.duration || 1000;
+                            
+                            console.log(`Project ${project.name} stats:`, {
+                                totalTests,
+                                totalPassed,
+                                totalFailed,
+                                totalSkipped,
+                                suiteRuns: latestRun.suiteRuns
+                            });
                             
                             treemapData.push({
                                 name: project.name,
@@ -2712,7 +2728,7 @@
                                 duration: totalDuration,
                                 project: project,
                                 testRun: latestRun,
-                                suites: suites,
+                                suites: latestRun.suiteRuns || [],
                                 type: 'project'
                             });
                         }
@@ -2720,22 +2736,23 @@
                 } else if (currentView.type === 'project') {
                     // Level 1: Show suites within a project
                     const project = currentView.data.project;
-                    const projectRuns = testRuns.filter(run => run.projectId === project.projectId);
-                    const latestRun = projectRuns[0];
+                    const testRun = currentView.data.testRun;
+                    console.log('Project view - testRun:', testRun);
+                    console.log('Project view - suiteRuns:', testRun?.suiteRuns);
 
-                    if (latestRun) {
-                        const suites = generateTestSuites(latestRun);
-                        
-                        treemapData = suites.map(suite => ({
-                            name: suite.name,
-                            value: suite.duration,
-                            passed: suite.passed,
-                            failed: suite.failed,
-                            skipped: suite.skipped,
-                            total: suite.total,
-                            duration: suite.duration,
+                    // Fetch real suite data if available
+                    if (testRun && testRun.suiteRuns && testRun.suiteRuns.length > 0) {
+                        console.log('Mapping suite runs to treemap data');
+                        treemapData = testRun.suiteRuns.map(suite => ({
+                            name: suite.suiteName,
+                            value: suite.duration || 1000,
+                            passed: suite.passedSpecs || 0,
+                            failed: suite.failedSpecs || 0,
+                            skipped: suite.skippedSpecs || 0,
+                            total: suite.totalSpecs || 0,
+                            duration: suite.duration || 1000,
                             project: project,
-                            testRun: latestRun,
+                            testRun: testRun,
                             suite: suite,
                             type: 'suite'
                         }));
@@ -2743,16 +2760,28 @@
                 } else if (currentView.type === 'suite') {
                     // Level 2: Show individual tests in a suite
                     const suite = currentView.data.suite;
-                    const tests = generateIndividualTests(suite);
                     
-                    treemapData = tests.map(test => ({
-                        name: test.name,
-                        value: test.duration, // Size by execution time
-                        status: test.status,
-                        duration: test.duration,
-                        message: test.message,
-                        type: 'test'
-                    }));
+                    // Use real spec data if available
+                    if (suite.specRuns && suite.specRuns.length > 0) {
+                        treemapData = suite.specRuns.map(spec => ({
+                            name: spec.specName || '[Test]',
+                            value: spec.duration || 100, // Size by execution time
+                            status: spec.status,
+                            duration: spec.duration || 100,
+                            message: spec.errorMessage || '',
+                            type: 'test'
+                        }));
+                    } else {
+                        // No spec data available
+                        treemapData = [{
+                            name: 'No test details available',
+                            value: 1000,
+                            status: 'unknown',
+                            duration: 0,
+                            message: '',
+                            type: 'test'
+                        }];
+                    }
                 }
 
                 if (treemapData.length === 0) return;
@@ -2810,8 +2839,25 @@
                     .attr("fill", (d, i) => `url(#gradient-${i})`)
                     .attr("rx", 8)
                     .style("cursor", currentView.type !== 'suite' ? "pointer" : "default")
-                    .on("click", function(event, d) {
+                    .on("click", async function(event, d) {
                         if (currentView.type === 'projects' && d.data.type === 'project') {
+                            // Fetch detailed test run data with suites
+                            try {
+                                const detailedData = await window.graphqlClient.query(
+                                    window.GRAPHQL_QUERIES.GET_TEST_RUN_DETAILS,
+                                    { runId: d.data.testRun.runId }
+                                );
+                                
+                                if (detailedData && detailedData.testRunByRunId) {
+                                    const detailedRun = detailedData.testRunByRunId;
+                                    // Update the data with actual suite information
+                                    d.data.testRun = detailedRun;
+                                    d.data.suites = detailedRun.suiteRuns || [];
+                                }
+                            } catch (error) {
+                                console.error('Failed to fetch test run details:', error);
+                            }
+                            
                             // Navigate to project view (show suites)
                             navigateToView('project', d.data, [
                                 { name: 'Projects', type: 'projects', data: null },
@@ -3519,7 +3565,23 @@
             const fetchData = async () => {
                 try {
                     const data = await graphqlClient.query(GRAPHQL_QUERIES.GET_DASHBOARD_DATA);
-                    setTestRuns(data.recentTestRuns || []);
+                    
+                    // Get projects to map project names
+                    const projectList = data.projects.edges.map(edge => edge.node);
+                    console.log('Projects loaded:', projectList);
+                    console.log('Test runs:', data.recentTestRuns);
+                    
+                    // Enrich test runs with project names
+                    const enrichedTestRuns = (data.recentTestRuns || []).map(run => {
+                        const project = projectList.find(p => p.projectId === run.projectId);
+                        console.log(`Looking for project ${run.projectId}, found:`, project);
+                        return {
+                            ...run,
+                            projectName: project?.name || run.projectId
+                        };
+                    });
+                    
+                    setTestRuns(enrichedTestRuns);
                     setLoading(false);
                 } catch (err) {
                     setError(err.message);
@@ -3672,15 +3734,17 @@
                 if (suite.specRuns && suite.specRuns.length > 0) {
                     // Map database SpecRun entities to our spec format
                     specs = suite.specRuns.map((specRun, index) => {
+                        console.log('Spec run data:', specRun);
                         return {
                             id: specRun.id || index + 1,
-                            name: specRun.specName || '[Test Setup/Teardown]',
+                            name: specRun.specName || '[Unnamed Spec]',
                             status: specRun.status,
                             duration_ms: specRun.duration,
                             error_message: specRun.errorMessage || null,
                             suite_id: suite.id,
                             started_at: specRun.startTime,
                             finished_at: specRun.endTime,
+                            startTime: specRun.startTime,  // Add both for compatibility
                             tags: []
                         };
                     });
@@ -3959,7 +4023,7 @@
                                                     <span style={{color: 'var(--text-tertiary)', fontSize: '0.875rem'}}>-</span>
                                                 )}
                                             </td>
-                                            <td style={{fontWeight: '500', color: 'var(--text-secondary)'}}>{formatDate(spec.started_at)}</td>
+                                            <td style={{fontWeight: '500', color: 'var(--text-secondary)'}}>{formatDate(spec.startTime || spec.started_at)}</td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -3988,14 +4052,18 @@
             const fetchData = async () => {
                 try {
                     const data = await graphqlClient.query(GRAPHQL_QUERIES.GET_DASHBOARD_DATA);
+                    console.log('Manager Dashboard Data:', data);
                     
                     // Convert projects from edges format
                     const projectList = data.projects.edges.map(edge => edge.node);
+                    console.log('Projects:', projectList);
                     setProjects(projectList);
                     
                     // Set test runs with project names
                     const testRunsWithProjects = (data.recentTestRuns || []).map(run => {
                         const project = projectList.find(p => p.projectId === run.projectId);
+                        console.log('Test run:', run);
+                        console.log('Suite runs for test run:', run.suiteRuns);
                         return {
                             ...run,
                             projectName: project?.name || run.projectId
@@ -4017,7 +4085,7 @@
                     return projects; // Show all projects if none selected
                 }
                 return projects.filter(project => 
-                    preferences.managerDashboard.selectedProjects.includes(project.project_id || project.id)
+                    preferences.managerDashboard.selectedProjects.includes(project.projectId || project.id)
                 );
             };
 

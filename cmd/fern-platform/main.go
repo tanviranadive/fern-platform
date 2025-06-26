@@ -67,7 +67,7 @@ func main() {
 	tagService := service.NewTagService(tagRepo, logger)
 
 	// Initialize GraphQL resolver
-	resolver := graphql.NewResolver(testRunService, projectService, tagService)
+	resolver := graphql.NewResolver(testRunService, projectService, tagService, db.DB, logger)
 
 	// Initialize HTTP server
 	if cfg.Server.Host == "0.0.0.0" {
@@ -103,7 +103,7 @@ func main() {
 
 	// GraphQL routes
 	gqlHandler := graphql.NewHandler(resolver)
-	gqlHandler.RegisterRoutes(router)
+	gqlHandler.RegisterRoutes(router, oauthMiddleware)
 
 	// Note: Static file serving is handled by the API handler
 

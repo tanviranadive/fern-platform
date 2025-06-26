@@ -21,18 +21,36 @@
 
 **Perfect for:** Developers who want to explore features and APIs
 
-### Prerequisites (2 minutes)
+### Prerequisites (5 minutes)
+
+#### 1. Install Required Tools
 ```bash
 # Install dependencies (macOS with Homebrew)
 brew install k3d kubectl helm
+
+# Install vela CLI
+curl -fsSl https://kubevela.io/script/install.sh | bash
 
 # For other OS:
 # - k3d: https://k3d.io/stable/#installation
 # - kubectl: https://kubernetes.io/docs/tasks/tools/
 # - helm: https://helm.sh/docs/intro/install/
+# - vela: https://kubevela.io/docs/installation/kubernetes#install-vela-cli
 ```
 
-### One-Command Setup (13 minutes)
+#### 2. Configure /etc/hosts (Required for OAuth)
+```bash
+# Add these entries to /etc/hosts for OAuth authentication to work:
+sudo sh -c 'echo "127.0.0.1 fern-platform.local" >> /etc/hosts'
+sudo sh -c 'echo "127.0.0.1 keycloak" >> /etc/hosts'
+
+# Verify entries were added:
+cat /etc/hosts | grep -E "fern-platform|keycloak"
+```
+
+> ⚠️ **Important**: Without these /etc/hosts entries, OAuth login will fail with redirect errors.
+
+### One-Command Setup (10 minutes)
 ```bash
 # Clone and setup everything
 git clone https://github.com/guidewire-oss/fern-platform
@@ -47,12 +65,10 @@ cd fern-platform
 make deploy-all
 
 # After deployment completes, the browser will open to:
-# http://localhost:8080
+# http://fern-platform.local:8080
 
-# IMPORTANT: For OAuth to work properly, add these to /etc/hosts:
-# 127.0.0.1 keycloak
-# 127.0.0.1 fern-platform.local
-# See docs/developers/networking-and-dns.md for details
+# Note: OAuth authentication requires the /etc/hosts entries configured above.
+# See docs/developers/networking-and-dns.md for detailed explanation.
 ```
 
 ### Test Credentials
@@ -81,13 +97,12 @@ Password: user123
 kubectl get pods -n fern-platform
 
 # 2. Test health endpoint  
-curl http://localhost:8080/health
+curl http://fern-platform.local:8080/health
 
 # 3. Access the application
-open http://localhost:8080
+open http://fern-platform.local:8080
 
-# Note: OAuth authentication requires /etc/hosts configuration.
-# See docs/developers/networking-and-dns.md for details.
+# Note: Use fern-platform.local:8080, not localhost:8080, for OAuth to work.
 ```
 
 ---
@@ -153,10 +168,13 @@ kubectl get pods -n fern-platform-prod
 
 # 2. Test health endpoint
 kubectl port-forward -n fern-platform-prod service/fern-platform 8080:8080 &
-curl http://localhost:8080/health
+curl http://fern-platform.local:8080/health
 
 # 3. Test with your OAuth provider
 # Visit your production URL and test login
+
+# For local testing with port-forward:
+curl http://fern-platform.local:8080/health
 ```
 
 **[📖 Complete production deployment guide →](../operations/production-setup.md)**
@@ -285,7 +303,8 @@ Copy this checklist to track your progress:
 ## Fern Platform Quick Start
 
 ### Setup
-- [ ] Prerequisites installed (k3d, kubectl, vela)
+- [ ] Prerequisites installed (k3d, kubectl, helm, vela)
+- [ ] /etc/hosts entries added (fern-platform.local, keycloak)
 - [ ] Repository cloned
 - [ ] `make quick-start` completed successfully
 - [ ] All pods showing "Running" status

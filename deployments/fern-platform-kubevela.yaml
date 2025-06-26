@@ -56,6 +56,10 @@ spec:
             value: "false"
           - name: KC_HOSTNAME_STRICT_HTTPS
             value: "false"
+          - name: KC_HOSTNAME_URL
+            value: "http://keycloak:8080"
+          - name: KC_HOSTNAME_ADMIN_URL
+            value: "http://keycloak:8080"
           - name: KC_HTTP_ENABLED
             value: "true"
           - name: KC_METRICS_ENABLED
@@ -169,18 +173,11 @@ spec:
                   "protocol": "openid-connect",
                   "fullScopeAllowed": true,
                   "nodeReRegistrationTimeout": -1,
-                  "validPostLogoutRedirectUris": [
-                    "http://fern-platform.local:8080/auth/login",
-                    "http://localhost:8080/auth/login",
-                    "http://fern-platform.local:8080/*"
-                  ],
                   "defaultClientScopes": [
+                    "openid",
                     "web-origins",
-                    "acr",
                     "profile",
-                    "roles",
-                    "email",
-                    "groups"
+                    "email"
                   ],
                   "optionalClientScopes": [
                     "address",
@@ -196,7 +193,6 @@ spec:
                   "baseUrl": "http://fern-platform.local:8080",
                   "rootUrl": "http://fern-platform.local:8080",
                   "adminUrl": "http://fern-platform.local:8080",
-                  "frontchannelLogoutUrl": "http://fern-platform.local:8080/auth/login",
                   "redirectUris": [
                     "http://localhost:8080/auth/callback",
                     "http://fern-platform.local:8080/auth/callback",
@@ -300,6 +296,112 @@ spec:
                       }
                     }
                   ]
+                },
+                {
+                  "name": "profile",
+                  "description": "OpenID Connect built-in scope: profile",
+                  "protocol": "openid-connect",
+                  "attributes": {
+                    "include.in.token.scope": "true",
+                    "display.on.consent.screen": "true",
+                    "consent.screen.text": "${profileScopeConsentText}"
+                  },
+                  "protocolMappers": [
+                    {
+                      "name": "profile",
+                      "protocol": "openid-connect",
+                      "protocolMapper": "oidc-usermodel-attribute-mapper",
+                      "config": {
+                        "userinfo.token.claim": "true",
+                        "user.attribute": "profile",
+                        "id.token.claim": "true",
+                        "access.token.claim": "true",
+                        "claim.name": "profile"
+                      }
+                    },
+                    {
+                      "name": "given name",
+                      "protocol": "openid-connect",
+                      "protocolMapper": "oidc-usermodel-property-mapper",
+                      "config": {
+                        "userinfo.token.claim": "true",
+                        "user.attribute": "firstName",
+                        "id.token.claim": "true",
+                        "access.token.claim": "true",
+                        "claim.name": "given_name"
+                      }
+                    },
+                    {
+                      "name": "family name",
+                      "protocol": "openid-connect",
+                      "protocolMapper": "oidc-usermodel-property-mapper",
+                      "config": {
+                        "userinfo.token.claim": "true",
+                        "user.attribute": "lastName",
+                        "id.token.claim": "true",
+                        "access.token.claim": "true",
+                        "claim.name": "family_name"
+                      }
+                    },
+                    {
+                      "name": "full name",
+                      "protocol": "openid-connect",
+                      "protocolMapper": "oidc-full-name-mapper",
+                      "config": {
+                        "id.token.claim": "true",
+                        "access.token.claim": "true",
+                        "userinfo.token.claim": "true"
+                      }
+                    },
+                    {
+                      "name": "username",
+                      "protocol": "openid-connect",
+                      "protocolMapper": "oidc-usermodel-property-mapper",
+                      "config": {
+                        "userinfo.token.claim": "true",
+                        "user.attribute": "username",
+                        "id.token.claim": "true",
+                        "access.token.claim": "true",
+                        "claim.name": "preferred_username"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "name": "email",
+                  "description": "OpenID Connect built-in scope: email",
+                  "protocol": "openid-connect",
+                  "attributes": {
+                    "include.in.token.scope": "true",
+                    "display.on.consent.screen": "true",
+                    "consent.screen.text": "${emailScopeConsentText}"
+                  },
+                  "protocolMappers": [
+                    {
+                      "name": "email",
+                      "protocol": "openid-connect",
+                      "protocolMapper": "oidc-usermodel-property-mapper",
+                      "config": {
+                        "userinfo.token.claim": "true",
+                        "user.attribute": "email",
+                        "id.token.claim": "true",
+                        "access.token.claim": "true",
+                        "claim.name": "email"
+                      }
+                    },
+                    {
+                      "name": "email verified",
+                      "protocol": "openid-connect",
+                      "protocolMapper": "oidc-usermodel-property-mapper",
+                      "config": {
+                        "userinfo.token.claim": "true",
+                        "user.attribute": "emailVerified",
+                        "id.token.claim": "true",
+                        "access.token.claim": "true",
+                        "claim.name": "email_verified"
+                      }
+                    }
+                  ]
                 }
               ],
               "defaultDefaultClientScopes": [
@@ -344,7 +446,6 @@ spec:
                   }
                 ]
               },
-              "passwordPolicy": "length(8) and digits(1) and lowerCase(1) and upperCase(1) and specialChars(1) and notUsername and notEmail",
               "otpPolicyType": "totp",
               "otpPolicyAlgorithm": "HmacSHA1",
               "otpPolicyInitialCounter": 0,
@@ -419,7 +520,7 @@ spec:
         - redis
         - keycloak
       properties:
-        image: anoop2811/fern-platform:d9c627b-dirty8
+        image: fern-platform:latest
         imagePullPolicy: IfNotPresent
         namespace: fern-platform
         ports:
@@ -455,7 +556,8 @@ spec:
           - name: OAUTH_SCOPES
             value: "openid,profile,email,groups"
           
-          # OAuth Provider Endpoints (using internal service name for server-to-server communication)
+          # OAuth Provider Endpoints
+          # Auth URL must use external URL for browser redirects
           - name: OAUTH_AUTH_URL
             value: "http://keycloak:8080/realms/fern-platform/protocol/openid-connect/auth"
           - name: OAUTH_TOKEN_URL

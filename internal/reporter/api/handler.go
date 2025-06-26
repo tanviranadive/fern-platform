@@ -10,6 +10,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/guidewire-oss/fern-platform/pkg/database"
 	"github.com/guidewire-oss/fern-platform/pkg/logging"
 	"github.com/guidewire-oss/fern-platform/pkg/middleware"
 	"github.com/guidewire-oss/fern-platform/internal/reporter/repository"
@@ -261,7 +262,69 @@ func (h *Handler) getTestRunByRunID(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, testRun)
+	// Transform to camelCase for consistency with GraphQL API
+	// Also transform nested suite runs and spec runs
+	var suiteRuns []gin.H
+	for _, suite := range testRun.SuiteRuns {
+		var specRuns []gin.H
+		for _, spec := range suite.SpecRuns {
+			specRuns = append(specRuns, gin.H{
+				"id":           spec.ID,
+				"suiteRunId":   spec.SuiteRunID,
+				"specName":     spec.SpecName,
+				"status":       spec.Status,
+				"startTime":    spec.StartTime,
+				"endTime":      spec.EndTime,
+				"duration":     spec.Duration,
+				"errorMessage": spec.ErrorMessage,
+				"stackTrace":   spec.StackTrace,
+				"retryCount":   spec.RetryCount,
+				"isFlaky":      spec.IsFlaky,
+				"createdAt":    spec.CreatedAt,
+				"updatedAt":    spec.UpdatedAt,
+			})
+		}
+		
+		suiteRuns = append(suiteRuns, gin.H{
+			"id":           suite.ID,
+			"testRunId":    suite.TestRunID,
+			"suiteName":    suite.SuiteName,
+			"status":       suite.Status,
+			"startTime":    suite.StartTime,
+			"endTime":      suite.EndTime,
+			"totalSpecs":   suite.TotalSpecs,
+			"passedSpecs":  suite.PassedSpecs,
+			"failedSpecs":  suite.FailedSpecs,
+			"skippedSpecs": suite.SkippedSpecs,
+			"duration":     suite.Duration,
+			"specRuns":     specRuns,
+			"createdAt":    suite.CreatedAt,
+			"updatedAt":    suite.UpdatedAt,
+		})
+	}
+	
+	response := gin.H{
+		"id":           testRun.ID,
+		"projectId":    testRun.ProjectID,
+		"runId":        testRun.RunID,
+		"branch":       testRun.Branch,
+		"commitSha":    testRun.CommitSHA,
+		"status":       testRun.Status,
+		"startTime":    testRun.StartTime,
+		"endTime":      testRun.EndTime,
+		"totalTests":   testRun.TotalTests,
+		"passedTests":  testRun.PassedTests,
+		"failedTests":  testRun.FailedTests,
+		"skippedTests": testRun.SkippedTests,
+		"duration":     testRun.Duration,
+		"environment":  testRun.Environment,
+		"metadata":     testRun.Metadata,
+		"suiteRuns":    suiteRuns,
+		"createdAt":    testRun.CreatedAt,
+		"updatedAt":    testRun.UpdatedAt,
+	}
+
+	c.JSON(http.StatusOK, response)
 }
 
 func (h *Handler) listTestRuns(c *gin.Context) {
@@ -725,25 +788,98 @@ func (h *Handler) createFernTestReport(c *gin.Context) {
 		})
 	}
 
-	testRunInput := service.CreateTestRunInput{
-		ProjectID:     projectID,
-		RunID:         fmt.Sprintf("ginkgo-run-%d-%d", input.TestSeed, time.Now().Unix()),
-		Branch:        branch,
-		CommitSHA:     commitSHA,
-		Environment:   "test",
-		Metadata:      metadata,
-		Tags:          []string{"ginkgo"},
-		StartTime:     &startTime,
-		EndTime:       endTime,
-		Duration:      duration,
-		TotalTests:    totalTests,
-		PassedTests:   passedTests,
-		FailedTests:   failedTests,
-		SkippedTests:  skippedTests,
-		SuiteRuns:     suiteRuns,
+	// Use the TestSeed as the run ID to group all suites from the same ginkgo run
+	// Use project name for better readability (projectID is a UUID)
+	runID := fmt.Sprintf("%s-run-%d", project.Name, input.TestSeed)
+	
+	// Check if a test run with this ID already exists
+	existingRun, err := h.testRunService.GetTestRunByRunID(runID)
+	var testRun *database.TestRun
+	
+	if err != nil || existingRun == nil {
+		// Create new test run if it doesn't exist
+		testRunInput := service.CreateTestRunInput{
+			ProjectID:     projectID,
+			RunID:         runID,
+			Branch:        branch,
+			CommitSHA:     commitSHA,
+			Environment:   "test",
+			Metadata:      metadata,
+			Tags:          []string{"ginkgo"},
+			StartTime:     &startTime,
+			EndTime:       endTime,
+			Duration:      duration,
+			TotalTests:    totalTests,
+			PassedTests:   passedTests,
+			FailedTests:   failedTests,
+			SkippedTests:  skippedTests,
+			SuiteRuns:     suiteRuns,
+		}
+		
+		testRun, err = h.testRunService.CreateTestRunWithSuites(testRunInput)
+	} else {
+		// Add suites to existing test run
+		testRun = existingRun
+		h.logger.WithField("run_id", runID).WithField("test_run_id", testRun.ID).Info("Adding suites to existing test run")
+		
+		for _, suite := range suiteRuns {
+			// Add suite to existing test run
+			suiteRun, err := h.testRunService.AddSuiteRun(testRun.ID, suite.SuiteName, startTime)
+			if err != nil {
+				h.logger.WithError(err).Error("Failed to add suite run")
+				continue
+			}
+			
+			// Add specs to the suite
+			for _, spec := range suite.SpecRuns {
+				// Parse spec times - these should always be provided
+				specStartTime, err := time.Parse(time.RFC3339, spec.StartTime)
+				if err != nil {
+					h.logger.WithField("spec", spec.SpecDescription).WithField("start_time", spec.StartTime).WithError(err).Error("Failed to parse spec start time")
+					continue // Skip this spec if we can't parse the start time
+				}
+				
+				specEndTime, err := time.Parse(time.RFC3339, spec.EndTime)
+				if err != nil {
+					h.logger.WithField("spec", spec.SpecDescription).WithField("end_time", spec.EndTime).WithError(err).Error("Failed to parse spec end time")
+					continue // Skip this spec if we can't parse the end time
+				}
+				
+				_, err = h.testRunService.AddSpecRun(
+					suiteRun.ID,
+					spec.SpecDescription,
+					spec.Status,
+					specStartTime,
+					specEndTime,
+					spec.Message,
+					"",
+				)
+				if err != nil {
+					h.logger.WithError(err).Error("Failed to add spec run")
+				}
+			}
+			
+			// Update suite run statistics after all specs are created
+			// This ensures the suite shows correct test counts
+			h.testRunService.UpdateSuiteRunStats(suiteRun.ID)
+			
+			// Update suite status
+			if endTime != nil {
+				h.testRunService.UpdateSuiteRunStatus(suiteRun.ID, "completed", endTime)
+			}
+		}
+		
+		// Recalculate test run statistics from all suite runs
+		// This ensures accurate totals across all suites in the run
+		if err := h.testRunService.RecalculateTestRunStats(testRun.ID); err != nil {
+			h.logger.WithError(err).Warn("Failed to recalculate test run stats")
+		}
+		
+		// Update test run status and end time if needed
+		if endTime != nil && testRun.EndTime == nil {
+			h.testRunService.UpdateTestRunStatus(runID, "completed", endTime)
+		}
 	}
-
-	testRun, err := h.testRunService.CreateTestRunWithSuites(testRunInput)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

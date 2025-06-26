@@ -104,13 +104,12 @@ migrate-status: ## Check migration status
 # Docker operations
 docker-build: ## Build Docker image
 	@echo "🐳 Building Docker image..."
-	docker build -t anoop2811/fern-platform:$(VERSION)8 .
-	docker tag anoop2811/fern-platform:$(VERSION)8 fern-platform:latest
-	@echo "✅ Docker image built: anoop2811/fern-platform:$(VERSION)8"
+	docker build -t fern-platform:latest .
+	@echo "✅ Docker image built: fern-platform:latest"
 
 docker-run: ## Run Docker container
 	@echo "🐳 Running Docker container..."
-	docker run -p 8080:8080 anoop2811/fern-platform:latest
+	docker run -p 8080:8080 fern-platform:latest
 
 # Development tools
 install-tools: ## Install development tools
@@ -165,12 +164,10 @@ install-cnpg: ## Install CloudNativePG operator
 	@echo "✅ CloudNativePG operator installed"
 
 setup-components: ## Install KubeVela component definitions
-	@echo "🔧 Installing KubeVela component definitions..."
-	vela addon enable velaux
-	vela addon enable terraform
-	vela addon enable fluxcd
-	@echo "📋 Creating custom component definitions..."
-	kubectl apply -f deployments/components/
+	@echo "📦 Checking component definitions..."
+	@echo "🔧 Installing component definitions..."
+	@vela def apply cnpg.cue || true
+	@vela def apply gateway.cue || true
 	@echo "✅ Component definitions installed"
 
 setup-prereqs: install-kubevela install-cnpg setup-components ## Install all Kubernetes prerequisites
@@ -253,7 +250,6 @@ deploy-all: ## Complete automated deployment (k3d + prerequisites + build + depl
 	@$(MAKE) check-and-install-prerequisites
 	@$(MAKE) build-and-load-image
 	@$(MAKE) deploy-and-verify
-	@$(MAKE) start-port-forward-and-open
 	@echo ""
 	@echo "🎉 Fern Platform deployment completed successfully!"
 	@echo ""
@@ -279,7 +275,9 @@ check-or-create-cluster: ## Check if k3d cluster exists, create if not
 	fi
 	@echo "🔗 Setting kubectl context..."
 	@kubectl config use-context k3d-fern-platform
+	@sleep 10
 	@echo "✅ Cluster ready"
+
 
 check-and-install-prerequisites: ## Check and install KubeVela and CNPG if not present
 	@echo "🔍 Checking and installing prerequisites..."
@@ -335,7 +333,8 @@ check-install-components: ## Check and install component definitions
 		echo "✅ Component definitions already installed"; \
 	else \
 		echo "🔧 Installing component definitions..."; \
-		kubectl apply -f deployments/components/ > /dev/null 2>&1 || true; \
+		cd deployments/components && vela def apply cnpg.cue > /dev/null 2>&1 || true; \
+		cd deployments/components && vela def apply gateway.cue > /dev/null 2>&1 || true; \
 		echo "✅ Component definitions installed"; \
 	fi
 
@@ -418,8 +417,9 @@ stop-port-forward: ## Stop port forwarding
 	@echo "✅ Port forwarding stopped"
 
 # Quick deployment for development (assumes cluster exists)
-deploy-quick: build-and-load-image deploy-and-verify start-port-forward-and-open ## Quick deployment (assumes cluster and prerequisites exist)
+deploy-quick: build-and-load-image deploy-and-verify ## Quick deployment (assumes cluster and prerequisites exist)
 	@echo "🎉 Quick deployment completed!"
+	@echo "📌 Access the application at http://fern-platform.local"
 
 # Local setup helpers
 setup-local: ## Setup local development environment
