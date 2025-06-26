@@ -1,0 +1,140 @@
+# Dashboard queries for the Fern Platform UI
+
+query GetDashboardData {
+  dashboardSummary {
+    health {
+      status
+      service
+      timestamp
+    }
+    projectCount
+    activeProjectCount
+    totalTestRuns
+    recentTestRuns
+    overallPassRate
+    totalTestsExecuted
+    averageTestDuration
+  }
+  
+  projects(first: 10) {
+    edges {
+      node {
+        id
+        projectId
+        name
+        description
+        isActive
+        stats {
+          totalTestRuns
+          successRate
+          averageDuration
+          lastRunTime
+        }
+      }
+    }
+    totalCount
+  }
+  
+  recentTestRuns(limit: 10) {
+    id
+    runId
+    projectId
+    branch
+    status
+    startTime
+    duration
+    totalTests
+    passedTests
+    failedTests
+  }
+}
+
+query GetTreemapData($projectId: String, $days: Int) {
+  treemapData(projectId: $projectId, days: $days) {
+    projects {
+      project {
+        id
+        projectId
+        name
+      }
+      suites {
+        suite {
+          id
+          suiteName
+          status
+        }
+        totalDuration
+        totalSpecs
+        passRate
+      }
+      totalDuration
+      totalTests
+      passRate
+    }
+    totalDuration
+    totalTests
+    overallPassRate
+  }
+}
+
+query GetProjectDetails($projectId: String!) {
+  projectByProjectId(projectId: $projectId) {
+    id
+    projectId
+    name
+    description
+    repository
+    defaultBranch
+    isActive
+    stats {
+      totalTestRuns
+      successRate
+      averageDuration
+      flakyTestCount
+    }
+    recentRuns {
+      id
+      runId
+      branch
+      status
+      startTime
+      duration
+      totalTests
+      passedTests
+      failedTests
+      flakyTests
+    }
+  }
+  
+  testRunStats(projectId: $projectId) {
+    totalRuns
+    statusCounts {
+      status
+      count
+      percentage
+    }
+    averageDuration
+    successRate
+    trendsOverTime {
+      date
+      totalRuns
+      passRate
+      averageDuration
+    }
+  }
+  
+  flakyTests(filter: { projectId: $projectId }, first: 10) {
+    edges {
+      node {
+        id
+        testName
+        suiteName
+        flakeRate
+        totalExecutions
+        lastSeenAt
+        severity
+        status
+      }
+    }
+  }
+}

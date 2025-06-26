@@ -1,0 +1,40 @@
+# gqlgen configuration for Fern Platform GraphQL API
+schema:
+  - internal/reporter/graphql/schema.graphql
+
+exec:
+  filename: internal/reporter/graphql/generated/generated.go
+  package: generated
+
+model:
+  filename: internal/reporter/graphql/model/models_gen.go
+  package: model
+
+resolver:
+  layout: follow-schema
+  dir: internal/reporter/graphql
+  package: graphql
+
+# Map custom scalar types
+models:
+  Time:
+    model: 
+      - github.com/99designs/gqlgen/graphql.Time
+  JSON:
+    model:
+      - github.com/99designs/gqlgen/graphql.Map
+  TestRun:
+    fields:
+      suiteRuns:
+        resolver: true
+  SuiteRun:
+    fields:
+      specRuns:
+        resolver: true
+
+# Autobind models to existing structs where possible
+autobind:
+  - "github.com/guidewire-oss/fern-platform/internal/reporter/repository"
+
+# Skip generating resolver for introspection
+skip_mod_tidy: false

@@ -1,4 +1,5 @@
-# GraphQL schema for Fern Reporter Service
+# GraphQL schema for Fern Platform
+# Enhanced with UI-specific queries and types for optimal performance
 
 scalar Time
 scalar JSON
@@ -79,6 +80,8 @@ type ProjectStats {
   recentTestRuns: Int!
   uniqueBranches: Int!
   successRate: Float!
+  averageDuration: Int!
+  lastRunTime: Time
 }
 
 # Tag Types
@@ -262,27 +265,105 @@ input UpdateTagInput {
   color: String
 }
 
+# User and Authentication Types
+type User {
+  id: ID!
+  userId: String!
+  email: String!
+  name: String!
+  firstName: String
+  lastName: String
+  role: String!
+  profileUrl: String
+  createdAt: Time!
+  lastLoginAt: Time
+}
+
+# Health Status Type
+type HealthStatus {
+  status: String!
+  service: String!
+  timestamp: Time!
+  version: String
+}
+
+# Dashboard Summary Types
+type DashboardSummary {
+  health: HealthStatus!
+  projectCount: Int!
+  activeProjectCount: Int!
+  totalTestRuns: Int!
+  recentTestRuns: Int!
+  overallPassRate: Float!
+  totalTestsExecuted: Int!
+  averageTestDuration: Int!
+}
+
+# Treemap Visualization Types
+type TreemapData {
+  projects: [ProjectTreemapNode!]!
+  totalDuration: Int!
+  totalTests: Int!
+  overallPassRate: Float!
+}
+
+type ProjectTreemapNode {
+  project: Project!
+  suites: [SuiteTreemapNode!]!
+  totalDuration: Int!
+  totalTests: Int!
+  passedTests: Int!
+  failedTests: Int!
+  passRate: Float!
+}
+
+type SuiteTreemapNode {
+  suite: SuiteRun!
+  specs: [SpecTreemapNode!]!
+  totalDuration: Int!
+  totalSpecs: Int!
+  passedSpecs: Int!
+  failedSpecs: Int!
+  passRate: Float!
+}
+
+type SpecTreemapNode {
+  spec: SpecRun!
+  duration: Int!
+  status: String!
+  isFlaky: Boolean!
+}
+
 # Query Root
 type Query {
+  # User/Auth
+  currentUser: User
+  
+  # Dashboard
+  dashboardSummary: DashboardSummary!
+  health: HealthStatus!
+  
+  # Treemap Visualization
+  treemapData(projectId: String, days: Int = 7): TreemapData!
   # Test Runs
   testRun(id: ID!): TestRun
   testRunByRunId(runId: String!): TestRun
   testRuns(
     filter: TestRunFilter
-    first: Int
+    first: Int = 20
     after: String
-    orderBy: String
-    orderDirection: OrderDirection
+    orderBy: String = "createdAt"
+    orderDirection: OrderDirection = DESC
   ): TestRunConnection!
-  testRunStats(projectId: String, days: Int): TestRunStats!
-  recentTestRuns(projectId: String, limit: Int): [TestRun!]!
+  testRunStats(projectId: String, days: Int = 30): TestRunStats!
+  recentTestRuns(projectId: String, limit: Int = 10): [TestRun!]!
 
   # Projects
   project(id: ID!): Project
   projectByProjectId(projectId: String!): Project
   projects(
     filter: ProjectFilter
-    first: Int
+    first: Int = 20
     after: String
   ): ProjectConnection!
 
@@ -291,23 +372,23 @@ type Query {
   tagByName(name: String!): Tag
   tags(
     filter: TagFilter
-    first: Int
+    first: Int = 20
     after: String
   ): TagConnection!
   tagUsageStats: [TagUsage!]!
-  popularTags(limit: Int): [TagUsage!]!
+  popularTags(limit: Int = 10): [TagUsage!]!
 
   # Flaky Tests
   flakyTest(id: ID!): FlakyTest
   flakyTests(
     filter: FlakyTestFilter
-    first: Int
+    first: Int = 20
     after: String
-    orderBy: String
-    orderDirection: OrderDirection
+    orderBy: String = "flakeRate"
+    orderDirection: OrderDirection = DESC
   ): FlakyTestConnection!
   flakyTestStats(projectId: String): FlakyTestStats!
-  recentlyAddedFlakyTests(projectId: String, days: Int, limit: Int): [FlakyTest!]!
+  recentlyAddedFlakyTests(projectId: String, days: Int = 7, limit: Int = 10): [FlakyTest!]!
 }
 
 # Mutation Root
@@ -333,6 +414,17 @@ type Mutation {
   # Flaky Tests
   markFlakyTestResolved(id: ID!): FlakyTest!
   markSpecAsFlaky(specRunId: ID!): SpecRun!
+}
+
+# Subscription Root (for future real-time features)
+type Subscription {
+  # Real-time test run updates
+  testRunCreated(projectId: String): TestRun!
+  testRunUpdated(projectId: String): TestRun!
+  testRunStatusChanged(projectId: String): TestRun!
+  
+  # Real-time flaky test notifications
+  flakyTestDetected(projectId: String): FlakyTest!
 }
 
 enum OrderDirection {

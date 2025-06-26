@@ -8,6 +8,7 @@
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="/web/js/graphql-client.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     
@@ -1836,12 +1837,9 @@
             
             const checkAuth = async () => {
                 try {
-                    const response = await fetch('/auth/user', {
-                        credentials: 'include'
-                    });
-                    if (response.ok) {
-                        const userData = await response.json();
-                        setUser(userData);
+                    const data = await graphqlClient.query(GRAPHQL_QUERIES.GET_CURRENT_USER);
+                    if (data && data.currentUser) {
+                        setUser(data.currentUser);
                     }
                 } catch (error) {
                     console.log('Not authenticated:', error);
@@ -2120,9 +2118,9 @@
         function Header({ health, projects, testRuns, onOpenSettings }) {
             const { theme, toggleTheme } = useUserPreferences();
             const { user, loading, login, logout } = useAuth();
-            const activeProjects = projects.filter(p => p.is_active).length;
+            const activeProjects = projects.filter(p => p.isActive).length;
             const recentRuns = testRuns.filter(tr => {
-                const runDate = new Date(tr.start_time);
+                const runDate = new Date(tr.startTime);
                 const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
                 return runDate > dayAgo;
             }).length;
@@ -2274,7 +2272,7 @@
                 
                 // Filter and prepare data for this project
                 const projectRuns = testRuns
-                    .filter(run => run.project_id === project.id)
+                    .filter(run => run.projectId === project.projectId)
                     .sort((a, b) => new Date(a.start_time) - new Date(b.start_time))
                     .slice(-20); // Show last 20 runs
                 
@@ -2301,14 +2299,14 @@
                     if (selectedSuite === 'all') {
                         // Show total project data
                         suiteData = {
-                            passed: run.passed_tests || 0,
-                            failed: run.failed_tests || 0,
-                            skipped: run.skipped_tests || 0,
-                            total: run.total_tests || 0
+                            passed: run.passedTests || 0,
+                            failed: run.failedTests || 0,
+                            skipped: run.skippedTests || 0,
+                            total: run.totalTests || 0
                         };
                     } else {
                         // Generate realistic suite-specific data
-                        const totalTests = run.total_tests || 0;
+                        const totalTests = run.totalTests || 0;
                         const suiteWeights = {
                             'API Tests': 0.6,
                             'Integration Tests': 0.3,
@@ -2334,7 +2332,7 @@
                     
                     return {
                         index: index,
-                        date: new Date(run.start_time),
+                        date: new Date(run.startTime),
                         passed: suiteData.passed,
                         failed: suiteData.failed,
                         skipped: suiteData.skipped,
@@ -2693,7 +2691,7 @@
                 if (currentView.type === 'projects') {
                     // Level 0: Show all projects
                     projects.forEach(project => {
-                        const projectRuns = testRuns.filter(run => run.project_id === project.id);
+                        const projectRuns = testRuns.filter(run => run.projectId === project.projectId);
                         const latestRun = projectRuns[0];
 
                         if (latestRun) {
@@ -2722,7 +2720,7 @@
                 } else if (currentView.type === 'project') {
                     // Level 1: Show suites within a project
                     const project = currentView.data.project;
-                    const projectRuns = testRuns.filter(run => run.project_id === project.id);
+                    const projectRuns = testRuns.filter(run => run.projectId === project.projectId);
                     const latestRun = projectRuns[0];
 
                     if (latestRun) {
@@ -3010,6 +3008,7 @@
             const [testRuns, setTestRuns] = useState([]);
             const [loading, setLoading] = useState(true);
             const [error, setError] = useState(null);
+            const [dashboardSummary, setDashboardSummary] = useState(null);
 
             useEffect(() => {
                 fetchData();
@@ -3017,19 +3016,28 @@
 
             const fetchData = async () => {
                 try {
-                    const [healthRes, projectsRes, testRunsRes] = await Promise.all([
-                        fetch('/health'),
-                        fetch('/api/v1/projects'),
-                        fetch('/api/v1/test-runs')
-                    ]);
-
-                    const healthData = await healthRes.json();
-                    const projectsData = await projectsRes.json();
-                    const testRunsData = await testRunsRes.json();
-
-                    setHealth(healthData);
-                    setProjects(projectsData.data || []);
-                    setTestRuns(testRunsData.data || []);
+                    const data = await graphqlClient.query(GRAPHQL_QUERIES.GET_DASHBOARD_DATA);
+                    
+                    // Extract data from GraphQL response
+                    setHealth(data.dashboardSummary.health);
+                    
+                    // Convert projects from edges format
+                    const projectList = data.projects.edges.map(edge => edge.node);
+                    setProjects(projectList);
+                    
+                    // Set test runs with project names
+                    const testRunsWithProjects = (data.recentTestRuns || []).map(run => {
+                        const project = projectList.find(p => p.projectId === run.projectId);
+                        return {
+                            ...run,
+                            projectName: project?.name || run.projectId
+                        };
+                    });
+                    setTestRuns(testRunsWithProjects);
+                    
+                    // Store dashboard summary for later use
+                    setDashboardSummary(data.dashboardSummary);
+                    
                     setLoading(false);
                 } catch (err) {
                     setError(err.message);
@@ -3104,7 +3112,7 @@
                             </div>
                             <div className="stat-row">
                                 <span style={{fontWeight: '500'}}>Active Projects</span>
-                                <span className="stat-number success">{projects.filter(p => p.is_active).length}</span>
+                                <span className="stat-number success">{projects.filter(p => p.isActive).length}</span>
                             </div>
                             {projects.length === 0 && (
                                 <div className="empty-state" style={{padding: '2rem 1rem'}}>
@@ -3130,7 +3138,7 @@
                             <div className="stat-row">
                                 <span style={{fontWeight: '500'}}>Recent Runs (24h)</span>
                                 <span className="stat-number info">{testRuns.filter(tr => {
-                                    const runDate = new Date(tr.start_time);
+                                    const runDate = new Date(tr.startTime);
                                     const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
                                     return runDate > dayAgo;
                                 }).length}</span>
@@ -3252,23 +3260,22 @@
 
             const fetchData = async () => {
                 try {
-                    const [projectsRes, testRunsRes] = await Promise.all([
-                        fetch('/api/v1/projects'),
-                        fetch('/api/v1/test-runs')
-                    ]);
-
-                    if (!projectsRes.ok) {
-                        throw new Error(`Projects API failed: ${projectsRes.status} ${projectsRes.statusText}`);
-                    }
-                    if (!testRunsRes.ok) {
-                        throw new Error(`Test runs API failed: ${testRunsRes.status} ${testRunsRes.statusText}`);
-                    }
-
-                    const projectsData = await projectsRes.json();
-                    const testRunsData = await testRunsRes.json();
-
-                    setProjects(projectsData.data || []);
-                    setTestRuns(testRunsData.data || []);
+                    const data = await graphqlClient.query(GRAPHQL_QUERIES.GET_DASHBOARD_DATA);
+                    
+                    // Convert projects from edges format
+                    const projectList = data.projects.edges.map(edge => edge.node);
+                    setProjects(projectList);
+                    
+                    // Set test runs with project names
+                    const testRunsWithProjects = (data.recentTestRuns || []).map(run => {
+                        const project = projectList.find(p => p.projectId === run.projectId);
+                        return {
+                            ...run,
+                            projectName: project?.name || run.projectId
+                        };
+                    });
+                    setTestRuns(testRunsWithProjects);
+                    
                     setLoading(false);
                 } catch (err) {
                     console.error('Error fetching test summaries data:', err);
@@ -3384,10 +3391,10 @@
                     {viewMode === 'grid' && getDisplayProjects().length > 0 && (
                         <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(400px, 1fr))', gap: '2rem'}}>
                             {getDisplayProjects().map(project => {
-                                const projectRuns = testRuns.filter(run => run.project_id === project.id);
-                                const totalTests = projectRuns.reduce((sum, run) => sum + (run.total_tests || 0), 0);
-                                const passedTests = projectRuns.reduce((sum, run) => sum + (run.passed_tests || 0), 0);
-                                const failedTests = projectRuns.reduce((sum, run) => sum + (run.failed_tests || 0), 0);
+                                const projectRuns = testRuns.filter(run => run.projectId === project.projectId);
+                                const totalTests = projectRuns.reduce((sum, run) => sum + (run.totalTests || 0), 0);
+                                const passedTests = projectRuns.reduce((sum, run) => sum + (run.passedTests || 0), 0);
+                                const failedTests = projectRuns.reduce((sum, run) => sum + (run.failedTests || 0), 0);
 
                                 return (
                                     <div key={project.id} className="card">
@@ -3511,9 +3518,8 @@
 
             const fetchData = async () => {
                 try {
-                    const response = await fetch('/api/v1/test-runs');
-                    const data = await response.json();
-                    setTestRuns(data.data || []);
+                    const data = await graphqlClient.query(GRAPHQL_QUERIES.GET_DASHBOARD_DATA);
+                    setTestRuns(data.recentTestRuns || []);
                     setLoading(false);
                 } catch (err) {
                     setError(err.message);
@@ -3532,7 +3538,7 @@
                     let failedTests = 0;
                     let skippedTests = 0;
                     
-                    suiteRun.spec_runs.forEach(specRun => {
+                    suiteRun.specRuns.forEach(specRun => {
                         totalTests++;
                         switch (specRun.status) {
                             case 'passed':
@@ -3567,14 +3573,14 @@
                     return {
                         id: suiteRun.id,
                         name: suiteRun.suite_name,
-                        total_tests: totalTests,
-                        passed_tests: passedTests,
-                        failed_tests: failedTests,
-                        skipped_tests: skippedTests,
+                        totalTests: totalTests,
+                        passedTests: passedTests,
+                        failedTests: failedTests,
+                        skippedTests: skippedTests,
                         duration_ms: duration,
                         status: status,
                         test_run_id: testRun.id,
-                        spec_runs: suiteRun.spec_runs // Store the real spec data
+                        specRuns: suiteRun.specRuns // Store the real spec data
                     };
                 });
             };
@@ -3587,28 +3593,33 @@
                 let suites = [];
                 
                 try {
-                    const response = await fetch(`/api/v1/test-runs/by-run-id/${run.run_id}`);
-                    if (response.ok) {
-                        const detailedRun = await response.json();
-                        console.log('Fetched detailed run:', detailedRun);
+                    // Use GraphQL to fetch test run details
+                    const data = await window.graphqlClient.query(
+                        window.GRAPHQL_QUERIES.GET_TEST_RUN_DETAILS,
+                        { runId: run.runId }
+                    );
+                    
+                    if (data && data.testRunByRunId) {
+                        const detailedRun = data.testRunByRunId;
+                        console.log('Fetched detailed run via GraphQL:', detailedRun);
                         
-                        // Use the actual SuiteRuns relationship from the database
-                        if (detailedRun.suite_runs && detailedRun.suite_runs.length > 0) {
-                            suites = detailedRun.suite_runs.map(suiteRun => ({
+                        // Use the actual suiteRuns relationship from GraphQL
+                        if (detailedRun.suiteRuns && detailedRun.suiteRuns.length > 0) {
+                            suites = detailedRun.suiteRuns.map(suiteRun => ({
                                 id: suiteRun.id,
-                                name: suiteRun.suite_name,
-                                total_tests: suiteRun.spec_runs ? suiteRun.spec_runs.length : 0,
-                                passed_tests: suiteRun.spec_runs ? suiteRun.spec_runs.filter(spec => spec.status === 'passed').length : 0,
-                                failed_tests: suiteRun.spec_runs ? suiteRun.spec_runs.filter(spec => spec.status === 'failed').length : 0,
-                                skipped_tests: suiteRun.spec_runs ? suiteRun.spec_runs.filter(spec => spec.status === 'skipped' || spec.status === 'pending').length : 0,
-                                duration_ms: suiteRun.duration_ms,
+                                name: suiteRun.suiteName,
+                                totalTests: suiteRun.totalSpecs,
+                                passedTests: suiteRun.passedSpecs,
+                                failedTests: suiteRun.failedSpecs,
+                                skippedTests: suiteRun.skippedSpecs,
+                                duration_ms: suiteRun.duration,
                                 status: suiteRun.status,
                                 test_run_id: run.id,
-                                spec_runs: suiteRun.spec_runs || [] // Include the spec runs
+                                specRuns: suiteRun.specRuns || []
                             }));
                         } else if (detailedRun.metadata && detailedRun.metadata.suite_runs) {
                             // Fallback to metadata if no database relationships exist
-                            console.log('Falling back to metadata suite_runs');
+                            console.log('Falling back to metadata suiteRuns');
                             suites = extractSuitesFromMetadata(detailedRun.metadata.suite_runs, run);
                         }
                     }
@@ -3618,7 +3629,7 @@
                 
                 // Show error if no real data available
                 if (suites.length === 0) {
-                    console.warn('No real suite data found for:', run.project_name || run.project_id);
+                    console.warn('No real suite data found for:', run.projectName || run.projectId);
                     setError(`No test suite data available for this test run. The run may not have been properly reported by fern-ginkgo-client.`);
                     return;
                 }
@@ -3658,18 +3669,18 @@
                 let specs = [];
                 
                 // Use real spec data from database relationships or metadata
-                if (suite.spec_runs && suite.spec_runs.length > 0) {
+                if (suite.specRuns && suite.specRuns.length > 0) {
                     // Map database SpecRun entities to our spec format
-                    specs = suite.spec_runs.map((specRun, index) => {
+                    specs = suite.specRuns.map((specRun, index) => {
                         return {
                             id: specRun.id || index + 1,
-                            name: specRun.spec_description || specRun.spec_name || '[Test Setup/Teardown]',
+                            name: specRun.specName || '[Test Setup/Teardown]',
                             status: specRun.status,
-                            duration_ms: specRun.duration_ms,
-                            error_message: specRun.error_message || null,
-                            suite_id: specRun.suite_run_id,
-                            started_at: specRun.start_time,
-                            finished_at: specRun.end_time,
+                            duration_ms: specRun.duration,
+                            error_message: specRun.errorMessage || null,
+                            suite_id: suite.id,
+                            started_at: specRun.startTime,
+                            finished_at: specRun.endTime,
                             tags: []
                         };
                     });
@@ -3732,14 +3743,14 @@
                         {view === 'suites' && (
                             <>
                                 <span className="breadcrumb-separator">▶</span>
-                                <span>{selectedRun?.project_name || selectedRun?.project_id} - {selectedRun?.run_id}</span>
+                                <span>{selectedRun?.projectName || selectedRun?.projectId || '-'} - {selectedRun?.runId || '-'}</span>
                             </>
                         )}
                         {view === 'specs' && (
                             <>
                                 <span className="breadcrumb-separator">▶</span>
                                 <button onClick={handleBackToSuites}>
-                                    {selectedRun?.project_name || selectedRun?.project_id} - {selectedRun?.run_id}
+                                    {selectedRun?.projectName || selectedRun?.projectId || '-'} - {selectedRun?.runId || '-'}
                                 </button>
                                 <span className="breadcrumb-separator">▶</span>
                                 <span>{selectedSuite?.name}</span>
@@ -3781,14 +3792,14 @@
                                                 onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                                             >
                                                 <td>
-                                                    <div style={{fontWeight: '600', fontSize: '0.875rem'}}>{run.project_name || run.project_id}</div>
+                                                    <div style={{fontWeight: '600', fontSize: '0.875rem'}}>{run.projectName || run.projectId}</div>
                                                     <div style={{fontSize: '0.75rem', color: 'var(--text-tertiary)'}}>
                                                         {run.environment || 'default'}
                                                     </div>
                                                 </td>
                                                 <td>
                                                     <code style={{fontSize: '0.75rem', background: 'var(--bg-tertiary)', padding: '0.375rem 0.75rem', borderRadius: 'var(--radius-md)', fontWeight: '500'}}>
-                                                        {run.run_id}
+                                                        {run.runId}
                                                     </code>
                                                 </td>
                                                 <td>
@@ -3799,12 +3810,12 @@
                                                 </td>
                                                 <td>
                                                     <div style={{display: 'flex', gap: '0.75rem', alignItems: 'center', fontSize: '0.875rem', fontWeight: '500'}}>
-                                                        <span className="success">{run.passed_tests || 0}</span>
-                                                        <span className="error">{run.failed_tests || 0}</span>
-                                                        <span className="muted">{run.skipped_tests || 0}</span>
+                                                        <span className="success">{run.passedTests || 0}</span>
+                                                        <span className="error">{run.failedTests || 0}</span>
+                                                        <span className="muted">{run.skippedTests || 0}</span>
                                                     </div>
                                                     <div style={{fontSize: '0.75rem', color: 'var(--text-tertiary)', marginTop: '0.25rem'}}>
-                                                        {run.total_tests || 0} total tests
+                                                        {run.totalTests || 0} total tests
                                                     </div>
                                                 </td>
                                                 <td>
@@ -3813,9 +3824,9 @@
                                                     </span>
                                                 </td>
                                                 <td style={{fontWeight: '500'}}>
-                                                    {run.duration_ms ? `${(run.duration_ms / 1000).toFixed(1)}s` : 'N/A'}
+                                                    {run.duration ? `${(run.duration / 1000).toFixed(1)}s` : 'N/A'}
                                                 </td>
-                                                <td style={{fontWeight: '500', color: 'var(--text-secondary)'}}>{formatDate(run.start_time)}</td>
+                                                <td style={{fontWeight: '500', color: 'var(--text-secondary)'}}>{formatDate(run.startTime)}</td>
                                             </tr>
                                         ))}
                                     </tbody>
@@ -3839,11 +3850,11 @@
                         {renderBreadcrumb()}
                         <h2 style={{marginBottom: '2rem', color: 'var(--text-primary)', fontSize: '2rem', fontWeight: '700', letterSpacing: '-0.025em'}}>
                             <i className="fas fa-folder-open" style={{marginRight: '0.75rem', color: 'var(--primary)'}}></i>
-                            Test Suites for {selectedRun?.project_name || selectedRun?.project_id}
+                            Test Suites for {selectedRun?.projectName || selectedRun?.projectId}
                         </h2>
                         <div style={{marginBottom: '1.5rem', padding: '1rem', background: 'var(--bg-secondary)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-light)'}}>
                             <div style={{fontSize: '0.875rem', color: 'var(--text-secondary)'}}>
-                                <strong>Run ID:</strong> {selectedRun?.run_id} | 
+                                <strong>Run ID:</strong> {selectedRun?.runId} | 
                                 <strong> Branch:</strong> {selectedRun?.branch || 'main'} | 
                                 <strong> Environment:</strong> {selectedRun?.environment || 'default'}
                             </div>
@@ -3872,12 +3883,12 @@
                                             </td>
                                             <td>
                                                 <div style={{display: 'flex', gap: '0.75rem', alignItems: 'center', fontSize: '0.875rem', fontWeight: '500'}}>
-                                                    <span className="success">{suite.passed_tests}</span>
-                                                    <span className="error">{suite.failed_tests}</span>
-                                                    <span className="muted">{suite.skipped_tests}</span>
+                                                    <span className="success">{suite.passedTests}</span>
+                                                    <span className="error">{suite.failedTests}</span>
+                                                    <span className="muted">{suite.skippedTests}</span>
                                                 </div>
                                                 <div style={{fontSize: '0.75rem', color: 'var(--text-tertiary)', marginTop: '0.25rem'}}>
-                                                    {suite.total_tests} total tests
+                                                    {suite.totalTests} total tests
                                                 </div>
                                             </td>
                                             <td>
@@ -3908,8 +3919,8 @@
                         </h2>
                         <div style={{marginBottom: '1.5rem', padding: '1rem', background: 'var(--bg-secondary)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-light)'}}>
                             <div style={{fontSize: '0.875rem', color: 'var(--text-secondary)'}}>
-                                <strong>Project:</strong> {selectedRun?.project_name || selectedRun?.project_id} | 
-                                <strong> Run ID:</strong> {selectedRun?.run_id} | 
+                                <strong>Project:</strong> {selectedRun?.projectName || selectedRun?.projectId} | 
+                                <strong> Run ID:</strong> {selectedRun?.runId} | 
                                 <strong> Suite:</strong> {selectedSuite?.name}
                             </div>
                         </div>
@@ -3976,23 +3987,22 @@
 
             const fetchData = async () => {
                 try {
-                    const [projectsRes, testRunsRes] = await Promise.all([
-                        fetch('/api/v1/projects'),
-                        fetch('/api/v1/test-runs')
-                    ]);
-
-                    if (!projectsRes.ok) {
-                        throw new Error(`Projects API failed: ${projectsRes.status} ${projectsRes.statusText}`);
-                    }
-                    if (!testRunsRes.ok) {
-                        throw new Error(`Test runs API failed: ${testRunsRes.status} ${testRunsRes.statusText}`);
-                    }
-
-                    const projectsData = await projectsRes.json();
-                    const testRunsData = await testRunsRes.json();
-
-                    setProjects(projectsData.data || []);
-                    setTestRuns(testRunsData.data || []);
+                    const data = await graphqlClient.query(GRAPHQL_QUERIES.GET_DASHBOARD_DATA);
+                    
+                    // Convert projects from edges format
+                    const projectList = data.projects.edges.map(edge => edge.node);
+                    setProjects(projectList);
+                    
+                    // Set test runs with project names
+                    const testRunsWithProjects = (data.recentTestRuns || []).map(run => {
+                        const project = projectList.find(p => p.projectId === run.projectId);
+                        return {
+                            ...run,
+                            projectName: project?.name || run.projectId
+                        };
+                    });
+                    setTestRuns(testRunsWithProjects);
+                    
                     setLoading(false);
                 } catch (err) {
                     console.error('Error fetching manager dashboard data:', err);
@@ -4090,11 +4100,11 @@
 
                     <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem'}}>
                         {selectedProjects.map(project => {
-                            const projectRuns = testRuns.filter(run => run.project_id === project.id);
+                            const projectRuns = testRuns.filter(run => run.projectId === project.projectId);
                             const latestRun = projectRuns[0];
-                            const totalTests = projectRuns.reduce((sum, run) => sum + (run.total_tests || 0), 0);
-                            const passedTests = projectRuns.reduce((sum, run) => sum + (run.passed_tests || 0), 0);
-                            const failedTests = projectRuns.reduce((sum, run) => sum + (run.failed_tests || 0), 0);
+                            const totalTests = projectRuns.reduce((sum, run) => sum + (run.totalTests || 0), 0);
+                            const passedTests = projectRuns.reduce((sum, run) => sum + (run.passedTests || 0), 0);
+                            const failedTests = projectRuns.reduce((sum, run) => sum + (run.failedTests || 0), 0);
 
                             return (
                                 <div key={project.id} className="card" style={{background: 'var(--bg-elevated)'}}>
@@ -4429,20 +4439,15 @@
 
             const fetchAppData = async () => {
                 try {
-                    const [healthRes, projectsRes, testRunsRes] = await Promise.all([
-                        fetch('/health'),
-                        fetch('/api/v1/projects'),
-                        fetch('/api/v1/test-runs')
-                    ]);
-
-                    const health = await healthRes.json();
-                    const projects = await projectsRes.json();
-                    const testRuns = await testRunsRes.json();
-
+                    const data = await graphqlClient.query(GRAPHQL_QUERIES.GET_DASHBOARD_DATA);
+                    
+                    // Convert projects from edges format
+                    const projectList = data.projects.edges.map(edge => edge.node);
+                    
                     setAppData({
-                        health,
-                        projects: projects.data || [],
-                        testRuns: testRuns.data || []
+                        health: data.dashboardSummary.health,
+                        projects: projectList,
+                        testRuns: data.recentTestRuns || []
                     });
                 } catch (err) {
                     console.error('Failed to fetch app data:', err);
