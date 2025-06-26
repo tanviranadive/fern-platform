@@ -24,21 +24,55 @@
 ### Prerequisites (5 minutes)
 
 #### 1. Install Required Tools
+
+Fern Platform supports Linux, macOS, and Windows. Choose your installation method:
+
+**macOS (Homebrew)**
 ```bash
-# Install dependencies (macOS with Homebrew)
 brew install k3d kubectl helm
 
 # Install vela CLI
 curl -fsSl https://kubevela.io/script/install.sh | bash
-
-# For other OS:
-# - k3d: https://k3d.io/stable/#installation
-# - kubectl: https://kubernetes.io/docs/tasks/tools/
-# - helm: https://helm.sh/docs/intro/install/
-# - vela: https://kubevela.io/docs/installation/kubernetes#install-vela-cli
 ```
 
-#### 2. Configure /etc/hosts (Required for OAuth)
+**Linux**
+```bash
+# Install k3d
+curl -s https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash
+
+# Install kubectl
+curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+
+# Install helm
+curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+
+# Install vela CLI
+curl -fsSl https://kubevela.io/script/install.sh | bash
+```
+
+**Windows (PowerShell as Administrator)**
+```powershell
+# Install Chocolatey if not present
+Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+
+# Install tools
+choco install k3d kubernetes-cli kubernetes-helm
+
+# Install vela CLI
+Invoke-WebRequest -Uri "https://github.com/kubevela/kubevela/releases/latest/download/vela-windows-amd64.exe" -OutFile "vela.exe"
+Move-Item vela.exe $env:WINDIR\system32\
+```
+
+**For other installation methods:**
+- k3d: https://k3d.io/stable/#installation
+- kubectl: https://kubernetes.io/docs/tasks/tools/
+- helm: https://helm.sh/docs/intro/install/
+- vela: https://kubevela.io/docs/installation/kubernetes#install-vela-cli
+
+#### 2. Configure hosts file (Required for OAuth)
+
+**macOS/Linux**
 ```bash
 # Add these entries to /etc/hosts for OAuth authentication to work:
 sudo sh -c 'echo "127.0.0.1 fern-platform.local" >> /etc/hosts'
@@ -46,6 +80,16 @@ sudo sh -c 'echo "127.0.0.1 keycloak" >> /etc/hosts'
 
 # Verify entries were added:
 cat /etc/hosts | grep -E "fern-platform|keycloak"
+```
+
+**Windows (PowerShell as Administrator)**
+```powershell
+# Add entries to hosts file
+Add-Content -Path $env:windir\System32\drivers\etc\hosts -Value "`n127.0.0.1 fern-platform.local"
+Add-Content -Path $env:windir\System32\drivers\etc\hosts -Value "127.0.0.1 keycloak"
+
+# Verify entries were added
+Get-Content $env:windir\System32\drivers\etc\hosts | Select-String "fern-platform|keycloak"
 ```
 
 > ⚠️ **Important**: Without these /etc/hosts entries, OAuth login will fail with redirect errors.

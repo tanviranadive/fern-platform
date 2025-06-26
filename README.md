@@ -101,7 +101,9 @@ Choose your setup path based on your environment:
 git clone https://github.com/guidewire-oss/fern-platform
 cd fern-platform
 make deploy-all  # Installs k3d cluster, deploys everything
-# Visit http://localhost:8080
+# Visit http://fern-platform.local:8080
+
+# Note: You'll be prompted to add entries to /etc/hosts for OAuth to work
 ```
 
 ### 🏢 **30 Minutes** - Production Kubernetes Deployment
@@ -109,6 +111,25 @@ make deploy-all  # Installs k3d cluster, deploys everything
 # Deploy to your existing Kubernetes cluster
 kubectl apply -f deployments/fern-platform-kubevela.yaml
 # See docs/operations/production-setup.md for details
+```
+
+### 💻 Cross-Platform Support
+
+Fern Platform supports multiple operating systems and architectures:
+
+- **Linux**: AMD64, ARM64
+- **macOS**: Intel (AMD64), Apple Silicon (ARM64)  
+- **Windows**: AMD64, ARM64
+
+```bash
+# Build for all platforms
+make build-all
+
+# Build multi-arch Docker images
+make docker-build-multi
+
+# Build for specific platform
+GOOS=linux GOARCH=arm64 make build
 ```
 
 **[📖 Detailed setup guides for all scenarios →](docs/developers/quick-start.md)**

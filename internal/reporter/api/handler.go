@@ -1337,21 +1337,47 @@ func (h *Handler) showLoginPage(c *gin.Context) {
             font-size: 1.1rem;
         }
         .sign-in-button {
-            background: linear-gradient(135deg, #667eea 0%%, #764ba2 100%%);
+            background: #10b981;
+            background: linear-gradient(135deg, #34d399 0%%, #10b981 50%%, #059669 100%%);
             color: white;
             border: none;
-            padding: 1rem 2rem;
-            font-size: 1.1rem;
-            font-weight: 600;
-            border-radius: 12px;
+            padding: 1.5rem 3rem;
+            font-size: 1.25rem;
+            font-weight: 800;
+            border-radius: 16px;
             cursor: pointer;
             transition: all 0.3s ease;
             width: 100%%;
-            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+            box-shadow: 0 8px 24px rgba(16, 185, 129, 0.5), 0 4px 12px rgba(16, 185, 129, 0.3);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+            position: relative;
+            overflow: hidden;
+        }
+        .sign-in-button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%%;
+            width: 100%%;
+            height: 100%%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s;
         }
         .sign-in-button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+            transform: translateY(-3px) scale(1.02);
+            box-shadow: 0 12px 32px rgba(16, 185, 129, 0.6), 0 6px 16px rgba(16, 185, 129, 0.4);
+            background: linear-gradient(135deg, #6ee7b7 0%%, #34d399 50%%, #10b981 100%%);
+        }
+        .sign-in-button:hover::before {
+            left: 100%%;
+        }
+        .sign-in-button:active {
+            transform: translateY(-1px) scale(1);
         }
         .features {
             margin-top: 3rem;
@@ -1376,7 +1402,12 @@ func (h *Handler) showLoginPage(c *gin.Context) {
         <p class="subtitle">Modern Test Intelligence & Analytics</p>
         
         <button class="sign-in-button" onclick="window.location.href='/auth/start'">
-            Sign In with OAuth
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));">
+                <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                <path d="M2 17L12 22L22 17" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                <path d="M2 12L12 17L22 12" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+            </svg>
+            <span style="font-size: 1.3rem; text-shadow: 0 2px 4px rgba(0,0,0,0.1);">Continue with SSO</span>
         </button>
         
         <div class="features">

@@ -25,17 +25,36 @@ deps: ## Install dependencies
 	go mod tidy
 	@echo "✅ Dependencies installed"
 
-build: deps ## Build the platform binary
+build: deps ## Build the platform binary for current OS/architecture
 	@echo "🔨 Building Fern Platform..."
 	mkdir -p $(BUILD_DIR)
 	go build $(GO_BUILD_FLAGS) -o $(BUILD_DIR)/$(BINARY_NAME) $(CMD_DIR)/main.go
 	@echo "✅ Built $(BUILD_DIR)/$(BINARY_NAME)"
 
-build-linux: deps ## Build for Linux (useful for containers)
+build-all: deps ## Build for all supported platforms (Linux, Windows, Darwin)
+	@echo "🔨 Building Fern Platform for all platforms..."
+	mkdir -p $(BUILD_DIR)
+	@# Linux builds
+	@echo "🐧 Building for Linux..."
+	GOOS=linux GOARCH=amd64 go build $(GO_BUILD_FLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-linux-amd64 $(CMD_DIR)/main.go
+	GOOS=linux GOARCH=arm64 go build $(GO_BUILD_FLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-linux-arm64 $(CMD_DIR)/main.go
+	@# Windows builds
+	@echo "🪟 Building for Windows..."
+	GOOS=windows GOARCH=amd64 go build $(GO_BUILD_FLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-windows-amd64.exe $(CMD_DIR)/main.go
+	GOOS=windows GOARCH=arm64 go build $(GO_BUILD_FLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-windows-arm64.exe $(CMD_DIR)/main.go
+	@# macOS builds
+	@echo "🍎 Building for macOS..."
+	GOOS=darwin GOARCH=amd64 go build $(GO_BUILD_FLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-amd64 $(CMD_DIR)/main.go
+	GOOS=darwin GOARCH=arm64 go build $(GO_BUILD_FLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-arm64 $(CMD_DIR)/main.go
+	@echo "✅ Built all platform binaries:"
+	@ls -la $(BUILD_DIR)/$(BINARY_NAME)-*
+
+build-linux: deps ## Build for Linux (AMD64 and ARM64)
 	@echo "🔨 Building Fern Platform for Linux..."
 	mkdir -p $(BUILD_DIR)
-	GOOS=linux GOARCH=arm64 go build $(GO_BUILD_FLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-linux $(CMD_DIR)/main.go
-	@echo "✅ Built $(BUILD_DIR)/$(BINARY_NAME)-linux"
+	GOOS=linux GOARCH=amd64 go build $(GO_BUILD_FLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-linux-amd64 $(CMD_DIR)/main.go
+	GOOS=linux GOARCH=arm64 go build $(GO_BUILD_FLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-linux-arm64 $(CMD_DIR)/main.go
+	@echo "✅ Built Linux binaries"
 
 test: test-unit ## Run all tests
 
@@ -102,10 +121,36 @@ migrate-status: ## Check migration status
 	go run $(CMD_DIR)/main.go -config config/config.yaml -migrate status
 
 # Docker operations
-docker-build: ## Build Docker image
+docker-build: ## Build Docker image for current architecture (simple build)
 	@echo "🐳 Building Docker image..."
+	@echo "🔍 Auto-detecting architecture: $(shell uname -m)"
 	docker build -t fern-platform:latest .
 	@echo "✅ Docker image built: fern-platform:latest"
+
+docker-build-multi: ## Build multi-architecture Docker images (AMD64 and ARM64)
+	@echo "🐳 Building multi-architecture Docker images..."
+	@echo "📦 Setting up Docker buildx..."
+	@docker buildx create --use --name fern-builder || docker buildx use fern-builder
+	@echo "🔨 Building for linux/amd64 and linux/arm64..."
+	docker buildx build --platform linux/amd64,linux/arm64 \
+		-t fern-platform:latest \
+		-t fern-platform:$(VERSION) \
+		--push .
+	@echo "✅ Multi-arch Docker images built and pushed"
+
+docker-build-local: ## Build Docker image for current architecture (auto-detected)
+	@echo "🐳 Building Docker image for local k3d deployment..."
+	@echo "🔍 Detecting system architecture..."
+	@echo "   Host OS: $(shell go env GOOS)"
+	@echo "   Host Arch: $(shell go env GOARCH)"
+	@echo "   Target: linux/$(shell go env GOARCH) (k3d runs Linux containers)"
+	@echo "📦 Setting up Docker buildx..."
+	@docker buildx create --use --name fern-builder || docker buildx use fern-builder
+	@echo "🔨 Building for linux/$(shell go env GOARCH)..."
+	docker buildx build --platform linux/$(shell go env GOARCH) \
+		-t fern-platform:latest \
+		--load .
+	@echo "✅ Docker image built and loaded for your architecture"
 
 docker-run: ## Run Docker container
 	@echo "🐳 Running Docker container..."
@@ -186,17 +231,37 @@ verify-cluster: ## Verify cluster prerequisites
 # Kubernetes/KubeVela operations
 k8s-deploy: ## Deploy to Kubernetes using KubeVela
 	@echo "☸️ Deploying to Kubernetes..."
-	vela up -f deployments/fern-platform-local.yaml
+	@echo "📁 Creating namespace if it doesn't exist..."
+	@kubectl create namespace fern-platform 2>/dev/null || true
+	@kubectl apply -f deployments/fern-platform-kubevela.yaml
 	@echo "✅ Deployed to Kubernetes"
 
 k8s-delete: ## Delete from Kubernetes
 	@echo "☸️ Deleting from Kubernetes..."
-	vela delete fern-platform
+	vela delete fern-platform -n fern-platform
 	@echo "✅ Deleted from Kubernetes"
 
 k8s-status: ## Check Kubernetes deployment status
 	@echo "☸️ Checking deployment status..."
-	vela status fern-platform
+	@echo ""
+	@echo "📊 KubeVela Application Status:"
+	@vela status fern-platform -n fern-platform 2>/dev/null || echo "⚠️  No KubeVela application found"
+	@echo ""
+	@echo "🔍 Pods in fern-platform namespace:"
+	@kubectl get pods -n fern-platform
+	@echo ""
+	@echo "🌐 Services:"
+	@kubectl get svc -n fern-platform
+	@echo ""
+	@echo "🔀 Ingress:"
+	@kubectl get ingress -n fern-platform
+	@echo ""
+	@echo "🌐 Application is accessible at:"
+	@echo "   http://fern-platform.local:8080 (via Traefik ingress)"
+	@echo ""
+	@echo "⚠️  Ensure these entries are in your /etc/hosts:"
+	@echo "   127.0.0.1 fern-platform.local"
+	@echo "   127.0.0.1 keycloak"
 
 # Complete cluster setup workflow
 cluster-setup: k3d-create setup-prereqs verify-cluster ## Complete k3d cluster setup with prerequisites
@@ -222,7 +287,7 @@ release: ## Create a release
 ci-test: deps test lint vet ## Run CI test pipeline
 	@echo "🤖 CI test pipeline completed"
 
-ci-build: deps build build-linux ## Run CI build pipeline
+ci-build: deps build-all ## Run CI build pipeline with multi-platform support
 	@echo "🤖 CI build pipeline completed"
 
 # Project information
@@ -242,9 +307,11 @@ deploy-all: ## Complete automated deployment (k3d + prerequisites + build + depl
 	@echo "This will:"
 	@echo "1. Check/create k3d cluster"
 	@echo "2. Install prerequisites (KubeVela, CNPG)"
-	@echo "3. Build and load Docker image"
+	@echo "3. Build Docker image for your architecture (auto-detected)"
 	@echo "4. Deploy application with KubeVela"
 	@echo "5. Resume workflow and verify deployment"
+	@echo ""
+	@echo "🔍 System detected: $(shell go env GOOS)/$(shell go env GOARCH)"
 	@echo ""
 	@$(MAKE) check-or-create-cluster
 	@$(MAKE) check-and-install-prerequisites
@@ -253,18 +320,22 @@ deploy-all: ## Complete automated deployment (k3d + prerequisites + build + depl
 	@echo ""
 	@echo "🎉 Fern Platform deployment completed successfully!"
 	@echo ""
-	@echo "🌐 Application is now accessible at: http://localhost:8080"
-	@echo "📡 Port forwarding is running in the background"
+	@echo "⚠️  IMPORTANT: Add these entries to your /etc/hosts file:"
+	@echo "   127.0.0.1 fern-platform.local"
+	@echo "   127.0.0.1 keycloak"
+	@echo ""
+	@echo "🌐 Application is now accessible at: http://fern-platform.local:8080"
+	@echo "🔀 Using Traefik ingress (no port forwarding needed)"
 	@echo ""
 	@echo "📊 Useful commands:"
-	@echo "   make k8s-status          - Check deployment status"
-	@echo "   make verify-cluster      - Verify all components"
-	@echo "   make stop-port-forward   - Stop port forwarding"
-	@echo "   make k8s-delete          - Delete deployment"
-	@echo "   make k3d-delete          - Delete entire cluster"
+	@echo "   make k8s-status      - Check deployment status"
+	@echo "   make verify-cluster  - Verify all components"
+	@echo "   make k8s-delete      - Delete deployment"
+	@echo "   make k3d-delete      - Delete entire cluster"
 
 check-or-create-cluster: ## Check if k3d cluster exists, create if not
 	@echo "🔍 Checking k3d cluster status..."
+	@$(MAKE) check-hosts-file
 	@if k3d cluster list | grep -q "fern-platform.*running"; then \
 		echo "✅ k3d cluster 'fern-platform' already exists and is running"; \
 		kubectl cluster-info --context k3d-fern-platform > /dev/null 2>&1 || (echo "❌ Cluster not accessible, recreating..." && k3d cluster delete fern-platform && k3d cluster create fern-platform --port "8080:80@loadbalancer" --agents 2); \
@@ -277,6 +348,25 @@ check-or-create-cluster: ## Check if k3d cluster exists, create if not
 	@kubectl config use-context k3d-fern-platform
 	@sleep 10
 	@echo "✅ Cluster ready"
+
+check-hosts-file: ## Check and setup /etc/hosts entries
+	@echo "🔍 Checking /etc/hosts configuration..."
+	@if ! grep -q "fern-platform.local" /etc/hosts; then \
+		echo "⚠️  Missing fern-platform.local in /etc/hosts"; \
+		echo ""; \
+		echo "Please add these entries to your /etc/hosts file:"; \
+		echo ""; \
+		echo "   sudo sh -c 'echo \"127.0.0.1 fern-platform.local\" >> /etc/hosts'"; \
+		echo "   sudo sh -c 'echo \"127.0.0.1 keycloak\" >> /etc/hosts'"; \
+		echo ""; \
+		echo "Or on Windows (PowerShell as Administrator):"; \
+		echo "   Add-Content -Path \$$env:windir\\System32\\drivers\\etc\\hosts -Value \"\`n127.0.0.1 fern-platform.local\""; \
+		echo "   Add-Content -Path \$$env:windir\\System32\\drivers\\etc\\hosts -Value \"127.0.0.1 keycloak\""; \
+		echo ""; \
+		read -p "Press Enter after adding the entries to continue..."; \
+	else \
+		echo "✅ /etc/hosts entries found"; \
+	fi
 
 
 check-and-install-prerequisites: ## Check and install KubeVela and CNPG if not present
@@ -340,7 +430,7 @@ check-install-components: ## Check and install component definitions
 
 build-and-load-image: ## Build Docker image and load into k3d cluster
 	@echo "🐳 Building and loading Docker image..."
-	@$(MAKE) docker-build
+	@$(MAKE) docker-build-local
 	@echo "📥 Loading image into k3d cluster..."
 	@k3d image import fern-platform:latest -c fern-platform
 	@echo "✅ Image loaded successfully"
@@ -372,54 +462,29 @@ deploy-and-verify: ## Deploy application and verify it's running
 	@echo "📊 Final status check..."
 	@kubectl get pods -n fern-platform
 	@echo ""
-	@echo "🌐 Application should be accessible via:"
-	@echo "   kubectl port-forward -n fern-platform svc/fern-platform 8080:8080"
+	@echo "🌐 Application is accessible at: http://fern-platform.local:8080"
+	@echo "🔀 Traefik ingress handles the routing automatically"
+	@echo ""
+	@echo "⚠️  Remember to add these to /etc/hosts:"
+	@echo "   127.0.0.1 fern-platform.local"
+	@echo "   127.0.0.1 keycloak"
 
-start-port-forward-and-open: ## Start port forwarding and open browser
-	@echo "📡 Starting port forward and opening browser..."
-	@echo "⏳ Waiting a moment for service to be ready..."
-	@sleep 5
-	@echo "🔗 Starting port forward in background..."
-	@pkill -f "kubectl.*port-forward.*fern-platform.*8080:8080" > /dev/null 2>&1 || true
-	@kubectl port-forward -n fern-platform svc/fern-platform 8080:8080 > /dev/null 2>&1 &
-	@echo "⏳ Waiting for port forward to establish..."
-	@sleep 3
-	@echo "🏥 Checking application health..."
-	@timeout=60; \
-	while [ $$timeout -gt 0 ]; do \
-		if curl -s http://localhost:8080/health > /dev/null 2>&1; then \
-			echo "✅ Application is healthy and responding!"; \
-			break; \
-		fi; \
-		echo "⏳ Waiting for application to respond... ($$timeout seconds remaining)"; \
-		sleep 2; \
-		timeout=$$((timeout-2)); \
-	done; \
-	if [ $$timeout -eq 0 ]; then \
-		echo "⚠️ Application may not be responding yet. Check logs with: kubectl logs -n fern-platform deployment/fern-platform"; \
-	fi
-	@echo "🌐 Opening browser..."
+open-browser: ## Open browser to access the application
+	@echo "🌐 Opening browser to http://fern-platform.local:8080..."
 	@if command -v open >/dev/null 2>&1; then \
-		open http://localhost:8080; \
+		open http://fern-platform.local:8080; \
 	elif command -v xdg-open >/dev/null 2>&1; then \
-		xdg-open http://localhost:8080; \
+		xdg-open http://fern-platform.local:8080; \
 	elif command -v wslview >/dev/null 2>&1; then \
-		wslview http://localhost:8080; \
+		wslview http://fern-platform.local:8080; \
 	else \
-		echo "⚠️ Could not detect how to open browser. Please manually open: http://localhost:8080"; \
+		echo "⚠️ Could not detect how to open browser. Please manually open: http://fern-platform.local:8080"; \
 	fi
-	@echo "✅ Port forwarding started (PID: $$(pgrep -f 'kubectl.*port-forward.*fern-platform.*8080:8080' | head -1))"
-	@echo "📝 To stop port forwarding: make stop-port-forward"
-
-stop-port-forward: ## Stop port forwarding
-	@echo "🛑 Stopping port forward..."
-	@pkill -f "kubectl.*port-forward.*fern-platform.*8080:8080" > /dev/null 2>&1 || echo "⚠️ No port forward found"
-	@echo "✅ Port forwarding stopped"
 
 # Quick deployment for development (assumes cluster exists)
 deploy-quick: build-and-load-image deploy-and-verify ## Quick deployment (assumes cluster and prerequisites exist)
 	@echo "🎉 Quick deployment completed!"
-	@echo "📌 Access the application at http://fern-platform.local"
+	@echo "📌 Access the application at http://fern-platform.local:8080"
 
 # Local setup helpers
 setup-local: ## Setup local development environment

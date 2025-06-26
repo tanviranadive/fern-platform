@@ -1,5 +1,9 @@
 # Build stage
-FROM golang:1.23-alpine AS builder
+FROM --platform=$BUILDPLATFORM golang:1.23-alpine AS builder
+
+# Build arguments for cross-compilation
+ARG TARGETOS
+ARG TARGETARCH
 
 # Install build dependencies
 RUN apk add --no-cache git make
@@ -16,8 +20,9 @@ RUN go mod download
 # Copy source code
 COPY . .
 
-# Build the application
-RUN make build-linux
+# Build the application for the target platform
+RUN GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
+    go build -ldflags "-w -s" -o fern-platform cmd/fern-platform/main.go
 
 # Runtime stage
 FROM alpine:latest
@@ -33,7 +38,7 @@ RUN addgroup -g 1001 -S fern && \
 WORKDIR /app
 
 # Copy binary from builder stage
-COPY --from=builder /app/bin/fern-platform-linux ./fern-platform
+COPY --from=builder /app/fern-platform ./fern-platform
 
 # Copy configuration files
 COPY --from=builder /app/config ./config
