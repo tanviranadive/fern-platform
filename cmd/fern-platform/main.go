@@ -16,10 +16,9 @@ import (
 	"github.com/guidewire-oss/fern-platform/pkg/database"
 	"github.com/guidewire-oss/fern-platform/pkg/logging"
 	"github.com/guidewire-oss/fern-platform/pkg/middleware"
+	"github.com/guidewire-oss/fern-platform/internal/domains"
 	"github.com/guidewire-oss/fern-platform/internal/reporter/api"
 	"github.com/guidewire-oss/fern-platform/internal/reporter/graphql"
-	"github.com/guidewire-oss/fern-platform/internal/reporter/repository"
-	"github.com/guidewire-oss/fern-platform/internal/reporter/service"
 )
 
 func main() {
@@ -54,17 +53,13 @@ func main() {
 		logger.WithService("fern-platform").WithError(err).Fatal("Failed to run database migrations")
 	}
 
-	// Initialize repositories
-	testRunRepo := repository.NewTestRunRepository(db.DB)
-	suiteRunRepo := repository.NewSuiteRunRepository(db.DB)
-	specRunRepo := repository.NewSpecRunRepository(db.DB)
-	tagRepo := repository.NewTagRepository(db.DB)
-	projectRepo := repository.NewProjectRepository(db.DB)
-
-	// Initialize services
-	testRunService := service.NewTestRunService(testRunRepo, suiteRunRepo, specRunRepo, logger)
-	projectService := service.NewProjectService(projectRepo, logger)
-	tagService := service.NewTagService(tagRepo, logger)
+	// Initialize domain factory for DDD architecture
+	domainFactory := domains.NewDomainFactory(db.DB, logger)
+	
+	// Get domain-based services that maintain backward compatibility
+	testRunService := domainFactory.GetTestRunService()
+	projectService := domainFactory.GetProjectService()
+	tagService := domainFactory.GetTagService()
 
 	// Initialize GraphQL resolver
 	resolver := graphql.NewResolver(testRunService, projectService, tagService, db.DB, logger)

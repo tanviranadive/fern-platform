@@ -15,13 +15,14 @@ import (
 	"github.com/guidewire-oss/fern-platform/pkg/middleware"
 	"github.com/guidewire-oss/fern-platform/internal/reporter/repository"
 	"github.com/guidewire-oss/fern-platform/internal/reporter/service"
+	svc "github.com/guidewire-oss/fern-platform/internal/service"
 )
 
 // Handler provides REST API handlers
 type Handler struct {
-	testRunService  *service.TestRunService
-	projectService  *service.ProjectService
-	tagService      *service.TagService
+	testRunService  svc.TestRunService
+	projectService  svc.ProjectService
+	tagService      svc.TagService
 	authMiddleware  *middleware.AuthMiddleware
 	oauthMiddleware *middleware.OAuthMiddleware
 	logger          *logging.Logger
@@ -29,9 +30,9 @@ type Handler struct {
 
 // NewHandler creates a new API handler
 func NewHandler(
-	testRunService *service.TestRunService,
-	projectService *service.ProjectService,
-	tagService *service.TagService,
+	testRunService svc.TestRunService,
+	projectService svc.ProjectService,
+	tagService svc.TagService,
 	authMiddleware *middleware.AuthMiddleware,
 	oauthMiddleware *middleware.OAuthMiddleware,
 	logger *logging.Logger,
@@ -660,6 +661,7 @@ func (h *Handler) createFernTestReport(c *gin.Context) {
 		GitSHA             string `json:"git_sha"`
 		BuildTriggerActor  string `json:"build_trigger_actor"`
 		BuildURL           string `json:"build_url"`
+		ClientType         string `json:"client_type"` // Optional: testing framework type
 		SuiteRuns       []struct {
 			ID        uint64 `json:"id"`
 			TestRunID uint64 `json:"test_run_id"`
@@ -751,11 +753,19 @@ func (h *Handler) createFernTestReport(c *gin.Context) {
 		}
 	}
 
+	// Determine client type - use provided value or detect based on endpoint/format
+	clientType := input.ClientType
+	if clientType == "" {
+		// Default to fern-ginkgo-client for backward compatibility
+		// This ensures existing clients continue to work
+		clientType = "fern-ginkgo-client"
+	}
+	
 	// Convert the entire input to metadata for storage
 	metadata := map[string]interface{}{
 		"test_seed":     input.TestSeed,
 		"suite_runs":    input.SuiteRuns,
-		"client_type":   "fern-ginkgo-client",
+		"client_type":   clientType,
 		"git_branch":    input.GitBranch,
 		"git_sha":       input.GitSHA,
 		"build_url":     input.BuildURL,
@@ -771,21 +781,21 @@ func (h *Handler) createFernTestReport(c *gin.Context) {
 	commitSHA := input.GitSHA
 
 	// Convert suite runs from fern-ginkgo-client format to our service format
-	var suiteRuns []service.CreateSuiteRunInput
+	var suiteRuns []service.SuiteRunInput
 	for _, suiteRun := range input.SuiteRuns {
-		var specRuns []service.CreateSpecRunInput
+		var specRuns []service.SpecRunInput
 		for _, specRun := range suiteRun.SpecRuns {
-			specRuns = append(specRuns, service.CreateSpecRunInput{
+			specRuns = append(specRuns, service.SpecRunInput{
 				SpecDescription: specRun.SpecDescription,
 				Status:          specRun.Status,
 				Message:         specRun.Message,
 				StartTime:       specRun.StartTime,
 				EndTime:         specRun.EndTime,
-				Tags:            specRun.Tags,
+				StackTrace:      "", // Not provided in ginkgo format
 			})
 		}
 
-		suiteRuns = append(suiteRuns, service.CreateSuiteRunInput{
+		suiteRuns = append(suiteRuns, service.SuiteRunInput{
 			SuiteName: suiteRun.SuiteName,
 			StartTime: suiteRun.StartTime,
 			EndTime:   suiteRun.EndTime,
@@ -827,7 +837,7 @@ func (h *Handler) createFernTestReport(c *gin.Context) {
 		testRun = existingRun
 		h.logger.WithField("run_id", runID).WithField("test_run_id", testRun.ID).Info("Adding suites to existing test run")
 		
-		for _, suite := range suiteRuns {
+		for _, suite := range input.SuiteRuns {
 			// Add suite to existing test run
 			suiteRun, err := h.testRunService.AddSuiteRun(testRun.ID, suite.SuiteName, startTime)
 			if err != nil {
