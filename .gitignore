@@ -18,3 +18,7 @@ DEPLOYMENT.md
 # Log files
 *.log
 deploy.log
+
+# Binary files
+bin/
+fern-platform
