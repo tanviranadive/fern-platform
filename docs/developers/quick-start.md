@@ -350,14 +350,14 @@ Copy this checklist to track your progress:
 - [ ] Prerequisites installed (k3d, kubectl, helm, vela)
 - [ ] /etc/hosts entries added (fern-platform.local, keycloak)
 - [ ] Repository cloned
-- [ ] `make quick-start` completed successfully
+- [ ] `make deploy-all` completed successfully
 - [ ] All pods showing "Running" status
 
 ### Testing  
 - [ ] Health endpoint responds: `curl http://fern-platform.local:8080/health`
 - [ ] Web UI accessible: http://fern-platform.local:8080
-- [ ] Admin login works: admin@fern.com / admin123
-- [ ] User login works: user@fern.com / user123
+- [ ] Admin login works: admin@fern.com / test123
+- [ ] User login works: fern-user@fern.com / test123
 - [ ] Can view dashboard, test summaries, and test runs
 
 ### Integration

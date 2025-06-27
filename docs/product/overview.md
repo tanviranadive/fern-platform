@@ -1,7 +1,7 @@
 # Fern Platform - Product Overview
 
 <div align="center">
-  <img src="https://github.com/guidewire-oss/fern-reporter/blob/main/docs/images/logo-color.png" alt="Fern Platform" width="150"/>
+  <img src="https://github.com/guidewire-oss/fern-platform/blob/main/docs/images/logo-color.png" alt="Fern Platform" width="150"/>
 </div>
 
 ## What is Fern Platform?
@@ -31,7 +31,7 @@ Fern Platform is a **unified test intelligence platform** that transforms test d
 ## Core Capabilities
 
 ### 🔬 **Test Intelligence**
-- **Multi-Framework Support**: Ginkgo, JUnit, Jest, Pytest, and more
+- **Multi-Framework Support**: Ginkgo, JUnit, Jest with dedicated clients; extensible API for other frameworks
 - **Rich Test Metadata**: Timing, git context, CI/CD integration, tags
 - **Performance Tracking**: Test execution trends and regression detection
 - **Historical Analysis**: Long-term test health and quality metrics
@@ -95,11 +95,11 @@ Fern Platform is a **unified test intelligence platform** that transforms test d
 | **Feature** | **Fern Platform** | **Other Solutions** |
 |-------------|-------------------|---------------------|
 | **AI Integration** | Built-in LLM support for failure analysis | Manual analysis or basic rules |
-| **Multi-Framework** | Native support for 10+ test frameworks | Usually framework-specific |
+| **Multi-Framework** | Support for Ginkgo, JUnit, Jest, and more via API | Usually framework-specific |
 | **Provider Agnostic** | Works with any OAuth provider | Vendor lock-in or limited auth |
 | **Modern UI** | React-based with interactive visualizations | Often outdated or basic interfaces |
 | **Unified Platform** | Single platform for all test intelligence | Multiple tools and dashboards |
-| **Open Source** | MIT licensed with commercial support | Proprietary or limited licensing |
+| **Open Source** | Apache 2.0 licensed with commercial support | Proprietary or limited licensing |
 
 ## Deployment Models
 

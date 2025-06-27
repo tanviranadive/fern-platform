@@ -1,12 +1,12 @@
 # Fern Platform Architecture
 
 <div align="center">
-  <img src="https://github.com/guidewire-oss/fern-reporter/blob/main/docs/images/logo-color.png" alt="Fern Platform" width="150"/>
+  <img src="https://github.com/guidewire-oss/fern-platform/blob/main/docs/images/logo-color.png" alt="Fern Platform" width="150"/>
 </div>
 
 ## Project Structure
 
-The Fern Platform follows standard Go project layout conventions:
+The Fern Platform follows Domain-Driven Design (DDD) principles with standard Go project layout conventions:
 
 ```
 fern-platform/
@@ -14,7 +14,20 @@ fern-platform/
 │   └── fern-platform/           # Main platform binary
 │       └── main.go
 ├── internal/                     # Private application code
-│   ├── reporter/                # Test reporting module
+│   ├── domains/                 # Domain-driven design structure
+│   │   ├── testing/             # Testing domain (test runs, suites, specs)
+│   │   │   ├── domain/          # Core business entities and logic
+│   │   │   ├── application/     # Use cases and application services
+│   │   │   ├── infrastructure/  # External integrations (DB, APIs)
+│   │   │   └── interfaces/      # Adapters (HTTP, GraphQL)
+│   │   ├── projects/            # Projects domain (projects, permissions)
+│   │   │   ├── domain/          # Core business entities
+│   │   │   ├── application/     # Use cases
+│   │   │   ├── infrastructure/  # Persistence
+│   │   │   └── interfaces/      # API adapters
+│   │   ├── auth/                # Authentication domain
+│   │   └── analytics/           # Analytics domain (future)
+│   ├── reporter/                # Legacy structure (being migrated)
 │   │   ├── api/                 # REST API handlers
 │   │   ├── graphql/             # GraphQL schema and resolvers
 │   │   ├── repository/          # Data access layer
@@ -50,23 +63,29 @@ The Fern Platform consolidates multiple services into a single, cohesive applica
 - **Shared Infrastructure**: Common utilities and infrastructure in `pkg/`
 - **Integrated APIs**: Both REST and GraphQL endpoints in one service
 
-### 2. Layered Architecture
+### 2. Domain-Driven Design (DDD)
 
-Each internal module follows a consistent layered approach:
+The platform is organized around business domains following hexagonal architecture:
 
 ```
-internal/reporter/
-├── api/           # HTTP handlers and routing
-├── graphql/       # GraphQL schema and resolvers  
-├── service/       # Business logic and domain operations
-└── repository/    # Data access and persistence
+internal/domains/{domain}/
+├── domain/          # Core business logic (entities, value objects, domain services)
+├── application/     # Use cases and application services
+├── infrastructure/  # External integrations (database, external APIs)
+└── interfaces/      # Adapters for inbound ports (HTTP, GraphQL, CLI)
 ```
+
+**Key Domains:**
+- **Testing**: Test execution tracking, suite management, flaky test detection
+- **Projects**: Project configuration, team ownership, permissions
+- **Auth**: User authentication, authorization, session management
+- **Analytics**: Test insights, trends, AI-powered analysis (future)
 
 **Benefits:**
-- Clear separation of concerns
-- Easy testing and mocking
-- Consistent patterns across modules
-- Simplified dependency management
+- Business logic is isolated from infrastructure
+- Easy to test domain logic without external dependencies
+- Clear boundaries between domains
+- Supports future microservices extraction if needed
 
 ### 3. Package Organization
 
@@ -77,7 +96,12 @@ Contains the main application binaries. Currently includes:
 #### `internal/` - Private Application Code
 Contains code that is specific to this application and should not be imported by other projects:
 
-- **`reporter/`**: Test reporting and data collection
+- **`domains/`**: Domain-driven design structure with business domains
+  - **`testing/`**: Test execution, suites, specs, flaky test detection
+  - **`projects/`**: Project management, permissions, team ownership
+  - **`auth/`**: Authentication and authorization logic
+  - **`analytics/`**: Test analytics and insights (planned)
+- **`reporter/`**: Legacy structure being migrated to domains
 - **`mycelium/`**: AI-powered analysis (planned)
 - **`ui/`**: Server-side UI components (planned)
 
@@ -92,39 +116,64 @@ Contains code that could potentially be imported by other projects:
 - **`types/`**: Shared data types
 - **`utils/`**: General utility functions
 
-### 4. Data Flow
+### 4. Data Flow with DDD
 
 ```
 Client Request
     ↓
 HTTP Router (Gin)
     ↓
-Middleware Chain
+Middleware Chain (Auth, Logging, etc.)
     ↓
-API Handlers (REST/GraphQL)
+Interface Adapters (REST/GraphQL Handlers)
     ↓
-Service Layer
+Application Services (Use Cases)
     ↓
-Repository Layer
+Domain Layer (Business Logic)
+    ↓
+Infrastructure Layer (Repositories)
     ↓
 Database (PostgreSQL)
 ```
 
-### 5. Module Communication
+**Example: Creating a Test Run**
+1. HTTP POST request to `/api/v1/test-runs`
+2. Auth middleware validates JWT token
+3. REST handler validates request format
+4. `RecordTestRunHandler` (application service) orchestrates the use case
+5. `TestRun` domain entity enforces business rules
+6. `GormTestRunRepository` persists to PostgreSQL
+7. Response returned through the same layers
 
-Modules communicate through well-defined interfaces:
+### 5. Domain Communication
+
+Domains communicate through well-defined interfaces and domain events:
 
 ```go
-// Service interfaces for cross-module communication
-type TestRunService interface {
-    CreateTestRun(ctx context.Context, testRun *TestRun) (*TestRun, error)
-    GetTestRuns(ctx context.Context, opts *QueryOptions) ([]*TestRun, error)
+// Domain repository interfaces (in domain layer)
+type TestRunRepository interface {
+    Save(ctx context.Context, testRun *TestRun) error
+    FindByID(ctx context.Context, id TestRunID) (*TestRun, error)
 }
 
-// Repository interfaces for data access
-type TestRunRepository interface {
-    Create(ctx context.Context, testRun *TestRun) error
-    FindByID(ctx context.Context, id string) (*TestRun, error)
+// Application service interfaces (use cases)
+type RecordTestRunHandler interface {
+    Handle(ctx context.Context, cmd RecordTestRunCommand) (*TestRunSnapshot, error)
+}
+
+// Domain entities enforce business rules
+type TestRun struct {
+    id        TestRunID
+    projectID string
+    status    TestRunStatus
+    // ... other fields
+}
+
+func (tr *TestRun) Complete() error {
+    if tr.status != TestRunStatusRunning {
+        return errors.New("can only complete a running test")
+    }
+    // Business logic here
 }
 ```
 
@@ -183,12 +232,12 @@ PUT    /api/v1/test-runs/{id}      # Update test run
 DELETE /api/v1/test-runs/{id}      # Delete test run
 ```
 
-### GraphQL API (Planned)
+### GraphQL API
 
-GraphQL endpoint is planned for future release to provide rich querying capabilities:
+GraphQL endpoint at `/graphql` provides rich querying capabilities:
 
 ```graphql
-# Example of planned GraphQL query support
+# Example GraphQL query
 query {
   testRuns(
     projectId: "abc123"
@@ -209,7 +258,7 @@ query {
 }
 ```
 
-**Note:** GraphQL schema is defined in `internal/reporter/graphql/schema.graphql` but implementation is pending.
+GraphQL schema is defined in `internal/reporter/graphql/schema.graphql` with resolver implementations in `internal/reporter/graphql/`.
 
 ## Testing Strategy
 

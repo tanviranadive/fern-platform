@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="https://github.com/guidewire-oss/fern-reporter/blob/main/docs/images/logo-color.png" alt="Fern Platform" width="200"/>
+  <img src="https://github.com/guidewire-oss/fern-platform/blob/main/docs/images/logo-color.png" alt="Fern Platform" width="200"/>
   
   # 🌿 Fern Platform
 
@@ -7,13 +7,14 @@
 
   *Stop drowning in test data. Start understanding what your tests are telling you.*
 
-  [![Go Version](https://img.shields.io/badge/go-1.21+-blue.svg)](https://golang.org)
+  [![Go Version](https://img.shields.io/badge/go-1.23+-blue.svg)](https://golang.org)
   [![License](https://img.shields.io/badge/license-Apache%202.0-green.svg)](LICENSE)
   [![Development Status](https://img.shields.io/badge/status-active%20development-orange.svg)](#-project-status)
   [![GitHub Stars](https://img.shields.io/github/stars/guidewire-oss/fern-platform?style=social)](https://github.com/guidewire-oss/fern-platform/stargazers)
 
   <p align="center">
     <a href="#-quick-start">🚀 Quick Start</a> •
+    <a href="docs/workflows/README.md">📖 How to Use</a> •
     <a href="docs/README.md">📚 Documentation</a> •
     <a href="docs/product/overview.md">🎯 Why Fern?</a> •
     <a href="#-demo">🎬 Demo</a> •
@@ -65,7 +66,7 @@ Every engineering team struggles with the same problems:
 # Get started in 3 commands (requires k3d + kubectl)
 git clone https://github.com/guidewire-oss/fern-platform
 cd fern-platform
-make quick-start  # ← You'll have a running platform in 15 minutes!
+make deploy-all  # ← You'll have a running platform in 15 minutes!
 ```
 
 ## 🎬 Demo
@@ -142,9 +143,9 @@ GOOS=linux GOARCH=arm64 make build
 Fern Platform is designed for extensibility. Here are some examples of what teams have built:
 
 ### 🔌 **Current Integrations**
-- **CI/CD Pipelines**: Jenkins, GitHub Actions, GitLab CI webhooks
-- **Test Frameworks**: Ginkgo, JUnit, Jest (clients available)
-- **Monitoring Tools**: Grafana dashboards, PagerDuty alerts
+- **CI/CD Pipelines**: Compatible with any CI/CD system that can make HTTP requests
+- **Test Frameworks**: Ginkgo ([client available](https://github.com/guidewire-oss/fern-ginkgo-client)), JUnit ([client](https://github.com/guidewire-oss/fern-junit-client) & [Gradle plugin](https://github.com/guidewire-oss/fern-junit-gradle-plugin)), Jest ([client available](https://github.com/guidewire-oss/fern-jest-client))
+- **Monitoring**: API endpoints for integration with monitoring tools
 - **OAuth Providers**: Any OAuth 2.0/OpenID Connect provider
 
 ### 🤖 **Planned AI Features** (Roadmap)
@@ -189,7 +190,7 @@ Join thousands of developers already using Fern Platform:
 ### 📞 **Get Help**
 - 📖 **Documentation**: [Complete guides](docs/README.md) for all use cases
 - 💬 **Community Chat**: [GitHub Discussions](../../discussions) for questions
-- 🎬 **Video Tutorials**: [YouTube Channel](https://youtube.com/fern-platform) (coming soon)
+- 🎬 **Video Tutorials**: Coming soon
 - 📧 **Enterprise Support**: Contact for commercial support options
 
 ### 🏆 **Who's Using Fern Platform**
@@ -238,10 +239,11 @@ Fern Platform is built on modern, battle-tested technologies:
 - **Future**: AI/ML integration planned (Claude, OpenAI, local models)
 
 ### 🏗️ **Architecture Principles**
+- **Domain-Driven Design**: Organized around business domains (testing, projects, auth)
 - **Unified Monolith**: Single deployment, modular internals
 - **API-First**: Rich REST + GraphQL APIs for integration
 - **Cloud-Native**: Container-first, Kubernetes-optimized
-- **Extensible**: Plugin architecture for custom features
+- **Extensible**: Clean architecture enables easy feature addition
 
 ```
 ┌─────────────────────────────────────────────────────────┐
@@ -288,7 +290,7 @@ make test
 
 ## 📄 License
 
-Fern Platform is [MIT licensed](LICENSE), meaning you can use it freely in your commercial and open source projects.
+Fern Platform is licensed under the [Apache License 2.0](LICENSE), meaning you can use it freely in your commercial and open source projects.
 
 ---
 
