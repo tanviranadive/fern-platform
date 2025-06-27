@@ -27,6 +27,11 @@ func RequestIDMiddleware() gin.HandlerFunc {
 func LoggingMiddleware(logger *logging.Logger) gin.HandlerFunc {
 	return gin.LoggerWithConfig(gin.LoggerConfig{
 		Formatter: func(param gin.LogFormatterParams) string {
+			// Skip logging for health check endpoints
+			if param.Path == "/health" || param.Path == "/api/v1/health" {
+				return ""
+			}
+
 			entry := logger.WithFields(map[string]interface{}{
 				"timestamp":    param.TimeStamp.Format(time.RFC3339),
 				"status":       param.StatusCode,
