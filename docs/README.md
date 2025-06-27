@@ -1,7 +1,7 @@
 # Fern Platform Documentation
 
 <div align="center">
-  <img src="https://github.com/guidewire-oss/fern-reporter/blob/main/docs/images/logo-color.png" alt="Fern Platform" width="200"/>
+  <img src="https://github.com/guidewire-oss/fern-platform/blob/main/docs/images/logo-color.png" alt="Fern Platform" width="200"/>
   
   **A unified platform for test reporting, analysis, and AI-powered insights**
 </div>
@@ -10,8 +10,14 @@
 
 Choose your path based on your role and goals:
 
+### 🌟 **New to Fern Platform?**
+- [**🚀 User Workflows Guide**](workflows/README.md) - Complete guide to using Fern Platform effectively
+- [**Quick Start Guide**](developers/quick-start.md) - Get running in 15 minutes
+- [**Product Overview**](product/overview.md) - What Fern Platform does and business value
+
 ### 🎯 **For Product Managers & Stakeholders**
 - [**Product Overview**](product/overview.md) - What Fern Platform does and business value
+- [**User Workflows**](workflows/README.md) - How teams use Fern Platform day-to-day
 - [**UI Enhancements**](UI_ENHANCEMENTS.md) - Modern dashboard and visualization features
 - [**Architecture Overview**](ARCHITECTURE.md) - High-level system design
 
@@ -27,6 +33,7 @@ Choose your path based on your role and goals:
 
 ### 🏗️ **For Platform Engineers & Architects**
 - [**Architecture Document**](ARCHITECTURE.md) - System design and technical decisions
+- [**Architecture Analysis & Recommendations**](architecture/analysis-and-recommendations.md) - Comprehensive best practices review
 - [**RFCs**](rfc/) - Technical proposals and future plans
   - [Platform Consolidation](rfc/rfc-001-platform-consolidation-and-architecture-evolution.md)
   - [LLM Integration](rfc/rfc-002-llm-provider-integration-and-ai-intelligence-architecture.md)
@@ -43,6 +50,7 @@ Choose your path based on your role and goals:
 
 | I want to... | Go to |
 |---------------|-------|
+| **Learn how to use Fern Platform** | [User Workflows Guide](workflows/README.md) |
 | **Understand what Fern Platform does** | [Product Overview](product/overview.md) |
 | **Get started quickly (< 15 min)** | [Quick Start Guide](developers/quick-start.md) |
 | **Set up local Kubernetes** | [Local k3d Setup](installation/local-k3d.md) |
@@ -58,6 +66,8 @@ Choose your path based on your role and goals:
 
 ```
 docs/
+├── workflows/            # User journey guides ⭐ NEW
+│   └── README.md         # Complete workflow guide
 ├── product/              # Business & product information
 │   ├── overview.md       # What is Fern Platform
 │   ├── capabilities.md   # Features and admin functions
@@ -70,6 +80,8 @@ docs/
 │   ├── quick-start.md    # 15-minute setup
 │   ├── api-reference.md  # REST API reference
 │   └── networking-and-dns.md
+├── architecture/         # Architecture documentation
+│   └── analysis-and-recommendations.md # Best practices analysis
 ├── configuration/        # Configuration guides
 │   ├── oauth.md          # OAuth setup
 │   ├── scope-based-permissions.md # Authorization system
