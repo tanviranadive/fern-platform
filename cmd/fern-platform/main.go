@@ -101,8 +101,13 @@ func main() {
 	apiHandler := api.NewHandler(testRunService, projectService, tagService, authMiddleware, oauthMiddleware, logger)
 	apiHandler.RegisterRoutes(router)
 
-	// GraphQL routes
-	gqlHandler := graphql.NewHandler(resolver)
+	// GraphQL routes with role group names from config
+	roleGroupNames := &graphql.RoleGroupNames{
+		AdminGroup:   cfg.Auth.OAuth.AdminGroupName,
+		ManagerGroup: cfg.Auth.OAuth.ManagerGroupName,
+		UserGroup:    cfg.Auth.OAuth.UserGroupName,
+	}
+	gqlHandler := graphql.NewHandler(resolver, roleGroupNames)
 	gqlHandler.RegisterRoutes(router, oauthMiddleware)
 
 	// Note: Static file serving is handled by the API handler

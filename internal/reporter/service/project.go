@@ -4,6 +4,7 @@ package service
 import (
 	"fmt"
 
+	"github.com/google/uuid"
 	"github.com/guidewire-oss/fern-platform/pkg/database"
 	"github.com/guidewire-oss/fern-platform/pkg/logging"
 	"github.com/guidewire-oss/fern-platform/internal/reporter/repository"
@@ -25,20 +26,30 @@ func NewProjectService(projectRepo *repository.ProjectRepository, logger *loggin
 
 // CreateProjectInput represents input for creating a project
 type CreateProjectInput struct {
-	ProjectID     string                 `json:"project_id" binding:"required"`
+	ProjectID     string                 `json:"project_id"`
 	Name          string                 `json:"name" binding:"required"`
 	Description   string                 `json:"description,omitempty"`
 	Repository    string                 `json:"repository,omitempty"`
 	DefaultBranch string                 `json:"default_branch,omitempty"`
 	Settings      map[string]interface{} `json:"settings,omitempty"`
+	Team          string                 `json:"team,omitempty"`
 }
 
 // CreateProject creates a new project
 func (s *ProjectService) CreateProject(input CreateProjectInput) (*database.ProjectDetails, error) {
+	// Generate UUID if ProjectID is empty
+	if input.ProjectID == "" {
+		input.ProjectID = uuid.New().String()
+		s.logger.WithFields(map[string]interface{}{
+			"generated_project_id": input.ProjectID,
+		}).Info("Generated new UUID for project")
+	}
+
 	s.logger.WithFields(map[string]interface{}{
 		"project_id": input.ProjectID,
 		"name":       input.Name,
-	}).Info("Creating project")
+		"team":       input.Team,
+	}).Info("Creating project with details")
 
 	// Check if project already exists
 	existing, err := s.projectRepo.GetProjectByProjectID(input.ProjectID)
@@ -54,6 +65,7 @@ func (s *ProjectService) CreateProject(input CreateProjectInput) (*database.Proj
 		DefaultBranch: input.DefaultBranch,
 		Settings:      "{}",
 		IsActive:      true,
+		Team:          input.Team,
 	}
 
 	if input.DefaultBranch == "" {
@@ -68,9 +80,12 @@ func (s *ProjectService) CreateProject(input CreateProjectInput) (*database.Proj
 	}
 
 	s.logger.WithFields(map[string]interface{}{
-		"project_id": input.ProjectID,
-		"id":         project.ID,
-	}).Info("Project created successfully")
+		"project_id":    project.ProjectID,
+		"database_id":   project.ID,
+		"name":          project.Name,
+		"team":          project.Team,
+		"input_team":    input.Team,
+	}).Info("Project created successfully - verifying saved data")
 
 	return project, nil
 }
@@ -92,6 +107,7 @@ type UpdateProjectInput struct {
 	Repository    string                 `json:"repository,omitempty"`
 	DefaultBranch string                 `json:"default_branch,omitempty"`
 	Settings      map[string]interface{} `json:"settings,omitempty"`
+	Team          string                 `json:"team,omitempty"`
 }
 
 // UpdateProject updates an existing project by numeric ID
@@ -113,6 +129,9 @@ func (s *ProjectService) UpdateProject(id uint, input UpdateProjectInput) (*data
 	}
 	if input.DefaultBranch != "" {
 		project.DefaultBranch = input.DefaultBranch
+	}
+	if input.Team != "" {
+		project.Team = input.Team
 	}
 
 	if err := s.projectRepo.UpdateProject(project); err != nil {
@@ -151,6 +170,9 @@ func (s *ProjectService) UpdateProjectByProjectID(projectID string, input Update
 	if input.DefaultBranch != "" {
 		project.DefaultBranch = input.DefaultBranch
 	}
+	if input.Team != "" {
+		project.Team = input.Team
+	}
 
 	if err := s.projectRepo.UpdateProject(project); err != nil {
 		s.logger.WithFields(map[string]interface{}{
@@ -170,15 +192,16 @@ func (s *ProjectService) UpdateProjectByProjectID(projectID string, input Update
 
 // ListProjectsFilter represents filters for listing projects
 type ListProjectsFilter struct {
-	Search     string `json:"search,omitempty"`
-	ActiveOnly bool   `json:"active_only,omitempty"`
-	Limit      int    `json:"limit,omitempty"`
-	Offset     int    `json:"offset,omitempty"`
+	Search     string   `json:"search,omitempty"`
+	ActiveOnly bool     `json:"active_only,omitempty"`
+	Limit      int      `json:"limit,omitempty"`
+	Offset     int      `json:"offset,omitempty"`
+	Teams      []string `json:"teams,omitempty"` // Filter by team names
 }
 
 // ListProjects retrieves projects with filtering
 func (s *ProjectService) ListProjects(filter ListProjectsFilter) ([]*database.ProjectDetails, int64, error) {
-	return s.projectRepo.ListProjects(filter.Search, filter.ActiveOnly, filter.Limit, filter.Offset)
+	return s.projectRepo.ListProjects(filter.Search, filter.ActiveOnly, filter.Limit, filter.Offset, filter.Teams)
 }
 
 // DeleteProject deletes a project by numeric ID

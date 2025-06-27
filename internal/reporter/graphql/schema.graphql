@@ -70,6 +70,8 @@ type Project {
   defaultBranch: String!
   settings: JSON
   isActive: Boolean!
+  team: String
+  canManage: Boolean!
   stats: ProjectStats
   createdAt: Time!
   updatedAt: Time!
@@ -243,6 +245,7 @@ input CreateProjectInput {
   repository: String
   defaultBranch: String
   settings: JSON
+  team: String
 }
 
 input UpdateProjectInput {
@@ -251,6 +254,7 @@ input UpdateProjectInput {
   repository: String
   defaultBranch: String
   settings: JSON
+  team: String
 }
 
 input CreateTagInput {
@@ -275,8 +279,20 @@ type User {
   lastName: String
   role: String!
   profileUrl: String
+  groups: [String!]!
   createdAt: Time!
   lastLoginAt: Time
+}
+
+# System Configuration Type
+type SystemConfig {
+  roleGroups: RoleGroupConfig!
+}
+
+type RoleGroupConfig {
+  adminGroup: String!
+  managerGroup: String!
+  userGroup: String!
 }
 
 # Health Status Type
@@ -338,6 +354,7 @@ type SpecTreemapNode {
 type Query {
   # User/Auth
   currentUser: User
+  systemConfig: SystemConfig!
   
   # Dashboard
   dashboardSummary: DashboardSummary!

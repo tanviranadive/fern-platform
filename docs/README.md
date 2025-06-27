@@ -22,6 +22,7 @@ Choose your path based on your role and goals:
 - [**REST API Reference**](developers/api-reference.md) - REST endpoints documentation
 - [**GraphQL API**](graphql-api.md) - GraphQL schema and queries
 - [**OAuth Configuration**](configuration/oauth.md) - Authentication setup
+- [**Authorization System**](configuration/scope-based-permissions.md) - Hybrid group & scope-based permissions
 
 ### 🏗️ **For Platform Engineers & Architects**
 - [**Architecture Document**](ARCHITECTURE.md) - System design and technical decisions
@@ -46,6 +47,7 @@ Choose your path based on your role and goals:
 | **Set up local Kubernetes** | [Local k3d Setup](installation/local-k3d.md) |
 | **Deploy to production** | [Local k3d Setup](installation/local-k3d.md) |
 | **Configure authentication** | [OAuth Configuration](configuration/oauth.md) |
+| **Set up authorization & permissions** | [Authorization System](configuration/scope-based-permissions.md) |
 | **Understand the architecture** | [Architecture Document](ARCHITECTURE.md) |
 | **Troubleshoot issues** | [Troubleshooting Guide](installation/local-k3d.md#troubleshooting) |
 
@@ -69,6 +71,8 @@ docs/
 │   └── networking-and-dns.md
 ├── configuration/        # Configuration guides
 │   ├── oauth.md          # OAuth setup
+│   ├── scope-based-permissions.md # Authorization system
+│   ├── scope-examples.md # Authorization examples
 │   └── environment.md    # Environment variables
 ├── graphql-api.md       # GraphQL API documentation
 ├── ARCHITECTURE.md      # System architecture

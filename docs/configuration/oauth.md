@@ -1,373 +1,452 @@
-# OAuth Setup and Testing Guide
+# OAuth Authentication and Authorization Guide
 
-This guide explains how to set up OAuth authentication for the Fern Platform using any OAuth 2.0/OpenID Connect provider, with Keycloak as an example for testing.
+This guide explains how to set up OAuth authentication for the Fern Platform using any OAuth 2.0/OpenID Connect provider, with a focus on the hybrid group and scope-based authorization system.
 
 ## Overview
 
-The Fern Platform supports configurable OAuth 2.0 authentication with:
-- **Provider-agnostic configuration** - works with any OAuth 2.0/OIDC provider
-- **Role-based access control** - admin vs regular user roles
-- **Project-level permissions** - granular access control per project
-- **Session management** - secure session handling and logout
+The Fern Platform uses a flexible authentication and authorization system that supports:
+- **Provider-agnostic OAuth 2.0/OIDC** - Works with any OAuth provider (Keycloak, Auth0, Okta, Google, etc.)
+- **Team-based access control** - Projects are organized by teams with isolated access
+- **Role-based permissions** - Configurable role groups (admin, manager, user)
+- **Scope-based fine-grained access** - Additional permissions can be granted via scopes
+- **Session management** - Secure session handling with proper logout flow
 
-## Admin Functions
+## Authentication Flow
 
-### System-Level Admin Functions
-Administrators have access to these platform-wide capabilities:
+### 1. Initial Authentication
+1. User accesses Fern Platform
+2. If not authenticated, redirected to OAuth provider
+3. User logs in with their credentials
+4. OAuth provider returns user to Fern Platform with authorization code
+5. Fern Platform exchanges code for tokens
+6. User information and groups are extracted from tokens
+7. Session is created with user data and permissions
 
-1. **User Management**
-   - View all users (`GET /api/v1/admin/users`)
-   - Update user roles (`PUT /api/v1/admin/users/:userId/role`)
-   - Suspend/activate users (`POST /api/v1/admin/users/:userId/suspend`)
-   - Delete user accounts (`DELETE /api/v1/admin/users/:userId`)
+### 2. Authorization Model
 
-2. **Project Management**
-   - Create/update/delete projects (`POST/PUT/DELETE /api/v1/admin/projects`)
-   - Activate/deactivate projects
-   - Grant/revoke project access (`POST/DELETE /api/v1/admin/projects/:projectId/users/:userId/access`)
+Fern Platform uses a **hybrid authorization model** that combines:
 
-3. **Data Management**
-   - Bulk delete test runs (`POST /api/v1/admin/test-runs/bulk-delete`)
-   - System cleanup operations (`POST /api/v1/admin/system/cleanup`)
-   - Export system data
+#### Group-Based Authorization
+Users are members of two types of groups:
+- **Team Groups**: Represent which teams a user belongs to (e.g., `fern`, `atmos`, `engineering`)
+- **Role Groups**: Represent what role a user has (e.g., `admin`, `manager`, `user`)
 
-4. **System Monitoring**
-   - View system statistics (`GET /api/v1/admin/system/stats`)
-   - Check system health (`GET /api/v1/admin/system/health`)
-   - Access audit logs (`GET /api/v1/admin/audit-logs`)
+The combination determines base permissions:
+- `fern` + `manager` = Can create/update/delete projects in the Fern team
+- `fern` + `user` = Can only view projects in the Fern team
+- `admin` (role) = Full access to all resources regardless of team
 
-5. **Tag Management**
-   - Create/update/delete tags (`POST/PUT/DELETE /api/v1/admin/tags`)
+#### Scope-Based Authorization
+For fine-grained access control beyond group membership:
+- Format: `resource:action:target` (e.g., `project:write:project-123`)
+- Can grant temporary or permanent additional permissions
+- Useful for cross-team collaboration or specific project access
 
-### Regular User Functions
-Regular users have access to:
+## Configuration Options
 
-1. **Test Result Viewing**
-   - View test runs for accessible projects
-   - Filter and search test results
-   - View test run details and drill-down
+### Basic OAuth Configuration
 
-2. **Personal Settings**
-   - Manage user preferences (`GET/PUT /api/v1/user/preferences`)
-   - Manage project favorites
-   - Update profile settings
-
-3. **Project Access**
-   - View assigned projects (`GET /api/v1/user/projects`)
-   - Export test data for accessible projects
-
-## Quick Start with Keycloak
-
-### 1. Deploy Fern Platform with Keycloak
-
-The Keycloak OAuth provider is now included as a component in the main Fern Platform KubeVela application. It uses the `dev-file` database (file-based H2) which is suitable for development and testing.
-
-```bash
-# Deploy the entire Fern Platform stack (includes Keycloak)
-kubectl apply -f deployments/fern-platform-kubevela.yaml
-
-# Wait for all components to be ready
-kubectl wait --for=condition=available deployment/keycloak -n fern-platform --timeout=300s
-kubectl wait --for=condition=available deployment/fern-platform -n fern-platform --timeout=300s
-
-# Port forward Keycloak to access admin console (Keycloak runs on port 8080 inside cluster)
-kubectl port-forward service/keycloak 8081:8080 -n fern-platform
-
-# Port forward Fern Platform
-kubectl port-forward service/fern-platform 8080:8080 -n fern-platform
-
-# Check the deployment
-kubectl get pods -n fern-platform
+```yaml
+auth:
+  enabled: true
+  oauth:
+    enabled: true
+    clientId: "your-client-id"
+    clientSecret: "your-client-secret"
+    redirectUrl: "https://your-domain.com/auth/callback"
+    scopes: ["openid", "profile", "email", "groups"]
+    
+    # OAuth endpoints (required)
+    authUrl: "https://provider.com/oauth2/authorize"
+    tokenUrl: "https://provider.com/oauth2/token"
+    userInfoUrl: "https://provider.com/oauth2/userinfo"
+    jwksUrl: "https://provider.com/.well-known/jwks.json"
+    logoutUrl: "https://provider.com/oauth2/logout"  # Optional
+    
+    # Admin configuration
+    adminUsers: ["admin@company.com"]  # Users who are always admins
+    adminGroups: ["platform-admins"]   # Groups that grant admin access
 ```
 
-### 2. Access Keycloak Admin Console
+### Role Group Configuration
 
-1. **Port forward to access Keycloak locally:**
-   ```bash
-   kubectl port-forward service/keycloak 8081:8080 -n fern-platform
-   ```
+You can customize the names of role groups to match your organization:
 
-2. **Access admin console:**
-   - URL: http://localhost:8081/admin
-   - Username: `admin`
-   - Password: `admin123`
-
-### 3. Configure Keycloak Realm
-
-The deployment includes a pre-configured realm with test users and client setup. The realm configuration is automatically applied via ConfigMap when Keycloak starts.
-
-**Pre-configured realm details:**
-
-1. **Create Realm:** `fern-platform`
-2. **Create Client:** `fern-platform-web`
-   - Client Type: OpenID Connect
-   - Client authentication: On
-   - Valid redirect URIs: `http://localhost:8080/auth/callback`
-   - Web origins: `http://localhost:8080`
-
-3. **Create Groups:**
-   - `fern-platform-admins` (admin role)
-   - `fern-platform-users` (user role)
-
-4. **Create Test Users:**
-   - Admin user: `admin@fern-platform.local` / `admin123`
-   - Regular user: `user@fern-platform.local` / `user123`
-
-### 4. Configure Fern Platform
-
-The Fern Platform is automatically configured with OAuth settings via environment variables in the KubeVela deployment. The configuration uses internal Kubernetes service names for communication between components.
-
-**Current OAuth configuration (set via environment variables):**
-
-```bash
-# OAuth is automatically enabled
-OAUTH_ENABLED=true
-OAUTH_CLIENT_ID=fern-platform-web
-OAUTH_CLIENT_SECRET=fern-platform-client-secret
-OAUTH_REDIRECT_URL=http://localhost:8080/auth/callback
-
-# Keycloak endpoints (using internal Kubernetes service names)
-OAUTH_AUTH_URL=http://keycloak:8080/realms/fern-platform/protocol/openid-connect/auth
-OAUTH_TOKEN_URL=http://keycloak:8080/realms/fern-platform/protocol/openid-connect/token
-OAUTH_USERINFO_URL=http://keycloak:8080/realms/fern-platform/protocol/openid-connect/userinfo
-OAUTH_JWKS_URL=http://keycloak:8080/realms/fern-platform/protocol/openid-connect/certs
+```yaml
+auth:
+  oauth:
+    # Configurable role group names (with defaults)
+    adminGroupName: "admin"      # Default: "admin"
+    managerGroupName: "manager"  # Default: "manager"
+    userGroupName: "user"        # Default: "user"
+    
+    # Or use custom names that match your identity provider
+    adminGroupName: "platform-administrators"
+    managerGroupName: "team-leads"
+    userGroupName: "developers"
 ```
 
-**For local development** (if running outside Kubernetes), use the example config file `config/oauth-keycloak-example.yaml` which has localhost URLs.
+Environment variables:
+```bash
+export OAUTH_ADMIN_GROUP_NAME=platform-administrators
+export OAUTH_MANAGER_GROUP_NAME=team-leads
+export OAUTH_USER_GROUP_NAME=developers
+```
 
-### 5. Test Authentication
+### Token Field Mapping
 
-1. **Access the applications:**
-   ```bash
-   # In separate terminals:
-   
-   # Port forward Keycloak admin console (port 8081)
-   kubectl port-forward service/keycloak 8081:8080 -n fern-platform
-   
-   # Port forward Fern Platform (port 8080)
-   kubectl port-forward service/fern-platform 8080:8080 -n fern-platform
+Configure how to extract user information from OAuth tokens:
+
+```yaml
+auth:
+  oauth:
+    # Field mappings in token/userinfo
+    userIdField: "sub"        # User ID field (default: "sub")
+    emailField: "email"       # Email field (default: "email")
+    nameField: "name"         # Display name field (default: "name")
+    groupsField: "groups"     # Groups array field (default: "groups")
+    rolesField: "roles"       # Roles field (optional)
+```
+
+## Setting Up Teams in Your Identity Provider
+
+### Team Structure
+
+Teams in Fern Platform are simply group names in your identity provider. The platform distinguishes between:
+- **Role groups**: The configurable groups (`admin`, `manager`, `user` by default)
+- **Team groups**: Any other group names become team identifiers
+
+### Example: Setting Up in Keycloak
+
+1. **Create Groups** in Keycloak:
+   ```
+   /admin           (role group - platform administrators)
+   /manager         (role group - can manage team resources)
+   /user            (role group - read-only access)
+   /fern            (team group)
+   /atmos           (team group)
+   /engineering     (team group)
+   /marketing       (team group)
    ```
 
-2. **Test Login Flow:**
-   - Go to: http://localhost:8080
-   - Click "Login" or access any protected resource
-   - You'll be redirected to Keycloak
-   - Login with test credentials:
-     - Admin: `admin@fern-platform.local` / `admin123`
-     - User: `user@fern-platform.local` / `user123`
-   - You'll be redirected back to Fern Platform
+2. **Assign Users to Groups**:
+   - User needs ONE role group AND one or more team groups
+   - Example: John is in groups `manager` and `fern` → Can manage Fern team projects
+   - Example: Jane is in groups `user`, `fern`, and `atmos` → Can view projects from both teams
 
-## Configuration for Other OAuth Providers
+3. **Ensure Groups are in Tokens**:
+   - Configure your OAuth client to include groups in tokens
+   - In Keycloak: Add "groups" mapper to client
 
-### Auth0 Example
+### Example: Setting Up in Okta
+
+1. **Create Groups**:
+   - `platform-admins` (if using custom role names)
+   - `team-leads` 
+   - `developers`
+   - `team-fern`
+   - `team-atmos`
+
+2. **Configure App to Include Groups**:
+   - In Okta app settings, add groups claim
+   - Set groups claim filter (e.g., Regex: .*)
+
+### Example: Setting Up in Auth0
+
+1. **Create Roles and Groups** via Auth0 Dashboard
+2. **Add Groups to Tokens** via Auth0 Rules:
+   ```javascript
+   function addGroupsToToken(user, context, callback) {
+     context.idToken.groups = user.groups || [];
+     context.accessToken.groups = user.groups || [];
+     callback(null, user, context);
+   }
+   ```
+
+## Permission Model
+
+### How Permissions Are Checked
+
+When a user tries to perform an action, the system checks in this order:
+
+1. **Admin Role Check**
+   - Is the user in the admin role group? → Allow all actions
+   - Is the user in `adminUsers` list? → Allow all actions
+
+2. **Group-Based Check**
+   - Does the user have the required team + role combination?
+   - Example: Creating a project in team "fern" requires: `fern` + `manager` groups
+
+3. **Scope-Based Check**
+   - Does the user have a matching scope?
+   - Scopes can override group-based permissions
+
+4. **Explicit Database Permissions**
+   - Check project_permissions table for specific access
+
+### Scope Format
+
+Scopes follow the pattern: `resource:action:target`
+
+**Examples:**
+```
+project:create:fern         # Can create projects in Fern team
+project:write:project-123   # Can update specific project
+project:delete:project-456  # Can delete specific project
+project:*:project-789      # All actions on specific project
+project:*:fern:*          # All actions on all Fern team projects
+project:*:*               # Global project admin
+```
+
+### Team Visibility
+
+- Users only see projects from their teams
+- Admin users see all projects regardless of team
+- No cross-team visibility unless explicitly granted via scopes
+
+## Practical Examples
+
+### Example 1: Basic Team Setup
+
+Your company has two development teams: Frontend and Backend
+
+1. **Create groups in your identity provider:**
+   - Role groups: `admin`, `manager`, `user`
+   - Team groups: `frontend`, `backend`
+
+2. **Assign users:**
+   - Alice: `frontend` + `manager` → Manages frontend projects
+   - Bob: `frontend` + `user` → Views frontend projects
+   - Carol: `backend` + `manager` → Manages backend projects
+   - Dave: `admin` → Manages everything
+
+### Example 2: Cross-Team Collaboration
+
+Bob needs temporary write access to a backend project:
+
+1. **Admin grants scope** (via API or database):
+   ```sql
+   INSERT INTO user_scopes (user_id, scope, granted_by, expires_at)
+   VALUES ('bob-user-id', 'project:write:backend-project-123', 'admin-id', '2024-12-31');
+   ```
+
+2. **Bob can now:**
+   - View all frontend projects (via groups)
+   - Edit the specific backend project (via scope)
+   - Cannot see other backend projects
+
+### Example 3: Custom Role Names
+
+Your organization uses different terminology:
+
+```yaml
+auth:
+  oauth:
+    adminGroupName: "platform-owner"
+    managerGroupName: "team-lead"
+    userGroupName: "contributor"
+```
+
+Users in `platform-owner` group have admin access, `team-lead` can manage their team's projects, etc.
+
+## GraphQL API Usage
+
+### Check Current User Permissions
+
+```graphql
+query MyPermissions {
+  currentUser {
+    id
+    email
+    role
+    groups
+  }
+  
+  projects {
+    edges {
+      node {
+        projectId
+        name
+        team
+        canManage  # true if user can edit/delete this project
+      }
+    }
+  }
+}
+```
+
+### Create Project (Managers Only)
+
+```graphql
+mutation CreateProject {
+  createProject(input: {
+    name: "New Frontend App"
+    description: "React application"
+    team: "frontend"  # Optional, defaults to user's team
+  }) {
+    projectId
+    name
+    team
+  }
+}
+```
+
+## Provider-Specific Examples
+
+### Keycloak Configuration
+
+```yaml
+auth:
+  oauth:
+    enabled: true
+    clientId: "fern-platform"
+    clientSecret: "your-secret"
+    redirectUrl: "https://app.company.com/auth/callback"
+    
+    authUrl: "https://keycloak.company.com/realms/company/protocol/openid-connect/auth"
+    tokenUrl: "https://keycloak.company.com/realms/company/protocol/openid-connect/token"
+    userInfoUrl: "https://keycloak.company.com/realms/company/protocol/openid-connect/userinfo"
+    jwksUrl: "https://keycloak.company.com/realms/company/protocol/openid-connect/certs"
+    logoutUrl: "https://keycloak.company.com/realms/company/protocol/openid-connect/logout"
+```
+
+### Auth0 Configuration
 
 ```yaml
 auth:
   oauth:
     enabled: true
     clientId: "your-auth0-client-id"
-    clientSecret: "your-auth0-client-secret"
-    redirectUrl: "http://localhost:8080/auth/callback"
-    scopes: ["openid", "profile", "email"]
+    clientSecret: "your-auth0-secret"
+    redirectUrl: "https://app.company.com/auth/callback"
     
-    authUrl: "https://your-domain.auth0.com/authorize"
-    tokenUrl: "https://your-domain.auth0.com/oauth/token"
-    userInfoUrl: "https://your-domain.auth0.com/userinfo"
-    jwksUrl: "https://your-domain.auth0.com/.well-known/jwks.json"
-    
-    adminUsers: ["admin@yourcompany.com"]
+    authUrl: "https://company.auth0.com/authorize"
+    tokenUrl: "https://company.auth0.com/oauth/token"
+    userInfoUrl: "https://company.auth0.com/userinfo"
+    jwksUrl: "https://company.auth0.com/.well-known/jwks.json"
 ```
 
-### Google OAuth Example
-
-```yaml
-auth:
-  oauth:
-    enabled: true
-    clientId: "your-google-client-id.googleusercontent.com"
-    clientSecret: "your-google-client-secret"
-    redirectUrl: "http://localhost:8080/auth/callback"
-    scopes: ["openid", "profile", "email"]
-    
-    authUrl: "https://accounts.google.com/o/oauth2/v2/auth"
-    tokenUrl: "https://oauth2.googleapis.com/token"
-    userInfoUrl: "https://openidconnect.googleapis.com/v1/userinfo"
-    jwksUrl: "https://www.googleapis.com/oauth2/v3/certs"
-    
-    adminUsers: ["admin@yourcompany.com"]
-```
-
-### Okta Example
+### Okta Configuration
 
 ```yaml
 auth:
   oauth:
     enabled: true
     clientId: "your-okta-client-id"
-    clientSecret: "your-okta-client-secret"
-    redirectUrl: "http://localhost:8080/auth/callback"
-    scopes: ["openid", "profile", "email", "groups"]
+    clientSecret: "your-okta-secret"
+    redirectUrl: "https://app.company.com/auth/callback"
     
-    authUrl: "https://your-domain.okta.com/oauth2/default/v1/authorize"
-    tokenUrl: "https://your-domain.okta.com/oauth2/default/v1/token"
-    userInfoUrl: "https://your-domain.okta.com/oauth2/default/v1/userinfo"
-    jwksUrl: "https://your-domain.okta.com/oauth2/default/v1/keys"
+    authUrl: "https://company.okta.com/oauth2/default/v1/authorize"
+    tokenUrl: "https://company.okta.com/oauth2/default/v1/token"
+    userInfoUrl: "https://company.okta.com/oauth2/default/v1/userinfo"
+    jwksUrl: "https://company.okta.com/oauth2/default/v1/keys"
     
-    adminUsers: ["admin@yourcompany.com"]
-    groupsField: "groups"  # Okta includes groups in token
-```
-
-## Environment Variables
-
-All OAuth settings can be configured via environment variables:
-
-```bash
-# OAuth Configuration
-export OAUTH_ENABLED=true
-export OAUTH_CLIENT_ID="fern-platform-web"
-export OAUTH_CLIENT_SECRET="fern-platform-client-secret"
-export OAUTH_REDIRECT_URL="http://localhost:8080/auth/callback"
-export OAUTH_AUTH_URL="http://localhost:8080/realms/fern-platform/protocol/openid-connect/auth"
-export OAUTH_TOKEN_URL="http://localhost:8080/realms/fern-platform/protocol/openid-connect/token"
-export OAUTH_USERINFO_URL="http://localhost:8080/realms/fern-platform/protocol/openid-connect/userinfo"
-export OAUTH_JWKS_URL="http://localhost:8080/realms/fern-platform/protocol/openid-connect/certs"
-```
-
-## Testing the OAuth Flow
-
-### 1. Manual Testing
-
-1. **Access the application:** http://localhost:8080
-2. **Trigger authentication:** Click login or access `/admin` endpoints
-3. **OAuth redirect:** You'll be redirected to your OAuth provider
-4. **Login:** Use test credentials
-5. **Callback:** You'll be redirected back with authentication
-
-### 2. API Testing
-
-```bash
-# Test protected endpoint (should redirect to OAuth)
-curl -v http://localhost:8080/api/v1/admin/users
-
-# Test with session cookie (after web login)
-curl -v -b "session_id=your-session-id" http://localhost:8080/api/v1/admin/users
-
-# Get current user info
-curl -v -b "session_id=your-session-id" http://localhost:8080/auth/user
-```
-
-### 3. Role Testing
-
-```bash
-# Admin user should have access
-curl -v -b "admin-session-id" http://localhost:8080/api/v1/admin/users
-
-# Regular user should get 403
-curl -v -b "user-session-id" http://localhost:8080/api/v1/admin/users
+    groupsField: "groups"  # Okta includes groups in tokens
 ```
 
 ## Troubleshooting
 
-### Common Issues
+### User Can't Create Projects
 
-1. **"OAuth not enabled" error**
-   - Check `auth.oauth.enabled: true` in config
-   - Verify environment variables are set
+1. **Check group membership:**
+   ```graphql
+   query CheckGroups {
+     currentUser {
+       email
+       groups
+     }
+   }
+   ```
 
-2. **"Invalid redirect URI" error**
-   - Ensure `redirectUrl` matches OAuth provider configuration
-   - Check for trailing slashes and protocol mismatches
+2. **Verify they have BOTH:**
+   - A team group (e.g., `fern`)
+   - The manager role group (e.g., `manager`)
 
-3. **"Token exchange failed" error**
-   - Verify `clientSecret` is correct
-   - Check `tokenUrl` is accessible from server
-   - Ensure OAuth provider accepts the redirect URI
+3. **Check role group configuration matches:**
+   ```yaml
+   # Your config
+   managerGroupName: "manager"  # Must match actual group name
+   ```
 
-4. **"User not found" error**
-   - Check user exists in OAuth provider
-   - Verify email/username format
-   - Check claim field mappings (`userIdField`, `emailField`)
+### User Sees No Projects
 
-5. **"Access denied" error**
-   - Verify user roles and groups
-   - Check admin user/group configuration
-   - Ensure groups are included in OAuth token claims
+1. **Verify team membership:**
+   - User must be in at least one team group
+   - Team group must match project's team field
 
-### Debug Logging
+2. **Check if projects exist for their team:**
+   ```graphql
+   query AllProjects {
+     projects {
+       edges {
+         node {
+           name
+           team
+         }
+       }
+     }
+   }
+   ```
 
-Enable debug logging to troubleshoot OAuth issues:
+### Groups Not Appearing
 
-```yaml
-logging:
-  level: "debug"
-```
+1. **Verify OAuth scope includes groups:**
+   ```yaml
+   scopes: ["openid", "profile", "email", "groups"]
+   ```
 
-This will log OAuth token exchanges, user info requests, and role assignments.
+2. **Check token contents:**
+   - Enable debug logging
+   - Check if groups are in the token
+   - Verify `groupsField` configuration matches your provider
 
-### Health Checks
+3. **Provider-specific checks:**
+   - Keycloak: Ensure groups mapper is added to client
+   - Okta: Verify groups claim is configured
+   - Auth0: Check if groups rule is active
 
-Check OAuth provider connectivity:
+## Security Best Practices
 
-```bash
-# Check OAuth provider endpoints
-curl -v $OAUTH_AUTH_URL
-curl -v $OAUTH_JWKS_URL
+1. **Use HTTPS in Production**
+   - OAuth requires secure connections
+   - Protect tokens in transit
 
-# Check Keycloak health (if using Keycloak)
-curl http://localhost:8081/health/ready
-```
+2. **Secure Client Secrets**
+   - Use environment variables or secrets management
+   - Never commit secrets to version control
 
-## Security Considerations
+3. **Configure Token Expiration**
+   - Set appropriate session timeouts
+   - Implement token refresh if needed
 
-1. **Use HTTPS in production** - OAuth requires secure connections
-2. **Secure client secrets** - Store secrets in environment variables or secret management
-3. **Validate redirect URIs** - Ensure only authorized URIs are configured
-4. **Token expiration** - Configure appropriate token lifetimes
-5. **Session management** - Implement proper session timeout and cleanup
-6. **Audit logging** - Enable audit logs for security monitoring
+4. **Audit Permissions**
+   - Regularly review admin users
+   - Monitor scope assignments
+   - Check for unused permissions
 
-## Production Deployment
+5. **Principle of Least Privilege**
+   - Users should only have necessary permissions
+   - Use time-limited scopes for temporary access
+   - Prefer group-based permissions over individual scopes
 
-### Database Configuration
+## Migration from Previous Versions
 
-For production, configure Keycloak with PostgreSQL:
+If upgrading from a version using `{team}-managers` and `{team}-users` groups:
 
-```yaml
-# In keycloak deployment
-env:
-  - name: KC_DB
-    value: "postgres"
-  - name: KC_DB_URL
-    value: "jdbc:postgresql://postgres.fern-platform:5432/keycloak"
-  - name: KC_DB_USERNAME
-    value: "keycloak"
-  - name: KC_DB_PASSWORD
-    valueFrom:
-      secretKeyRef:
-        name: keycloak-db-secret
-        key: password
-```
+1. **Update group structure** in your identity provider:
+   - Old: `fern-managers`, `fern-users`
+   - New: `fern` (team) + `manager`/`user` (role)
 
-### TLS/SSL Configuration
+2. **Migrate users** to new groups:
+   - User in `fern-managers` → Add to `fern` and `manager`
+   - User in `atmos-users` → Add to `atmos` and `user`
 
-```yaml
-# Enable HTTPS
-auth:
-  oauth:
-    redirectUrl: "https://fern-platform.yourcompany.com/auth/callback"
-    authUrl: "https://auth.yourcompany.com/realms/fern-platform/protocol/openid-connect/auth"
-    # ... other HTTPS URLs
-```
+3. **Update configuration** if using custom role names:
+   ```yaml
+   auth:
+     oauth:
+       managerGroupName: "managers"  # If keeping suffix
+       userGroupName: "users"
+   ```
 
-### High Availability
-
-Deploy multiple replicas for both Keycloak and Fern Platform:
-
-```yaml
-traits:
-  - type: scaler
-    properties:
-      replicas: 3
-```
-
-This completes the OAuth implementation with provider-agnostic configuration, comprehensive admin functions, and detailed testing documentation.
+This completes the comprehensive OAuth documentation with the current authentication and authorization model.

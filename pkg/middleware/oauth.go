@@ -151,6 +151,32 @@ func (m *OAuthMiddleware) RequireAdmin() gin.HandlerFunc {
 	}
 }
 
+// RequireManager middleware ensures user has manager privileges (admin or team manager)
+func (m *OAuthMiddleware) RequireManager() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// First ensure user is authenticated
+		m.RequireOAuth()(c)
+		if c.IsAborted() {
+			return
+		}
+
+		if !IsTeamManager(c) {
+			m.logger.WithRequest(c.GetString("request_id"), c.Request.Method, c.Request.URL.Path).
+				Warn("Manager access denied - insufficient privileges")
+			
+			if m.isAPIRequest(c) {
+				c.JSON(http.StatusForbidden, gin.H{"error": "Manager privileges required"})
+			} else {
+				c.JSON(http.StatusForbidden, gin.H{"error": "Access denied - manager privileges required"})
+			}
+			c.Abort()
+			return
+		}
+
+		c.Next()
+	}
+}
+
 // RequireProjectAccess middleware ensures user has access to specific project
 func (m *OAuthMiddleware) RequireProjectAccess(minRole database.ProjectRole) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -279,8 +305,12 @@ func (m *OAuthMiddleware) HandleOAuthCallback() gin.HandlerFunc {
 		// Create or update user
 		user, err := m.createOrUpdateUser(userInfo)
 		if err != nil {
-			m.logger.WithError(err).Error("Failed to create/update user")
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "User creation failed"})
+			m.logger.WithError(err).WithFields(map[string]interface{}{
+				"email": userInfo.Email,
+				"sub": userInfo.Sub,
+				"groups": userInfo.Groups,
+			}).Error("Failed to create/update user")
+			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("User creation failed: %v", err)})
 			return
 		}
 
@@ -301,6 +331,14 @@ func (m *OAuthMiddleware) HandleOAuthCallback() gin.HandlerFunc {
 
 		// Update last login
 		m.updateUserLastLogin(user.UserID)
+
+		// Log successful authentication
+		m.logger.WithFields(map[string]interface{}{
+			"user_id": user.UserID,
+			"email": user.Email,
+			"session_id": session.SessionID,
+			"groups": userInfo.Groups,
+		}).Info("OAuth authentication successful")
 
 		// Redirect to dashboard or intended page
 		redirectURL := c.DefaultQuery("redirect", "/")
@@ -418,18 +456,22 @@ func (m *OAuthMiddleware) ValidateSession(c *gin.Context) (*database.User, *data
 func (m *OAuthMiddleware) validateOAuthSession(c *gin.Context) (*database.User, *database.UserSession, error) {
 	sessionID, err := c.Cookie("session_id")
 	if err != nil {
+		m.logger.WithError(err).Debug("No session cookie found")
 		return nil, nil, fmt.Errorf("no session cookie")
 	}
+
+	m.logger.WithField("session_id", sessionID).Debug("Validating session")
 
 	var session database.UserSession
 	err = m.db.Where("session_id = ? AND is_active = ? AND expires_at > ?", 
 		sessionID, true, time.Now()).First(&session).Error
 	if err != nil {
+		m.logger.WithError(err).WithField("session_id", sessionID).Debug("Session validation failed")
 		return nil, nil, fmt.Errorf("invalid or expired session")
 	}
 
 	var user database.User
-	err = m.db.Preload("UserGroups").Where("user_id = ?", session.UserID).First(&user).Error
+	err = m.db.Preload("UserGroups").Preload("UserScopes").Where("user_id = ?", session.UserID).First(&user).Error
 	if err != nil {
 		return nil, nil, fmt.Errorf("user not found")
 	}
@@ -750,10 +792,21 @@ func (m *OAuthMiddleware) determineUserRole(userInfo *UserInfo) string {
 
 	// Check if user is in admin groups
 	for _, group := range userInfo.Groups {
+		// Check for admin group
+		if group == "admin" || group == "/admin" {
+			return string(database.RoleAdmin)
+		}
+		
+		// Check configured admin groups
 		for _, adminGroup := range m.config.OAuth.AdminGroups {
 			if group == adminGroup {
 				return string(database.RoleAdmin)
 			}
+		}
+		
+		// Check for manager groups (team-managers pattern)
+		if strings.HasSuffix(group, "-managers") || strings.Contains(group, "managers") {
+			return string(database.RoleUser) // Managers are still "users" at the system level
 		}
 	}
 
@@ -850,4 +903,209 @@ func GetOAuthSession(c *gin.Context) (*database.UserSession, bool) {
 func IsAdmin(c *gin.Context) bool {
 	user, exists := GetOAuthUser(c)
 	return exists && user.Role == string(database.RoleAdmin)
+}
+
+// GetUserTeams extracts team names from user groups
+func GetUserTeams(c *gin.Context) []string {
+	user, exists := GetOAuthUser(c)
+	if !exists {
+		return nil
+	}
+	
+	var teams []string
+	for _, group := range user.UserGroups {
+		groupName := group.GroupName
+		// Remove leading slash if present
+		groupName = strings.TrimPrefix(groupName, "/")
+		
+		// Extract team name from group pattern (e.g., "fern-managers" -> "fern")
+		if strings.HasSuffix(groupName, "-managers") {
+			team := strings.TrimSuffix(groupName, "-managers")
+			teams = append(teams, team)
+		} else if strings.HasSuffix(groupName, "-users") {
+			team := strings.TrimSuffix(groupName, "-users")
+			teams = append(teams, team)
+		}
+	}
+	
+	return teams
+}
+
+// IsTeamManager checks if user is a manager for any team
+func IsTeamManager(c *gin.Context) bool {
+	user, exists := GetOAuthUser(c)
+	if !exists {
+		return false
+	}
+	
+	// Admins are always managers
+	if user.Role == string(database.RoleAdmin) {
+		return true
+	}
+	
+	// Check if user is in any manager group
+	for _, group := range user.UserGroups {
+		groupName := strings.TrimPrefix(group.GroupName, "/")
+		if strings.HasSuffix(groupName, "-managers") {
+			return true
+		}
+	}
+	
+	return false
+}
+
+// IsManagerForTeam checks if user is a manager for a specific team
+func IsManagerForTeam(c *gin.Context, team string) bool {
+	user, exists := GetOAuthUser(c)
+	if !exists {
+		return false
+	}
+	
+	// Admins can manage all teams
+	if user.Role == string(database.RoleAdmin) {
+		return true
+	}
+	
+	// Check if user is in the specific team's manager group
+	managerGroup := team + "-managers"
+	for _, group := range user.UserGroups {
+		groupName := strings.TrimPrefix(group.GroupName, "/")
+		if groupName == managerGroup {
+			return true
+		}
+	}
+	
+	return false
+}
+
+// CanAccessTeamProjects checks if user can access projects for a specific team
+func CanAccessTeamProjects(c *gin.Context, team string) bool {
+	user, exists := GetOAuthUser(c)
+	if !exists {
+		return false
+	}
+	
+	// Admins can access all teams
+	if user.Role == string(database.RoleAdmin) {
+		return true
+	}
+	
+	// Check if user is in any group for this team
+	teamGroups := []string{team + "-managers", team + "-users"}
+	for _, group := range user.UserGroups {
+		groupName := strings.TrimPrefix(group.GroupName, "/")
+		for _, teamGroup := range teamGroups {
+			if groupName == teamGroup {
+				return true
+			}
+		}
+	}
+	
+	return false
+}
+
+// GetUserScopes extracts scopes from user
+func GetUserScopes(c *gin.Context) []string {
+	user, exists := GetOAuthUser(c)
+	if !exists {
+		return nil
+	}
+	
+	scopes := make([]string, 0, len(user.UserScopes))
+	now := time.Now()
+	
+	for _, scope := range user.UserScopes {
+		// Skip expired scopes
+		if scope.ExpiresAt != nil && scope.ExpiresAt.Before(now) {
+			continue
+		}
+		scopes = append(scopes, scope.Scope)
+	}
+	
+	return scopes
+}
+
+// HasScope checks if user has a specific scope
+func HasScope(c *gin.Context, requiredScope string) bool {
+	scopes := GetUserScopes(c)
+	for _, scope := range scopes {
+		if matchScope(scope, requiredScope) {
+			return true
+		}
+	}
+	return false
+}
+
+// matchScope matches a scope pattern with wildcards
+func matchScope(userScope, requiredScope string) bool {
+	// Exact match
+	if userScope == requiredScope {
+		return true
+	}
+	
+	// Split scopes into parts
+	userParts := strings.Split(userScope, ":")
+	requiredParts := strings.Split(requiredScope, ":")
+	
+	// Must have same number of parts
+	if len(userParts) != len(requiredParts) {
+		return false
+	}
+	
+	// Check each part
+	for i := range userParts {
+		if userParts[i] == "*" || requiredParts[i] == "*" {
+			continue
+		}
+		if userParts[i] != requiredParts[i] {
+			return false
+		}
+	}
+	
+	return true
+}
+
+// CanManageProject checks if user can perform a specific action on a project
+func (m *OAuthMiddleware) CanManageProject(c *gin.Context, projectID string, action string) bool {
+	user, exists := GetOAuthUser(c)
+	if !exists {
+		return false
+	}
+	
+	// Admin can do anything
+	if user.Role == string(database.RoleAdmin) {
+		return true
+	}
+	
+	// Get project to check team
+	var project database.ProjectDetails
+	if err := m.db.Where("project_id = ?", projectID).First(&project).Error; err != nil {
+		return false
+	}
+	
+	// Check scopes
+	requiredScopes := []string{
+		fmt.Sprintf("project:%s:%s", action, projectID),        // Specific project
+		fmt.Sprintf("project:%s:%s:*", action, project.Team),   // Team wildcard
+		fmt.Sprintf("project:*:%s", projectID),                 // All actions on project
+		fmt.Sprintf("project:*:%s:*", project.Team),            // All actions on team
+		"project:*:*",                                           // Global project admin
+	}
+	
+	userScopes := GetUserScopes(c)
+	for _, scope := range userScopes {
+		for _, required := range requiredScopes {
+			if matchScope(scope, required) {
+				return true
+			}
+		}
+	}
+	
+	// Check explicit project permissions in database
+	var perm database.ProjectPermission
+	now := time.Now()
+	err := m.db.Where("project_id = ? AND user_id = ? AND permission IN ? AND (expires_at IS NULL OR expires_at > ?)", 
+		projectID, user.UserID, []string{action, "admin"}, now).First(&perm).Error
+	
+	return err == nil
 }

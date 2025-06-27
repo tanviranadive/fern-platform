@@ -1,0 +1,54 @@
+# Example configuration for Fern Platform
+# Copy this file to config.yaml and adjust values as needed
+
+server:
+  port: 8080
+  host: 0.0.0.0
+
+database:
+  host: postgres
+  port: 5432
+  user: postgres
+  password: postgres
+  dbname: fern_platform
+  sslmode: disable
+
+auth:
+  enabled: true
+  oauth:
+    enabled: true
+    clientId: "fern-platform-web"
+    clientSecret: "fern-platform-client-secret"
+    redirectUrl: "http://localhost:8080/auth/callback"
+    
+    # Keycloak endpoints
+    authUrl: "http://keycloak.fern-platform:8080/realms/fern-platform/protocol/openid-connect/auth"
+    tokenUrl: "http://keycloak.fern-platform:8080/realms/fern-platform/protocol/openid-connect/token"
+    userInfoUrl: "http://keycloak.fern-platform:8080/realms/fern-platform/protocol/openid-connect/userinfo"
+    jwksUrl: "http://keycloak.fern-platform:8080/realms/fern-platform/protocol/openid-connect/certs"
+    logoutUrl: "http://keycloak.fern-platform:8080/realms/fern-platform/protocol/openid-connect/logout"
+    
+    # Admin configuration
+    adminUsers: ["admin@fern.com"]
+    adminGroups: ["admin", "/admin"]
+    
+    # Role group names (configurable)
+    # These define the names of the role groups in your identity provider
+    adminGroupName: "admin"      # Default: admin
+    managerGroupName: "manager"  # Default: manager
+    userGroupName: "user"        # Default: user
+    
+    # Field mappings (defaults should work for Keycloak)
+    userIdField: "sub"
+    emailField: "email"
+    nameField: "name"
+    groupsField: "groups"
+
+logging:
+  level: "info"
+  format: "json"
+
+redis:
+  host: redis
+  port: 6379
+  db: 0

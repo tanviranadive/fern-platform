@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/guidewire-oss/fern-platform/internal/reporter/graphql/model"
@@ -213,6 +214,12 @@ func (r *queryResolver) TestRun_impl(ctx context.Context, id string) (*model.Tes
 
 // Projects returns paginated projects
 func (r *queryResolver) Projects_impl(ctx context.Context, filter *model.ProjectFilter, first *int, after *string) (*model.ProjectConnection, error) {
+	// Get current user
+	user, err := getCurrentUser(ctx)
+	if err != nil {
+		return nil, err
+	}
+	
 	// Build filter
 	repoFilter := service.ListProjectsFilter{}
 	if filter != nil {
@@ -248,11 +255,35 @@ func (r *queryResolver) Projects_impl(ctx context.Context, filter *model.Project
 		return nil, fmt.Errorf("failed to list projects: %w", err)
 	}
 	
-	hasMore := offset + len(projects) < int(totalCount)
+	// Filter projects based on user's team access
+	var filteredProjects []*database.ProjectDetails
+	if user.Role == string(database.RoleAdmin) {
+		// Admins can see all projects
+		filteredProjects = projects
+	} else {
+		// Get user's teams
+		userTeams := getUserTeamsFromContext(ctx)
+		teamMap := make(map[string]bool)
+		for _, team := range userTeams {
+			teamMap[team] = true
+		}
+		
+		// Filter projects by team
+		for _, project := range projects {
+			if project.Team != "" && teamMap[project.Team] {
+				filteredProjects = append(filteredProjects, project)
+			}
+		}
+		
+		// Update total count to reflect filtered results
+		totalCount = int64(len(filteredProjects))
+	}
+	
+	hasMore := offset + len(filteredProjects) < int(totalCount)
 
 	// Build edges
-	edges := make([]*model.ProjectEdge, len(projects))
-	for i, project := range projects {
+	edges := make([]*model.ProjectEdge, len(filteredProjects))
+	for i, project := range filteredProjects {
 		edges[i] = &model.ProjectEdge{
 			Node:   convertProject(project),
 			Cursor: fmt.Sprintf("%d", offset+i), // Simple cursor
@@ -279,6 +310,11 @@ func (r *queryResolver) Projects_impl(ctx context.Context, filter *model.Project
 // Helper functions to convert between repository and GraphQL models
 
 func convertProject(p *database.ProjectDetails) *model.Project {
+	var teamPtr *string
+	if p.Team != "" {
+		teamPtr = &p.Team
+	}
+	
 	return &model.Project{
 		ID:            fmt.Sprintf("%d", p.ID),
 		ProjectID:     p.ProjectID,
@@ -288,6 +324,8 @@ func convertProject(p *database.ProjectDetails) *model.Project {
 		DefaultBranch: p.DefaultBranch,
 		Settings:      nil, // TODO: Parse JSON settings
 		IsActive:      p.IsActive,
+		Team:          teamPtr,
+		CanManage:     false, // Will be populated by resolver
 		CreatedAt:     p.CreatedAt,
 		UpdatedAt:     p.UpdatedAt,
 	}
@@ -319,24 +357,120 @@ func convertTestRun(tr *database.TestRun) *model.TestRun {
 
 // CreateProject creates a new project
 func (r *mutationResolver) CreateProject_impl(ctx context.Context, input model.CreateProjectInput) (*model.Project, error) {
+	r.logger.WithFields(map[string]interface{}{
+		"input_name": input.Name,
+		"input_team": input.Team,
+	}).Info("CreateProject called")
+	
 	// Check user permissions
 	user, err := getCurrentUser(ctx)
 	if err != nil {
 		return nil, err
 	}
+	
+	r.logger.WithFields(map[string]interface{}{
+		"user_id": user.UserID,
+		"user_email": user.Email,
+		"user_role": user.Role,
+	}).Info("User retrieved for project creation")
 
-	if user.Role != string(database.RoleAdmin) {
-		return nil, fmt.Errorf("insufficient permissions")
+	// Determine team from input or user context
+	team := convertPtrString(input.Team)
+	if team == "" {
+		// Get user's primary team from groups
+		teams := getUserTeamsFromContext(ctx)
+		r.logger.WithFields(map[string]interface{}{
+			"user_teams": teams,
+			"team_count": len(teams),
+		}).Info("User teams extracted from context")
+		if len(teams) > 0 {
+			team = teams[0]
+		}
+	}
+	
+	r.logger.WithFields(map[string]interface{}{
+		"final_team": team,
+		"input_team": input.Team,
+	}).Info("Team determined for project creation")
+
+	// Check if user can create projects for this team
+	canCreate := false
+	if user.Role == string(database.RoleAdmin) {
+		canCreate = true
+	} else if team != "" {
+		// Get role group names from context
+		roleGroups := getRoleGroupNamesFromContext(ctx)
+		
+		// Debug logging
+		r.logger.WithFields(map[string]interface{}{
+			"user_email": user.Email,
+			"team": team,
+			"role_groups": fmt.Sprintf("%+v", roleGroups),
+			"user_groups": fmt.Sprintf("%+v", user.UserGroups),
+		}).Info("Checking create permissions")
+		
+		// Check if user has both the team group AND manager group
+		hasTeamGroup := false
+		hasManagerGroup := false
+		
+		for _, group := range user.UserGroups {
+			groupName := strings.TrimPrefix(group.GroupName, "/")
+			if groupName == team {
+				hasTeamGroup = true
+			}
+			if groupName == roleGroups.ManagerGroup {
+				hasManagerGroup = true
+			}
+		}
+		
+		// Debug logging
+		r.logger.WithFields(map[string]interface{}{
+			"hasTeamGroup": hasTeamGroup,
+			"hasManagerGroup": hasManagerGroup,
+		}).Info("Group check results")
+		
+		// If user is in both team and manager groups, they can create
+		if hasTeamGroup && hasManagerGroup {
+			canCreate = true
+		}
+		
+		// If not via groups, check scopes
+		if !canCreate {
+			requiredScopes := []string{
+				fmt.Sprintf("project:create:%s", team),
+				fmt.Sprintf("project:*:%s", team),
+				"project:create:*",
+				"project:*:*",
+			}
+			
+			scopes := getUserScopesFromContext(ctx)
+			for _, scope := range scopes {
+				for _, required := range requiredScopes {
+					if matchScope(scope, required) {
+						canCreate = true
+						break
+					}
+				}
+				if canCreate {
+					break
+				}
+			}
+		}
 	}
 
-	// Create project
+	if !canCreate {
+		return nil, fmt.Errorf("insufficient permissions to create project")
+	}
+
+	// Create project with auto-generated UUID
 	projectInput := service.CreateProjectInput{
-		ProjectID:     input.ProjectID,
+		ProjectID:     "", // Will be auto-generated in service layer
 		Name:          input.Name,
 		Description:   convertPtrString(input.Description),
 		Repository:    convertPtrString(input.Repository),
 		DefaultBranch: convertPtrString(input.DefaultBranch),
 		Settings:      input.Settings,
+		Team:          team,
 	}
 
 	project, err := r.projectService.CreateProject(projectInput)
@@ -344,5 +478,32 @@ func (r *mutationResolver) CreateProject_impl(ctx context.Context, input model.C
 		return nil, fmt.Errorf("failed to create project: %w", err)
 	}
 
-	return convertProject(project), nil
+	// Log the created project details
+	r.logger.WithFields(map[string]interface{}{
+		"project_id": project.ProjectID,
+		"name": project.Name,
+		"team": project.Team,
+		"id": project.ID,
+	}).Info("Project created successfully")
+
+	// Grant creator write permissions on the project
+	if user.Role != string(database.RoleAdmin) {
+		// Add project-specific scope for the creator
+		projectScope := database.UserScope{
+			UserID:    user.UserID,
+			Scope:     fmt.Sprintf("project:*:%s", project.ProjectID),
+			GrantedBy: user.UserID,
+		}
+		if err := r.db.Create(&projectScope).Error; err != nil {
+			r.logger.WithError(err).Warn("Failed to grant creator permissions on project")
+		}
+	}
+
+	result := convertProject(project)
+	r.logger.WithFields(map[string]interface{}{
+		"result_project_id": result.ProjectID,
+		"result_team": result.Team,
+	}).Info("Converted project for GraphQL response")
+	
+	return result, nil
 }

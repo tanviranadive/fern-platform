@@ -52,7 +52,7 @@ func (r *ProjectRepository) DeleteProject(id uint) error {
 }
 
 // ListProjects retrieves all projects with optional filtering
-func (r *ProjectRepository) ListProjects(search string, activeOnly bool, limit, offset int) ([]*database.ProjectDetails, int64, error) {
+func (r *ProjectRepository) ListProjects(search string, activeOnly bool, limit, offset int, teams []string) ([]*database.ProjectDetails, int64, error) {
 	query := r.db.Model(&database.ProjectDetails{})
 	
 	if search != "" {
@@ -62,6 +62,11 @@ func (r *ProjectRepository) ListProjects(search string, activeOnly bool, limit, 
 	
 	if activeOnly {
 		query = query.Where("is_active = true")
+	}
+	
+	// Filter by teams if provided
+	if len(teams) > 0 {
+		query = query.Where("team IN ?", teams)
 	}
 	
 	var total int64

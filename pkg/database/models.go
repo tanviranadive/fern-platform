@@ -120,6 +120,7 @@ type ProjectDetails struct {
 	DefaultBranch string `json:"default_branch"`
 	Settings    string `gorm:"type:jsonb" json:"settings,omitempty"`
 	IsActive    bool   `gorm:"default:true" json:"is_active"`
+	Team        string `gorm:"index" json:"team,omitempty"` // Team that owns this project
 }
 
 // UserPreference represents user-specific settings and preferences
@@ -131,6 +132,25 @@ type UserPreference struct {
 	Language     string `gorm:"default:'en'" json:"language"`
 	Favorites    string `gorm:"type:jsonb" json:"favorites,omitempty"`
 	Preferences  string `gorm:"type:jsonb" json:"preferences,omitempty"`
+}
+
+// UserScope represents a scope granted to a user
+type UserScope struct {
+	BaseModel
+	UserID    string     `gorm:"not null;index;index:idx_user_scope,unique" json:"user_id"`
+	Scope     string     `gorm:"not null;index:idx_user_scope,unique" json:"scope"`
+	GrantedBy string     `json:"granted_by"`
+	ExpiresAt *time.Time `json:"expires_at,omitempty"`
+}
+
+// ProjectPermission represents explicit project permissions for a user
+type ProjectPermission struct {
+	BaseModel
+	ProjectID  string     `gorm:"not null;index;index:idx_project_user_perm,unique" json:"project_id"`
+	UserID     string     `gorm:"not null;index;index:idx_project_user_perm,unique" json:"user_id"`
+	Permission string     `gorm:"not null;index:idx_project_user_perm,unique" json:"permission"` // read, write, delete, admin
+	GrantedBy  string     `json:"granted_by"`
+	ExpiresAt  *time.Time `json:"expires_at,omitempty"`
 }
 
 // FlakyTest represents test flakiness analysis data
@@ -164,6 +184,7 @@ type User struct {
 	EmailVerified bool      `gorm:"default:false" json:"email_verified"`        // Email verification status
 	ProjectAccess []ProjectAccess `gorm:"foreignKey:UserID;references:UserID" json:"project_access,omitempty"`
 	UserGroups   []UserGroup `gorm:"foreignKey:UserID;references:UserID" json:"user_groups,omitempty"`
+	UserScopes   []UserScope `gorm:"foreignKey:UserID;references:UserID" json:"user_scopes,omitempty"`
 }
 
 // UserGroup represents a user's group membership

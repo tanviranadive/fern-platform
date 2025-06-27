@@ -5,7 +5,20 @@ class GraphQLClient {
         this.endpoint = endpoint;
     }
 
-    async query(query, variables = {}) {
+    async query(queryOrOptions, variables = {}) {
+        // Handle both string queries and options objects
+        let queryString, queryVariables;
+        
+        if (typeof queryOrOptions === 'string') {
+            queryString = queryOrOptions;
+            queryVariables = variables;
+        } else if (typeof queryOrOptions === 'object' && queryOrOptions.query) {
+            queryString = queryOrOptions.query;
+            queryVariables = queryOrOptions.variables || {};
+        } else {
+            throw new Error('Invalid query format');
+        }
+        
         const response = await fetch(this.endpoint, {
             method: 'POST',
             headers: {
@@ -14,8 +27,8 @@ class GraphQLClient {
             },
             credentials: 'include',
             body: JSON.stringify({
-                query,
-                variables
+                query: queryString,
+                variables: queryVariables
             })
         });
 
@@ -70,6 +83,8 @@ const QUERIES = {
                         name
                         description
                         isActive
+                        team
+                        canManage
                         stats {
                             totalTestRuns
                             successRate
@@ -157,6 +172,7 @@ const QUERIES = {
                 lastName
                 role
                 profileUrl
+                groups
             }
         }
     `,
@@ -264,6 +280,38 @@ const QUERIES = {
                     }
                 }
             }
+        }
+    `,
+
+    CREATE_PROJECT: `
+        mutation CreateProject($input: CreateProjectInput!) {
+            createProject(input: $input) {
+                id
+                projectId
+                name
+                description
+                team
+                isActive
+            }
+        }
+    `,
+
+    UPDATE_PROJECT: `
+        mutation UpdateProject($id: ID!, $input: UpdateProjectInput!) {
+            updateProject(id: $id, input: $input) {
+                id
+                projectId
+                name
+                description
+                team
+                isActive
+            }
+        }
+    `,
+
+    DELETE_PROJECT: `
+        mutation DeleteProject($id: ID!) {
+            deleteProject(id: $id)
         }
     `
 };

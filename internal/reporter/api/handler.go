@@ -116,6 +116,18 @@ func (h *Handler) RegisterRoutes(router *gin.Engine) {
 		user.POST("/test-runs/:id/tags", h.assignTagsToTestRun)
 	}
 
+	// Manager routes (require manager role - admin or team manager)
+	manager := v1.Group("")
+	manager.Use(h.oauthMiddleware.RequireManager())
+	{
+		// Project management for managers
+		manager.POST("/projects", h.createProject)
+		manager.PUT("/projects/:projectId", h.updateProject)
+		manager.DELETE("/projects/:projectId", h.deleteProject)
+		manager.POST("/projects/:projectId/activate", h.activateProject)
+		manager.POST("/projects/:projectId/deactivate", h.deactivateProject)
+	}
+
 	// Admin routes (require admin role)
 	admin := v1.Group("/admin")
 	admin.Use(h.oauthMiddleware.RequireAdmin())
@@ -127,13 +139,6 @@ func (h *Handler) RegisterRoutes(router *gin.Engine) {
 		admin.POST("/users/:userId/suspend", h.suspendUser)
 		admin.POST("/users/:userId/activate", h.activateUser)
 		admin.DELETE("/users/:userId", h.deleteUser)
-		
-		// Project management
-		admin.POST("/projects", h.createProject)
-		admin.PUT("/projects/:projectId", h.updateProject)
-		admin.DELETE("/projects/:projectId", h.deleteProject)
-		admin.POST("/projects/:projectId/activate", h.activateProject)
-		admin.POST("/projects/:projectId/deactivate", h.deactivateProject)
 		
 		// Project access management
 		admin.POST("/projects/:projectId/users/:userId/access", h.grantProjectAccess)

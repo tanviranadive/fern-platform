@@ -31,6 +31,12 @@ models:
     fields:
       specRuns:
         resolver: true
+  Project:
+    fields:
+      canManage:
+        resolver: true
+      stats:
+        resolver: true
 
 # Autobind models to existing structs where possible
 autobind:

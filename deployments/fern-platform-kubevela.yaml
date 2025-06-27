@@ -420,17 +420,38 @@ spec:
               ],
               "groups": [
                 {
-                  "name": "fern-platform-admins",
-                  "path": "/fern-platform-admins",
+                  "name": "admin",
+                  "path": "/admin",
                   "attributes": {
-                    "description": ["Administrative group for fern-platform"]
+                    "description": ["Platform administrators with full access"]
                   }
                 },
                 {
-                  "name": "fern-platform-users", 
-                  "path": "/fern-platform-users",
+                  "name": "manager",
+                  "path": "/manager",
                   "attributes": {
-                    "description": ["Regular users group for fern-platform"]
+                    "description": ["Manager role - can create/edit/delete team projects"]
+                  }
+                },
+                {
+                  "name": "user",
+                  "path": "/user",
+                  "attributes": {
+                    "description": ["User role - read-only access to team projects"]
+                  }
+                },
+                {
+                  "name": "fern",
+                  "path": "/fern",
+                  "attributes": {
+                    "description": ["Fern team"]
+                  }
+                },
+                {
+                  "name": "atmos",
+                  "path": "/atmos",
+                  "attributes": {
+                    "description": ["Atmos team"]
                   }
                 }
               ],
@@ -438,11 +459,15 @@ spec:
                 "realm": [
                   {
                     "name": "admin",
-                    "description": "Administrative role with full access"
+                    "description": "Administrative role with full platform access"
+                  },
+                  {
+                    "name": "manager",
+                    "description": "Team manager role - can create/edit/delete team projects"
                   },
                   {
                     "name": "user",
-                    "description": "Regular user role with limited access"
+                    "description": "Team user role - read-only access to team projects"
                   }
                 ]
               },
@@ -468,9 +493,7 @@ spec:
               "webAuthnPolicyCreateTimeout": 0,
               "webAuthnPolicyAvoidSameAuthenticatorRegister": false,
               "webAuthnPolicyAcceptableAaguids": [],
-              "defaultGroups": [
-                "/fern-platform-users"
-              ],
+              "defaultGroups": [],
               "requiredCredentials": [
                 "password"
               ],
@@ -485,28 +508,79 @@ spec:
                   "credentials": [
                     {
                       "type": "password",
-                      "value": "admin123",
+                      "value": "test123",
                       "temporary": false
                     }
                   ],
-                  "groups": ["/fern-platform-admins"],
+                  "groups": ["/admin"],
                   "realmRoles": ["admin"]
                 },
                 {
-                  "username": "user@fern.com",
-                  "email": "user@fern.com", 
-                  "firstName": "Test",
+                  "username": "fern-manager@fern.com",
+                  "email": "fern-manager@fern.com",
+                  "firstName": "Fern",
+                  "lastName": "Manager",
+                  "enabled": true,
+                  "emailVerified": true,
+                  "credentials": [
+                    {
+                      "type": "password",
+                      "value": "test123",
+                      "temporary": false
+                    }
+                  ],
+                  "groups": ["/fern", "/manager"],
+                  "realmRoles": ["manager"]
+                },
+                {
+                  "username": "fern-user@fern.com",
+                  "email": "fern-user@fern.com", 
+                  "firstName": "Fern",
                   "lastName": "User",
                   "enabled": true,
                   "emailVerified": true,
                   "credentials": [
                     {
                       "type": "password",
-                      "value": "user123",
+                      "value": "test123",
                       "temporary": false
                     }
                   ],
-                  "groups": ["/fern-platform-users"],
+                  "groups": ["/fern", "/user"],
+                  "realmRoles": ["user"]
+                },
+                {
+                  "username": "atmos-manager@fern.com",
+                  "email": "atmos-manager@fern.com",
+                  "firstName": "Atmos",
+                  "lastName": "Manager",
+                  "enabled": true,
+                  "emailVerified": true,
+                  "credentials": [
+                    {
+                      "type": "password",
+                      "value": "test123",
+                      "temporary": false
+                    }
+                  ],
+                  "groups": ["/atmos", "/manager"],
+                  "realmRoles": ["manager"]
+                },
+                {
+                  "username": "atmos-user@fern.com",
+                  "email": "atmos-user@fern.com",
+                  "firstName": "Atmos",
+                  "lastName": "User",
+                  "enabled": true,
+                  "emailVerified": true,
+                  "credentials": [
+                    {
+                      "type": "password",
+                      "value": "test123",
+                      "temporary": false
+                    }
+                  ],
+                  "groups": ["/atmos", "/user"],
                   "realmRoles": ["user"]
                 }
               ]

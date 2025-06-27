@@ -42,6 +42,7 @@ type Config struct {
 
 type ResolverRoot interface {
 	Mutation() MutationResolver
+	Project() ProjectResolver
 	Query() QueryResolver
 	Subscription() SubscriptionResolver
 	SuiteRun() SuiteRunResolver
@@ -131,6 +132,7 @@ type ComplexityRoot struct {
 	}
 
 	Project struct {
+		CanManage     func(childComplexity int) int
 		CreatedAt     func(childComplexity int) int
 		DefaultBranch func(childComplexity int) int
 		Description   func(childComplexity int) int
@@ -141,6 +143,7 @@ type ComplexityRoot struct {
 		Repository    func(childComplexity int) int
 		Settings      func(childComplexity int) int
 		Stats         func(childComplexity int) int
+		Team          func(childComplexity int) int
 		UpdatedAt     func(childComplexity int) int
 	}
 
@@ -187,6 +190,7 @@ type ComplexityRoot struct {
 		Projects                func(childComplexity int, filter *model.ProjectFilter, first *int, after *string) int
 		RecentTestRuns          func(childComplexity int, projectID *string, limit *int) int
 		RecentlyAddedFlakyTests func(childComplexity int, projectID *string, days *int, limit *int) int
+		SystemConfig            func(childComplexity int) int
 		Tag                     func(childComplexity int, id string) int
 		TagByName               func(childComplexity int, name string) int
 		TagUsageStats           func(childComplexity int) int
@@ -196,6 +200,12 @@ type ComplexityRoot struct {
 		TestRunStats            func(childComplexity int, projectID *string, days *int) int
 		TestRuns                func(childComplexity int, filter *model.TestRunFilter, first *int, after *string, orderBy *string, orderDirection *model.OrderDirection) int
 		TreemapData             func(childComplexity int, projectID *string, days *int) int
+	}
+
+	RoleGroupConfig struct {
+		AdminGroup   func(childComplexity int) int
+		ManagerGroup func(childComplexity int) int
+		UserGroup    func(childComplexity int) int
 	}
 
 	SeverityCount struct {
@@ -263,6 +273,10 @@ type ComplexityRoot struct {
 		Suite         func(childComplexity int) int
 		TotalDuration func(childComplexity int) int
 		TotalSpecs    func(childComplexity int) int
+	}
+
+	SystemConfig struct {
+		RoleGroups func(childComplexity int) int
 	}
 
 	Tag struct {
@@ -345,6 +359,7 @@ type ComplexityRoot struct {
 		CreatedAt   func(childComplexity int) int
 		Email       func(childComplexity int) int
 		FirstName   func(childComplexity int) int
+		Groups      func(childComplexity int) int
 		ID          func(childComplexity int) int
 		LastLoginAt func(childComplexity int) int
 		LastName    func(childComplexity int) int
@@ -371,8 +386,13 @@ type MutationResolver interface {
 	MarkFlakyTestResolved(ctx context.Context, id string) (*model.FlakyTest, error)
 	MarkSpecAsFlaky(ctx context.Context, specRunID string) (*model.SpecRun, error)
 }
+type ProjectResolver interface {
+	CanManage(ctx context.Context, obj *model.Project) (bool, error)
+	Stats(ctx context.Context, obj *model.Project) (*repository.ProjectStats, error)
+}
 type QueryResolver interface {
 	CurrentUser(ctx context.Context) (*model.User, error)
+	SystemConfig(ctx context.Context) (*model.SystemConfig, error)
 	DashboardSummary(ctx context.Context) (*model.DashboardSummary, error)
 	Health(ctx context.Context) (*model.HealthStatus, error)
 	TreemapData(ctx context.Context, projectID *string, days *int) (*model.TreemapData, error)
@@ -870,6 +890,13 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.complexity.PageInfo.StartCursor(childComplexity), true
 
+	case "Project.canManage":
+		if e.complexity.Project.CanManage == nil {
+			break
+		}
+
+		return e.complexity.Project.CanManage(childComplexity), true
+
 	case "Project.createdAt":
 		if e.complexity.Project.CreatedAt == nil {
 			break
@@ -939,6 +966,13 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Project.Stats(childComplexity), true
+
+	case "Project.team":
+		if e.complexity.Project.Team == nil {
+			break
+		}
+
+		return e.complexity.Project.Team(childComplexity), true
 
 	case "Project.updatedAt":
 		if e.complexity.Project.UpdatedAt == nil {
@@ -1202,6 +1236,13 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.complexity.Query.RecentlyAddedFlakyTests(childComplexity, args["projectId"].(*string), args["days"].(*int), args["limit"].(*int)), true
 
+	case "Query.systemConfig":
+		if e.complexity.Query.SystemConfig == nil {
+			break
+		}
+
+		return e.complexity.Query.SystemConfig(childComplexity), true
+
 	case "Query.tag":
 		if e.complexity.Query.Tag == nil {
 			break
@@ -1304,6 +1345,27 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Query.TreemapData(childComplexity, args["projectId"].(*string), args["days"].(*int)), true
+
+	case "RoleGroupConfig.adminGroup":
+		if e.complexity.RoleGroupConfig.AdminGroup == nil {
+			break
+		}
+
+		return e.complexity.RoleGroupConfig.AdminGroup(childComplexity), true
+
+	case "RoleGroupConfig.managerGroup":
+		if e.complexity.RoleGroupConfig.ManagerGroup == nil {
+			break
+		}
+
+		return e.complexity.RoleGroupConfig.ManagerGroup(childComplexity), true
+
+	case "RoleGroupConfig.userGroup":
+		if e.complexity.RoleGroupConfig.UserGroup == nil {
+			break
+		}
+
+		return e.complexity.RoleGroupConfig.UserGroup(childComplexity), true
 
 	case "SeverityCount.count":
 		if e.complexity.SeverityCount.Count == nil {
@@ -1646,6 +1708,13 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.SuiteTreemapNode.TotalSpecs(childComplexity), true
+
+	case "SystemConfig.roleGroups":
+		if e.complexity.SystemConfig.RoleGroups == nil {
+			break
+		}
+
+		return e.complexity.SystemConfig.RoleGroups(childComplexity), true
 
 	case "Tag.color":
 		if e.complexity.Tag.Color == nil {
@@ -2011,6 +2080,13 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.complexity.User.FirstName(childComplexity), true
 
+	case "User.groups":
+		if e.complexity.User.Groups == nil {
+			break
+		}
+
+		return e.complexity.User.Groups(childComplexity), true
+
 	case "User.id":
 		if e.complexity.User.ID == nil {
 			break
@@ -2263,6 +2339,8 @@ type Project {
   defaultBranch: String!
   settings: JSON
   isActive: Boolean!
+  team: String
+  canManage: Boolean!
   stats: ProjectStats
   createdAt: Time!
   updatedAt: Time!
@@ -2436,6 +2514,7 @@ input CreateProjectInput {
   repository: String
   defaultBranch: String
   settings: JSON
+  team: String
 }
 
 input UpdateProjectInput {
@@ -2444,6 +2523,7 @@ input UpdateProjectInput {
   repository: String
   defaultBranch: String
   settings: JSON
+  team: String
 }
 
 input CreateTagInput {
@@ -2468,8 +2548,20 @@ type User {
   lastName: String
   role: String!
   profileUrl: String
+  groups: [String!]!
   createdAt: Time!
   lastLoginAt: Time
+}
+
+# System Configuration Type
+type SystemConfig {
+  roleGroups: RoleGroupConfig!
+}
+
+type RoleGroupConfig {
+  adminGroup: String!
+  managerGroup: String!
+  userGroup: String!
 }
 
 # Health Status Type
@@ -2531,6 +2623,7 @@ type SpecTreemapNode {
 type Query {
   # User/Auth
   currentUser: User
+  systemConfig: SystemConfig!
   
   # Dashboard
   dashboardSummary: DashboardSummary!
@@ -6280,6 +6373,10 @@ func (ec *executionContext) fieldContext_Mutation_createProject(ctx context.Cont
 				return ec.fieldContext_Project_settings(ctx, field)
 			case "isActive":
 				return ec.fieldContext_Project_isActive(ctx, field)
+			case "team":
+				return ec.fieldContext_Project_team(ctx, field)
+			case "canManage":
+				return ec.fieldContext_Project_canManage(ctx, field)
 			case "stats":
 				return ec.fieldContext_Project_stats(ctx, field)
 			case "createdAt":
@@ -6359,6 +6456,10 @@ func (ec *executionContext) fieldContext_Mutation_updateProject(ctx context.Cont
 				return ec.fieldContext_Project_settings(ctx, field)
 			case "isActive":
 				return ec.fieldContext_Project_isActive(ctx, field)
+			case "team":
+				return ec.fieldContext_Project_team(ctx, field)
+			case "canManage":
+				return ec.fieldContext_Project_canManage(ctx, field)
 			case "stats":
 				return ec.fieldContext_Project_stats(ctx, field)
 			case "createdAt":
@@ -6493,6 +6594,10 @@ func (ec *executionContext) fieldContext_Mutation_activateProject(ctx context.Co
 				return ec.fieldContext_Project_settings(ctx, field)
 			case "isActive":
 				return ec.fieldContext_Project_isActive(ctx, field)
+			case "team":
+				return ec.fieldContext_Project_team(ctx, field)
+			case "canManage":
+				return ec.fieldContext_Project_canManage(ctx, field)
 			case "stats":
 				return ec.fieldContext_Project_stats(ctx, field)
 			case "createdAt":
@@ -6572,6 +6677,10 @@ func (ec *executionContext) fieldContext_Mutation_deactivateProject(ctx context.
 				return ec.fieldContext_Project_settings(ctx, field)
 			case "isActive":
 				return ec.fieldContext_Project_isActive(ctx, field)
+			case "team":
+				return ec.fieldContext_Project_team(ctx, field)
+			case "canManage":
+				return ec.fieldContext_Project_canManage(ctx, field)
 			case "stats":
 				return ec.fieldContext_Project_stats(ctx, field)
 			case "createdAt":
@@ -7474,6 +7583,91 @@ func (ec *executionContext) fieldContext_Project_isActive(_ context.Context, fie
 	return fc, nil
 }
 
+func (ec *executionContext) _Project_team(ctx context.Context, field graphql.CollectedField, obj *model.Project) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Project_team(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Team, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		return graphql.Null
+	}
+	res := resTmp.(*string)
+	fc.Result = res
+	return ec.marshalOString2ᚖstring(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Project_team(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Project",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Project_canManage(ctx context.Context, field graphql.CollectedField, obj *model.Project) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Project_canManage(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Project().CanManage(rctx, obj)
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(bool)
+	fc.Result = res
+	return ec.marshalNBoolean2bool(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Project_canManage(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Project",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Boolean does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Project_stats(ctx context.Context, field graphql.CollectedField, obj *model.Project) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_Project_stats(ctx, field)
 	if err != nil {
@@ -7488,7 +7682,7 @@ func (ec *executionContext) _Project_stats(ctx context.Context, field graphql.Co
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
 		ctx = rctx // use context from middleware stack in children
-		return obj.Stats, nil
+		return ec.resolvers.Project().Stats(rctx, obj)
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -7506,8 +7700,8 @@ func (ec *executionContext) fieldContext_Project_stats(_ context.Context, field 
 	fc = &graphql.FieldContext{
 		Object:     "Project",
 		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
+		IsMethod:   true,
+		IsResolver: true,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			switch field.Name {
 			case "totalTestRuns":
@@ -7820,6 +8014,10 @@ func (ec *executionContext) fieldContext_ProjectEdge_node(_ context.Context, fie
 				return ec.fieldContext_Project_settings(ctx, field)
 			case "isActive":
 				return ec.fieldContext_Project_isActive(ctx, field)
+			case "team":
+				return ec.fieldContext_Project_team(ctx, field)
+			case "canManage":
+				return ec.fieldContext_Project_canManage(ctx, field)
 			case "stats":
 				return ec.fieldContext_Project_stats(ctx, field)
 			case "createdAt":
@@ -8193,6 +8391,10 @@ func (ec *executionContext) fieldContext_ProjectTreemapNode_project(_ context.Co
 				return ec.fieldContext_Project_settings(ctx, field)
 			case "isActive":
 				return ec.fieldContext_Project_isActive(ctx, field)
+			case "team":
+				return ec.fieldContext_Project_team(ctx, field)
+			case "canManage":
+				return ec.fieldContext_Project_canManage(ctx, field)
 			case "stats":
 				return ec.fieldContext_Project_stats(ctx, field)
 			case "createdAt":
@@ -8538,12 +8740,62 @@ func (ec *executionContext) fieldContext_Query_currentUser(_ context.Context, fi
 				return ec.fieldContext_User_role(ctx, field)
 			case "profileUrl":
 				return ec.fieldContext_User_profileUrl(ctx, field)
+			case "groups":
+				return ec.fieldContext_User_groups(ctx, field)
 			case "createdAt":
 				return ec.fieldContext_User_createdAt(ctx, field)
 			case "lastLoginAt":
 				return ec.fieldContext_User_lastLoginAt(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type User", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_systemConfig(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Query_systemConfig(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Query().SystemConfig(rctx)
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(*model.SystemConfig)
+	fc.Result = res
+	return ec.marshalNSystemConfig2ᚖgithubᚗcomᚋguidewireᚑossᚋfernᚑplatformᚋinternalᚋreporterᚋgraphqlᚋmodelᚐSystemConfig(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Query_systemConfig(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "roleGroups":
+				return ec.fieldContext_SystemConfig_roleGroups(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type SystemConfig", field.Name)
 		},
 	}
 	return fc, nil
@@ -9189,6 +9441,10 @@ func (ec *executionContext) fieldContext_Query_project(ctx context.Context, fiel
 				return ec.fieldContext_Project_settings(ctx, field)
 			case "isActive":
 				return ec.fieldContext_Project_isActive(ctx, field)
+			case "team":
+				return ec.fieldContext_Project_team(ctx, field)
+			case "canManage":
+				return ec.fieldContext_Project_canManage(ctx, field)
 			case "stats":
 				return ec.fieldContext_Project_stats(ctx, field)
 			case "createdAt":
@@ -9265,6 +9521,10 @@ func (ec *executionContext) fieldContext_Query_projectByProjectId(ctx context.Co
 				return ec.fieldContext_Project_settings(ctx, field)
 			case "isActive":
 				return ec.fieldContext_Project_isActive(ctx, field)
+			case "team":
+				return ec.fieldContext_Project_team(ctx, field)
+			case "canManage":
+				return ec.fieldContext_Project_canManage(ctx, field)
 			case "stats":
 				return ec.fieldContext_Project_stats(ctx, field)
 			case "createdAt":
@@ -10095,6 +10355,138 @@ func (ec *executionContext) fieldContext_Query___schema(_ context.Context, field
 				return ec.fieldContext___Schema_directives(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type __Schema", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _RoleGroupConfig_adminGroup(ctx context.Context, field graphql.CollectedField, obj *model.RoleGroupConfig) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_RoleGroupConfig_adminGroup(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.AdminGroup, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNString2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_RoleGroupConfig_adminGroup(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "RoleGroupConfig",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _RoleGroupConfig_managerGroup(ctx context.Context, field graphql.CollectedField, obj *model.RoleGroupConfig) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_RoleGroupConfig_managerGroup(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.ManagerGroup, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNString2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_RoleGroupConfig_managerGroup(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "RoleGroupConfig",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _RoleGroupConfig_userGroup(ctx context.Context, field graphql.CollectedField, obj *model.RoleGroupConfig) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_RoleGroupConfig_userGroup(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.UserGroup, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNString2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_RoleGroupConfig_userGroup(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "RoleGroupConfig",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
 		},
 	}
 	return fc, nil
@@ -12453,6 +12845,58 @@ func (ec *executionContext) fieldContext_SuiteTreemapNode_passRate(_ context.Con
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type Float does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _SystemConfig_roleGroups(ctx context.Context, field graphql.CollectedField, obj *model.SystemConfig) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_SystemConfig_roleGroups(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.RoleGroups, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(*model.RoleGroupConfig)
+	fc.Result = res
+	return ec.marshalNRoleGroupConfig2ᚖgithubᚗcomᚋguidewireᚑossᚋfernᚑplatformᚋinternalᚋreporterᚋgraphqlᚋmodelᚐRoleGroupConfig(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_SystemConfig_roleGroups(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "SystemConfig",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "adminGroup":
+				return ec.fieldContext_RoleGroupConfig_adminGroup(ctx, field)
+			case "managerGroup":
+				return ec.fieldContext_RoleGroupConfig_managerGroup(ctx, field)
+			case "userGroup":
+				return ec.fieldContext_RoleGroupConfig_userGroup(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type RoleGroupConfig", field.Name)
 		},
 	}
 	return fc, nil
@@ -15083,6 +15527,50 @@ func (ec *executionContext) fieldContext_User_profileUrl(_ context.Context, fiel
 	return fc, nil
 }
 
+func (ec *executionContext) _User_groups(ctx context.Context, field graphql.CollectedField, obj *model.User) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_User_groups(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Groups, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.([]string)
+	fc.Result = res
+	return ec.marshalNString2ᚕstringᚄ(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_User_groups(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "User",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _User_createdAt(ctx context.Context, field graphql.CollectedField, obj *model.User) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_User_createdAt(ctx, field)
 	if err != nil {
@@ -17126,7 +17614,7 @@ func (ec *executionContext) unmarshalInputCreateProjectInput(ctx context.Context
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"projectId", "name", "description", "repository", "defaultBranch", "settings"}
+	fieldsInOrder := [...]string{"projectId", "name", "description", "repository", "defaultBranch", "settings", "team"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -17175,6 +17663,13 @@ func (ec *executionContext) unmarshalInputCreateProjectInput(ctx context.Context
 				return it, err
 			}
 			it.Settings = data
+		case "team":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("team"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Team = data
 		}
 	}
 
@@ -17483,7 +17978,7 @@ func (ec *executionContext) unmarshalInputUpdateProjectInput(ctx context.Context
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"name", "description", "repository", "defaultBranch", "settings"}
+	fieldsInOrder := [...]string{"name", "description", "repository", "defaultBranch", "settings", "team"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -17525,6 +18020,13 @@ func (ec *executionContext) unmarshalInputUpdateProjectInput(ctx context.Context
 				return it, err
 			}
 			it.Settings = data
+		case "team":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("team"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Team = data
 		}
 	}
 
@@ -18149,17 +18651,17 @@ func (ec *executionContext) _Project(ctx context.Context, sel ast.SelectionSet, 
 		case "id":
 			out.Values[i] = ec._Project_id(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "projectId":
 			out.Values[i] = ec._Project_projectId(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "name":
 			out.Values[i] = ec._Project_name(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "description":
 			out.Values[i] = ec._Project_description(ctx, field, obj)
@@ -18168,26 +18670,95 @@ func (ec *executionContext) _Project(ctx context.Context, sel ast.SelectionSet, 
 		case "defaultBranch":
 			out.Values[i] = ec._Project_defaultBranch(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "settings":
 			out.Values[i] = ec._Project_settings(ctx, field, obj)
 		case "isActive":
 			out.Values[i] = ec._Project_isActive(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
+		case "team":
+			out.Values[i] = ec._Project_team(ctx, field, obj)
+		case "canManage":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Project_canManage(ctx, field, obj)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			if field.Deferrable != nil {
+				dfs, ok := deferred[field.Deferrable.Label]
+				di := 0
+				if ok {
+					dfs.AddField(field)
+					di = len(dfs.Values) - 1
+				} else {
+					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
+					deferred[field.Deferrable.Label] = dfs
+				}
+				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, dfs)
+				})
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
 		case "stats":
-			out.Values[i] = ec._Project_stats(ctx, field, obj)
+			field := field
+
+			innerFunc := func(ctx context.Context, _ *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Project_stats(ctx, field, obj)
+				return res
+			}
+
+			if field.Deferrable != nil {
+				dfs, ok := deferred[field.Deferrable.Label]
+				di := 0
+				if ok {
+					dfs.AddField(field)
+					di = len(dfs.Values) - 1
+				} else {
+					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
+					deferred[field.Deferrable.Label] = dfs
+				}
+				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, dfs)
+				})
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
 		case "createdAt":
 			out.Values[i] = ec._Project_createdAt(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "updatedAt":
 			out.Values[i] = ec._Project_updatedAt(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
@@ -18464,6 +19035,28 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 					}
 				}()
 				res = ec._Query_currentUser(ctx, field)
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "systemConfig":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_systemConfig(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
 				return res
 			}
 
@@ -18923,6 +19516,55 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 	return out
 }
 
+var roleGroupConfigImplementors = []string{"RoleGroupConfig"}
+
+func (ec *executionContext) _RoleGroupConfig(ctx context.Context, sel ast.SelectionSet, obj *model.RoleGroupConfig) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, roleGroupConfigImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("RoleGroupConfig")
+		case "adminGroup":
+			out.Values[i] = ec._RoleGroupConfig_adminGroup(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "managerGroup":
+			out.Values[i] = ec._RoleGroupConfig_managerGroup(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "userGroup":
+			out.Values[i] = ec._RoleGroupConfig_userGroup(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
 var severityCountImplementors = []string{"SeverityCount"}
 
 func (ec *executionContext) _SeverityCount(ctx context.Context, sel ast.SelectionSet, obj *model.SeverityCount) graphql.Marshaler {
@@ -19356,6 +19998,45 @@ func (ec *executionContext) _SuiteTreemapNode(ctx context.Context, sel ast.Selec
 			}
 		case "passRate":
 			out.Values[i] = ec._SuiteTreemapNode_passRate(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var systemConfigImplementors = []string{"SystemConfig"}
+
+func (ec *executionContext) _SystemConfig(ctx context.Context, sel ast.SelectionSet, obj *model.SystemConfig) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, systemConfigImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("SystemConfig")
+		case "roleGroups":
+			out.Values[i] = ec._SystemConfig_roleGroups(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -20007,6 +20688,11 @@ func (ec *executionContext) _User(ctx context.Context, sel ast.SelectionSet, obj
 			}
 		case "profileUrl":
 			out.Values[i] = ec._User_profileUrl(ctx, field, obj)
+		case "groups":
+			out.Values[i] = ec._User_groups(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		case "createdAt":
 			out.Values[i] = ec._User_createdAt(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -20811,6 +21497,16 @@ func (ec *executionContext) marshalNProjectTreemapNode2ᚖgithubᚗcomᚋguidewi
 	return ec._ProjectTreemapNode(ctx, sel, v)
 }
 
+func (ec *executionContext) marshalNRoleGroupConfig2ᚖgithubᚗcomᚋguidewireᚑossᚋfernᚑplatformᚋinternalᚋreporterᚋgraphqlᚋmodelᚐRoleGroupConfig(ctx context.Context, sel ast.SelectionSet, v *model.RoleGroupConfig) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._RoleGroupConfig(ctx, sel, v)
+}
+
 func (ec *executionContext) marshalNSeverityCount2ᚕᚖgithubᚗcomᚋguidewireᚑossᚋfernᚑplatformᚋinternalᚋreporterᚋgraphqlᚋmodelᚐSeverityCountᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.SeverityCount) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
@@ -21041,6 +21737,36 @@ func (ec *executionContext) marshalNString2string(ctx context.Context, sel ast.S
 	return res
 }
 
+func (ec *executionContext) unmarshalNString2ᚕstringᚄ(ctx context.Context, v any) ([]string, error) {
+	var vSlice []any
+	vSlice = graphql.CoerceList(v)
+	var err error
+	res := make([]string, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalNString2string(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) marshalNString2ᚕstringᚄ(ctx context.Context, sel ast.SelectionSet, v []string) graphql.Marshaler {
+	ret := make(graphql.Array, len(v))
+	for i := range v {
+		ret[i] = ec.marshalNString2string(ctx, sel, v[i])
+	}
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
 func (ec *executionContext) marshalNSuiteRun2ᚕᚖgithubᚗcomᚋguidewireᚑossᚋfernᚑplatformᚋinternalᚋreporterᚋgraphqlᚋmodelᚐSuiteRunᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.SuiteRun) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
@@ -21147,6 +21873,20 @@ func (ec *executionContext) marshalNSuiteTreemapNode2ᚖgithubᚗcomᚋguidewire
 		return graphql.Null
 	}
 	return ec._SuiteTreemapNode(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNSystemConfig2githubᚗcomᚋguidewireᚑossᚋfernᚑplatformᚋinternalᚋreporterᚋgraphqlᚋmodelᚐSystemConfig(ctx context.Context, sel ast.SelectionSet, v model.SystemConfig) graphql.Marshaler {
+	return ec._SystemConfig(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNSystemConfig2ᚖgithubᚗcomᚋguidewireᚑossᚋfernᚑplatformᚋinternalᚋreporterᚋgraphqlᚋmodelᚐSystemConfig(ctx context.Context, sel ast.SelectionSet, v *model.SystemConfig) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._SystemConfig(ctx, sel, v)
 }
 
 func (ec *executionContext) marshalNTag2githubᚗcomᚋguidewireᚑossᚋfernᚑplatformᚋinternalᚋreporterᚋgraphqlᚋmodelᚐTag(ctx context.Context, sel ast.SelectionSet, v model.Tag) graphql.Marshaler {

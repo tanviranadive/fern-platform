@@ -8,7 +8,7 @@
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://d3js.org/d3.v7.min.js"></script>
-    <script src="/web/js/graphql-client.js"></script>
+    <script src="/web/js/graphql-client.js?v=2"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     
@@ -1832,6 +1832,7 @@
         // Authentication state management
         function useAuth() {
             const [user, setUser] = useState(null);
+            const [systemConfig, setSystemConfig] = useState(null);
             const [loading, setLoading] = useState(true);
             
             useEffect(() => {
@@ -1840,9 +1841,38 @@
             
             const checkAuth = async () => {
                 try {
-                    const data = await graphqlClient.query(GRAPHQL_QUERIES.GET_CURRENT_USER);
+                    // Fetch both user and system config
+                    const query = `
+                        query GetAuthData {
+                            currentUser {
+                                id
+                                userId
+                                email
+                                name
+                                firstName
+                                lastName
+                                role
+                                profileUrl
+                                groups
+                                createdAt
+                                lastLoginAt
+                            }
+                            systemConfig {
+                                roleGroups {
+                                    adminGroup
+                                    managerGroup
+                                    userGroup
+                                }
+                            }
+                        }
+                    `;
+                    
+                    const data = await graphqlClient.query({ query });
                     if (data && data.currentUser) {
                         setUser(data.currentUser);
+                    }
+                    if (data && data.systemConfig) {
+                        setSystemConfig(data.systemConfig);
                     }
                 } catch (error) {
                     console.log('Not authenticated:', error);
@@ -1884,7 +1914,39 @@
                 }
             };
             
-            return { user, loading, login, logout, isAdmin: user?.role === 'admin' };
+            // Check if user is a manager (has the manager role group)
+            const roleGroups = systemConfig?.roleGroups || {
+                adminGroup: 'admin',
+                managerGroup: 'manager',
+                userGroup: 'user'
+            };
+            
+            const isManager = user?.groups?.some(group => 
+                group === roleGroups.managerGroup || group === roleGroups.adminGroup
+            ) || user?.role === 'admin';
+            
+            const isAdmin = user?.groups?.some(group => 
+                group === roleGroups.adminGroup
+            ) || user?.role === 'admin';
+            
+            // Get user's teams (excluding role groups)
+            const userTeams = user?.groups?.filter(group => {
+                // Exclude role groups
+                return group !== roleGroups.adminGroup && 
+                       group !== roleGroups.managerGroup && 
+                       group !== roleGroups.userGroup;
+            }) || [];
+            
+            return { 
+                user, 
+                systemConfig,
+                loading, 
+                login, 
+                logout, 
+                isAdmin,
+                isManager,
+                userTeams
+            };
         }
 
         // User menu component
@@ -2220,7 +2282,7 @@
 
         // Modern Navigation component
         function Navigation({ route, navigate }) {
-            const { user, isAdmin } = useAuth();
+            const { user, isAdmin, isManager } = useAuth();
             
             const navItems = [
                 { path: '/', label: 'Dashboard', icon: 'fas fa-chart-line', fallback: '📊' },
@@ -2229,14 +2291,19 @@
                 { path: '/manager-dashboard', label: 'Manager Dashboard', icon: 'fas fa-tachometer-alt', fallback: '🎛️' }
             ];
 
+            // Add project navigation for all authenticated users (except admins who have their own menu)
+            const projectItems = user && !isAdmin ? [
+                { path: '/projects', label: 'Projects', icon: 'fas fa-folder-open', fallback: '📁' }
+            ] : [];
+
             // Add admin navigation items if user is admin
             const adminItems = [
                 { path: '/admin/users', label: 'User Management', icon: 'fas fa-users', fallback: '👥', adminOnly: true },
-                { path: '/admin/projects', label: 'Project Management', icon: 'fas fa-folder-open', fallback: '📁', adminOnly: true },
+                { path: '/admin/projects', label: 'All Projects', icon: 'fas fa-folder-open', fallback: '📁', adminOnly: true },
                 { path: '/admin/system', label: 'System Settings', icon: 'fas fa-cogs', fallback: '⚙️', adminOnly: true }
             ];
 
-            const allItems = isAdmin ? [...navItems, ...adminItems] : navItems;
+            const allItems = [...navItems, ...projectItems, ...(isAdmin ? adminItems : [])];
 
             return (
                 <div className="navigation">
@@ -2245,8 +2312,8 @@
                             <button 
                                 key={item.path}
                                 onClick={() => navigate(item.path)}
-                                className={`nav-button ${route === item.path ? 'active' : ''} ${item.adminOnly ? 'admin-nav-item' : ''}`}
-                                style={item.adminOnly ? {
+                                className={`nav-button ${route === item.path ? 'active' : ''} ${item.adminOnly ? 'admin-nav-item' : ''} ${item.managerOnly ? 'manager-nav-item' : ''}`}
+                                style={(item.adminOnly || item.managerOnly) ? {
                                     borderLeft: '3px solid var(--primary)',
                                     background: 'linear-gradient(90deg, rgba(16, 185, 129, 0.05) 0%, transparent 100%)'
                                 } : {}}
@@ -4495,6 +4562,608 @@
             );
         }
 
+        // Project Management Component for Managers
+        function ProjectManagement() {
+            const { user, userTeams, isAdmin } = useAuth();
+            const [projects, setProjects] = useState([]);
+            const [loading, setLoading] = useState(true);
+            const [error, setError] = useState(null);
+            const [showCreateModal, setShowCreateModal] = useState(false);
+            const [editingProject, setEditingProject] = useState(null);
+
+            useEffect(() => {
+                fetchProjects();
+            }, []);
+
+            const fetchProjects = async () => {
+                try {
+                    setLoading(true);
+                    const data = await graphqlClient.query(GRAPHQL_QUERIES.GET_DASHBOARD_DATA);
+                    const projectList = data.projects.edges.map(edge => edge.node);
+                    setProjects(projectList);
+                    setLoading(false);
+                } catch (err) {
+                    console.error('Error fetching projects:', err);
+                    setError(err.message);
+                    setLoading(false);
+                }
+            };
+
+            const handleCreateProject = async (projectData) => {
+                try {
+                    await graphqlClient.mutation(GRAPHQL_QUERIES.CREATE_PROJECT, {
+                        input: {
+                            projectId: '', // Empty string - will be auto-generated
+                            ...projectData
+                        }
+                    });
+                    setShowCreateModal(false);
+                    fetchProjects();
+                } catch (err) {
+                    console.error('Error creating project:', err);
+                    alert('Failed to create project: ' + err.message);
+                }
+            };
+
+            const handleUpdateProject = async (projectId, projectData) => {
+                try {
+                    await graphqlClient.mutation(GRAPHQL_QUERIES.UPDATE_PROJECT, {
+                        id: projectId,
+                        input: projectData
+                    });
+                    setEditingProject(null);
+                    fetchProjects();
+                } catch (err) {
+                    console.error('Error updating project:', err);
+                    alert('Failed to update project: ' + err.message);
+                }
+            };
+
+            const handleDeleteProject = async (projectId) => {
+                if (!confirm('Are you sure you want to delete this project?')) {
+                    return;
+                }
+                
+                try {
+                    await graphqlClient.mutation(GRAPHQL_QUERIES.DELETE_PROJECT, {
+                        id: projectId
+                    });
+                    fetchProjects();
+                } catch (err) {
+                    console.error('Error deleting project:', err);
+                    alert('Failed to delete project: ' + err.message);
+                }
+            };
+
+            if (loading) {
+                return (
+                    <div className="container">
+                        <div className="loading fade-in">
+                            <i className="fas fa-spinner"></i>
+                            <div style={{fontSize: '1.125rem', fontWeight: '500', marginTop: '1rem'}}>Loading projects...</div>
+                        </div>
+                    </div>
+                );
+            }
+
+            if (error) {
+                return (
+                    <div className="container">
+                        <div className="error-state">
+                            <i className="fas fa-exclamation-triangle"></i>
+                            <h3>Error loading projects</h3>
+                            <p>{error}</p>
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="container fade-in">
+                    <div style={{marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+                        <h2 style={{color: 'var(--text-primary)', fontSize: '2rem', fontWeight: '700', letterSpacing: '-0.025em'}}>
+                            <span style={{marginRight: '0.75rem', color: 'var(--primary)'}}>📁</span>
+                            Project Management
+                        </h2>
+                        <button 
+                            onClick={() => setShowCreateModal(true)}
+                            style={{
+                                background: 'var(--primary)',
+                                color: 'white',
+                                border: 'none',
+                                padding: '0.75rem 1.5rem',
+                                borderRadius: 'var(--radius-lg)',
+                                cursor: 'pointer',
+                                fontWeight: '600',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.5rem',
+                                transition: 'all 0.2s ease',
+                                boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                            }}
+                            onMouseEnter={(e) => {
+                                e.target.style.background = 'var(--primary-dark)';
+                                e.target.style.transform = 'translateY(-1px)';
+                                e.target.style.boxShadow = '0 4px 8px rgba(0,0,0,0.15)';
+                            }}
+                            onMouseLeave={(e) => {
+                                e.target.style.background = 'var(--primary)';
+                                e.target.style.transform = 'translateY(0)';
+                                e.target.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+                            }}
+                        >
+                            <span>➕</span>
+                            New Project
+                        </button>
+                    </div>
+
+                    <div style={{
+                        background: 'var(--bg-elevated)',
+                        borderRadius: 'var(--radius-xl)',
+                        border: '1px solid var(--border-light)',
+                        overflow: 'hidden',
+                        boxShadow: '0 4px 6px rgba(0, 0, 0, 0.07)'
+                    }}>
+                        <table style={{
+                            width: '100%',
+                            borderCollapse: 'collapse',
+                            fontSize: '0.875rem'
+                        }}>
+                            <thead>
+                                <tr style={{
+                                    background: 'var(--bg-secondary)',
+                                    borderBottom: '2px solid var(--border-medium)'
+                                }}>
+                                    <th style={{
+                                        padding: '1rem',
+                                        textAlign: 'left',
+                                        fontWeight: '600',
+                                        color: 'var(--text-secondary)',
+                                        fontSize: '0.8125rem',
+                                        textTransform: 'uppercase',
+                                        letterSpacing: '0.05em'
+                                    }}>Project ID</th>
+                                    <th style={{
+                                        padding: '1rem',
+                                        textAlign: 'left',
+                                        fontWeight: '600',
+                                        color: 'var(--text-secondary)',
+                                        fontSize: '0.8125rem',
+                                        textTransform: 'uppercase',
+                                        letterSpacing: '0.05em'
+                                    }}>Name</th>
+                                    <th style={{
+                                        padding: '1rem',
+                                        textAlign: 'left',
+                                        fontWeight: '600',
+                                        color: 'var(--text-secondary)',
+                                        fontSize: '0.8125rem',
+                                        textTransform: 'uppercase',
+                                        letterSpacing: '0.05em'
+                                    }}>Description</th>
+                                    <th style={{
+                                        padding: '1rem',
+                                        textAlign: 'left',
+                                        fontWeight: '600',
+                                        color: 'var(--text-secondary)',
+                                        fontSize: '0.8125rem',
+                                        textTransform: 'uppercase',
+                                        letterSpacing: '0.05em'
+                                    }}>Team</th>
+                                    <th style={{
+                                        padding: '1rem',
+                                        textAlign: 'center',
+                                        fontWeight: '600',
+                                        color: 'var(--text-secondary)',
+                                        fontSize: '0.8125rem',
+                                        textTransform: 'uppercase',
+                                        letterSpacing: '0.05em'
+                                    }}>Status</th>
+                                    <th style={{
+                                        padding: '1rem',
+                                        textAlign: 'center',
+                                        fontWeight: '600',
+                                        color: 'var(--text-secondary)',
+                                        fontSize: '0.8125rem',
+                                        textTransform: 'uppercase',
+                                        letterSpacing: '0.05em'
+                                    }}>Stats</th>
+                                    <th style={{
+                                        padding: '1rem',
+                                        textAlign: 'center',
+                                        fontWeight: '600',
+                                        color: 'var(--text-secondary)',
+                                        fontSize: '0.8125rem',
+                                        textTransform: 'uppercase',
+                                        letterSpacing: '0.05em'
+                                    }}>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {projects.length === 0 ? (
+                                    <tr>
+                                        <td colSpan="7" style={{
+                                            padding: '3rem',
+                                            textAlign: 'center',
+                                            color: 'var(--text-secondary)'
+                                        }}>
+                                            <div style={{fontSize: '2rem', marginBottom: '0.5rem'}}>📭</div>
+                                            <div>No projects found. Create your first project to get started!</div>
+                                        </td>
+                                    </tr>
+                                ) : (
+                                    projects.map((project, index) => (
+                                        <tr key={project.id} style={{
+                                            borderBottom: index === projects.length - 1 ? 'none' : '1px solid var(--border-light)',
+                                            transition: 'background-color 0.2s ease'
+                                        }}
+                                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-tertiary)'}
+                                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                                        >
+                                            <td style={{
+                                                padding: '1rem',
+                                                fontFamily: 'monospace',
+                                                fontSize: '0.8125rem',
+                                                color: 'var(--text-primary)'
+                                            }}>
+                                                <div style={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '0.5rem'
+                                                }}>
+                                                    <span style={{color: 'var(--primary)'}}>🔑</span>
+                                                    {project.projectId || 'N/A'}
+                                                </div>
+                                            </td>
+                                            <td style={{
+                                                padding: '1rem',
+                                                fontWeight: '600',
+                                                color: 'var(--text-primary)'
+                                            }}>
+                                                {project.name}
+                                            </td>
+                                            <td style={{
+                                                padding: '1rem',
+                                                color: 'var(--text-secondary)',
+                                                maxWidth: '300px',
+                                                overflow: 'hidden',
+                                                textOverflow: 'ellipsis',
+                                                whiteSpace: 'nowrap'
+                                            }}>
+                                                {project.description || <span style={{fontStyle: 'italic', color: 'var(--text-tertiary)'}}>No description</span>}
+                                            </td>
+                                            <td style={{
+                                                padding: '1rem',
+                                                color: 'var(--text-primary)'
+                                            }}>
+                                                <span style={{
+                                                    background: 'var(--bg-secondary)',
+                                                    padding: '0.25rem 0.75rem',
+                                                    borderRadius: 'var(--radius-md)',
+                                                    fontSize: '0.8125rem',
+                                                    border: '1px solid var(--border-light)',
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    gap: '0.25rem'
+                                                }}>
+                                                    <span>👥</span>
+                                                    {project.team || 'Unassigned'}
+                                                </span>
+                                            </td>
+                                            <td style={{padding: '1rem', textAlign: 'center'}}>
+                                                <span className={`status ${project.isActive ? 'healthy' : 'warning'}`} style={{
+                                                    padding: '0.375rem 0.75rem',
+                                                    borderRadius: 'var(--radius-md)',
+                                                    fontSize: '0.75rem',
+                                                    fontWeight: '600',
+                                                    textTransform: 'uppercase',
+                                                    letterSpacing: '0.025em'
+                                                }}>
+                                                    {project.isActive ? '✅ Active' : '⚠️ Inactive'}
+                                                </span>
+                                            </td>
+                                            <td style={{padding: '1rem', textAlign: 'center'}}>
+                                                {project.stats ? (
+                                                    <div style={{
+                                                        display: 'flex',
+                                                        gap: '1rem',
+                                                        justifyContent: 'center',
+                                                        alignItems: 'center',
+                                                        fontSize: '0.75rem'
+                                                    }}>
+                                                        <div title="Test Runs">
+                                                            <span style={{color: 'var(--text-tertiary)'}}>🏃</span>
+                                                            <span style={{marginLeft: '0.25rem', fontWeight: '600'}}>{project.stats.totalTestRuns}</span>
+                                                        </div>
+                                                        <div title="Success Rate">
+                                                            <span style={{color: 'var(--success)'}}>✓</span>
+                                                            <span style={{marginLeft: '0.25rem', fontWeight: '600', color: 'var(--success)'}}>{project.stats.successRate?.toFixed(1)}%</span>
+                                                        </div>
+                                                        <div title="Avg Duration">
+                                                            <span style={{color: 'var(--text-tertiary)'}}>⏱️</span>
+                                                            <span style={{marginLeft: '0.25rem', fontWeight: '600'}}>{(project.stats.averageDuration / 1000).toFixed(1)}s</span>
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <span style={{color: 'var(--text-tertiary)', fontSize: '0.75rem'}}>No data</span>
+                                                )}
+                                            </td>
+                                            <td style={{padding: '1rem', textAlign: 'center'}}>
+                                                {project.canManage ? (
+                                                    <div style={{display: 'flex', gap: '0.5rem', justifyContent: 'center'}}>
+                                                        <button
+                                                            onClick={() => setEditingProject(project)}
+                                                            title="Edit Project"
+                                                            style={{
+                                                                background: 'var(--bg-secondary)',
+                                                                border: '1px solid var(--border-light)',
+                                                                borderRadius: 'var(--radius-md)',
+                                                                padding: '0.5rem 0.75rem',
+                                                                cursor: 'pointer',
+                                                                color: 'var(--text-secondary)',
+                                                                transition: 'all 0.2s ease',
+                                                                fontSize: '0.875rem'
+                                                            }}
+                                                            onMouseEnter={(e) => {
+                                                                e.target.style.background = 'var(--primary)';
+                                                                e.target.style.color = 'white';
+                                                                e.target.style.borderColor = 'var(--primary)';
+                                                            }}
+                                                            onMouseLeave={(e) => {
+                                                                e.target.style.background = 'var(--bg-secondary)';
+                                                                e.target.style.color = 'var(--text-secondary)';
+                                                                e.target.style.borderColor = 'var(--border-light)';
+                                                            }}
+                                                        >
+                                                            ✏️
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleDeleteProject(project.id)}
+                                                            title="Delete Project"
+                                                            style={{
+                                                                background: 'var(--bg-secondary)',
+                                                                border: '1px solid var(--border-light)',
+                                                                borderRadius: 'var(--radius-md)',
+                                                                padding: '0.5rem 0.75rem',
+                                                                cursor: 'pointer',
+                                                                color: 'var(--text-secondary)',
+                                                                transition: 'all 0.2s ease',
+                                                                fontSize: '0.875rem'
+                                                            }}
+                                                            onMouseEnter={(e) => {
+                                                                e.target.style.background = 'var(--error)';
+                                                                e.target.style.color = 'white';
+                                                                e.target.style.borderColor = 'var(--error)';
+                                                            }}
+                                                            onMouseLeave={(e) => {
+                                                                e.target.style.background = 'var(--bg-secondary)';
+                                                                e.target.style.color = 'var(--text-secondary)';
+                                                                e.target.style.borderColor = 'var(--border-light)';
+                                                            }}
+                                                        >
+                                                            🗑️
+                                                        </button>
+                                                    </div>
+                                                ) : (
+                                                    <span style={{color: 'var(--text-tertiary)', fontSize: '0.75rem'}}>View only</span>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    ))
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {/* Create/Edit Project Modal */}
+                    {(showCreateModal || editingProject) && (
+                        <ProjectModal
+                            project={editingProject}
+                            teams={userTeams}
+                            isAdmin={isAdmin}
+                            onSubmit={editingProject ? 
+                                (data) => handleUpdateProject(editingProject.id, data) : 
+                                handleCreateProject
+                            }
+                            onClose={() => {
+                                setShowCreateModal(false);
+                                setEditingProject(null);
+                            }}
+                        />
+                    )}
+                </div>
+            );
+        }
+
+        // Project Modal Component
+        function ProjectModal({ project, teams, isAdmin, onSubmit, onClose }) {
+            const [formData, setFormData] = useState({
+                name: project?.name || '',
+                description: project?.description || '',
+                team: project?.team || (teams.length > 0 ? teams[0] : ''),
+                repository: project?.repository || '',
+                defaultBranch: project?.defaultBranch || 'main'
+            });
+
+            const handleSubmit = (e) => {
+                e.preventDefault();
+                if (!formData.name.trim()) {
+                    alert('Project name is required');
+                    return;
+                }
+                onSubmit(formData);
+            };
+
+            return (
+                <div style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    background: 'rgba(0, 0, 0, 0.5)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 1000
+                }}>
+                    <div style={{
+                        background: 'var(--bg-primary)',
+                        borderRadius: 'var(--radius-xl)',
+                        padding: '2rem',
+                        maxWidth: '500px',
+                        width: '90%',
+                        maxHeight: '90vh',
+                        overflow: 'auto',
+                        boxShadow: 'var(--shadow-xl)'
+                    }}>
+                        <h3 style={{marginBottom: '1.5rem'}}>
+                            {project ? 'Edit Project' : 'Create New Project'}
+                        </h3>
+                        
+                        <form onSubmit={handleSubmit}>
+                            <div style={{marginBottom: '1rem'}}>
+                                <label style={{display: 'block', marginBottom: '0.5rem', fontWeight: '500'}}>
+                                    Project Name *
+                                </label>
+                                <input
+                                    type="text"
+                                    value={formData.name}
+                                    onChange={(e) => setFormData({...formData, name: e.target.value})}
+                                    placeholder="My Project"
+                                    required
+                                    style={{
+                                        width: '100%',
+                                        padding: '0.75rem',
+                                        border: '1px solid var(--border-color)',
+                                        borderRadius: 'var(--radius-md)',
+                                        background: 'var(--bg-secondary)',
+                                        color: 'var(--text-primary)'
+                                    }}
+                                />
+                            </div>
+                            
+                            <div style={{marginBottom: '1rem'}}>
+                                <label style={{display: 'block', marginBottom: '0.5rem', fontWeight: '500'}}>
+                                    Description
+                                </label>
+                                <textarea
+                                    value={formData.description}
+                                    onChange={(e) => setFormData({...formData, description: e.target.value})}
+                                    placeholder="Project description..."
+                                    rows={3}
+                                    style={{
+                                        width: '100%',
+                                        padding: '0.75rem',
+                                        border: '1px solid var(--border-color)',
+                                        borderRadius: 'var(--radius-md)',
+                                        background: 'var(--bg-secondary)',
+                                        color: 'var(--text-primary)',
+                                        resize: 'vertical'
+                                    }}
+                                />
+                            </div>
+                            
+                            <div style={{marginBottom: '1rem'}}>
+                                <label style={{display: 'block', marginBottom: '0.5rem', fontWeight: '500'}}>
+                                    Team
+                                </label>
+                                <select
+                                    value={formData.team}
+                                    onChange={(e) => setFormData({...formData, team: e.target.value})}
+                                    style={{
+                                        width: '100%',
+                                        padding: '0.75rem',
+                                        border: '1px solid var(--border-color)',
+                                        borderRadius: 'var(--radius-md)',
+                                        background: 'var(--bg-secondary)',
+                                        color: 'var(--text-primary)'
+                                    }}
+                                >
+                                    {isAdmin && <option value="">No team</option>}
+                                    {teams.map(team => (
+                                        <option key={team} value={team}>{team}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            
+                            <div style={{marginBottom: '1rem'}}>
+                                <label style={{display: 'block', marginBottom: '0.5rem', fontWeight: '500'}}>
+                                    Repository URL
+                                </label>
+                                <input
+                                    type="text"
+                                    value={formData.repository}
+                                    onChange={(e) => setFormData({...formData, repository: e.target.value})}
+                                    placeholder="https://github.com/org/repo"
+                                    style={{
+                                        width: '100%',
+                                        padding: '0.75rem',
+                                        border: '1px solid var(--border-color)',
+                                        borderRadius: 'var(--radius-md)',
+                                        background: 'var(--bg-secondary)',
+                                        color: 'var(--text-primary)'
+                                    }}
+                                />
+                            </div>
+                            
+                            <div style={{marginBottom: '1.5rem'}}>
+                                <label style={{display: 'block', marginBottom: '0.5rem', fontWeight: '500'}}>
+                                    Default Branch
+                                </label>
+                                <input
+                                    type="text"
+                                    value={formData.defaultBranch}
+                                    onChange={(e) => setFormData({...formData, defaultBranch: e.target.value})}
+                                    placeholder="main"
+                                    style={{
+                                        width: '100%',
+                                        padding: '0.75rem',
+                                        border: '1px solid var(--border-color)',
+                                        borderRadius: 'var(--radius-md)',
+                                        background: 'var(--bg-secondary)',
+                                        color: 'var(--text-primary)'
+                                    }}
+                                />
+                            </div>
+                            
+                            <div style={{display: 'flex', gap: '0.75rem', justifyContent: 'flex-end'}}>
+                                <button
+                                    type="button"
+                                    onClick={onClose}
+                                    style={{
+                                        padding: '0.75rem 1.5rem',
+                                        border: '1px solid var(--border-color)',
+                                        borderRadius: 'var(--radius-md)',
+                                        background: 'transparent',
+                                        color: 'var(--text-primary)',
+                                        cursor: 'pointer',
+                                        fontWeight: '500'
+                                    }}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    style={{
+                                        padding: '0.75rem 1.5rem',
+                                        border: 'none',
+                                        borderRadius: 'var(--radius-md)',
+                                        background: 'var(--primary)',
+                                        color: 'white',
+                                        cursor: 'pointer',
+                                        fontWeight: '600'
+                                    }}
+                                >
+                                    {project ? 'Update' : 'Create'} Project
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            );
+        }
+
         // Main App component
         function FernPlatform() {
             const { route, navigate } = useRouter();
@@ -4523,7 +5192,7 @@
             };
 
             const renderPage = () => {
-                const { user, isAdmin } = useAuth();
+                const { user, isAdmin, isManager } = useAuth();
                 
                 switch (route) {
                     case '/test-summaries':
@@ -4532,6 +5201,8 @@
                         return <TestRuns />;
                     case '/manager-dashboard':
                         return <ManagerDashboard />;
+                    case '/projects':
+                        return user ? <ProjectManagement /> : <AccessDenied />;
                     
                     // Admin routes - require admin access
                     case '/admin/users':

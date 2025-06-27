@@ -22,12 +22,13 @@ import (
 
 // Handler provides GraphQL HTTP handlers
 type Handler struct {
-	resolver *Resolver
-	server   *handler.Server
+	resolver       *Resolver
+	server         *handler.Server
+	roleGroupNames *RoleGroupNames
 }
 
 // NewHandler creates a new GraphQL handler with performance optimizations
-func NewHandler(resolver *Resolver) *Handler {
+func NewHandler(resolver *Resolver, roleGroupNames *RoleGroupNames) *Handler {
 	// Create GraphQL server with optimizations
 	srv := handler.NewDefaultServer(
 		generated.NewExecutableSchema(
@@ -126,8 +127,9 @@ func NewHandler(resolver *Resolver) *Handler {
 	})
 
 	return &Handler{
-		resolver: resolver,
-		server:   srv,
+		resolver:       resolver,
+		server:         srv,
+		roleGroupNames: roleGroupNames,
 	}
 }
 
@@ -161,6 +163,9 @@ func (h *Handler) graphqlHandler() gin.HandlerFunc {
 		
 		// Add request metadata
 		ctx = context.WithValue(ctx, "request_id", c.GetString("request_id"))
+		
+		// Add role group names to context
+		ctx = context.WithValue(ctx, "roleGroupNames", h.roleGroupNames)
 		
 		// Get user from auth context
 		if user, exists := middleware.GetOAuthUser(c); exists {

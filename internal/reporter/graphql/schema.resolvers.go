@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/guidewire-oss/fern-platform/internal/reporter/graphql/generated"
@@ -39,17 +40,259 @@ func (r *mutationResolver) AssignTagsToTestRun(ctx context.Context, testRunID st
 
 // CreateProject is the resolver for the createProject field.
 func (r *mutationResolver) CreateProject(ctx context.Context, input model.CreateProjectInput) (*model.Project, error) {
-	panic(fmt.Errorf("not implemented: CreateProject - createProject"))
+	// The implementation is in resolver_implementations.go
+	return r.CreateProject_impl(ctx, input)
 }
 
 // UpdateProject is the resolver for the updateProject field.
 func (r *mutationResolver) UpdateProject(ctx context.Context, id string, input model.UpdateProjectInput) (*model.Project, error) {
-	panic(fmt.Errorf("not implemented: UpdateProject - updateProject"))
+	// Check user permissions
+	user, err := getCurrentUser(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Parse ID to uint
+	projectID, err := strconv.ParseUint(id, 10, 32)
+	if err != nil {
+		return nil, fmt.Errorf("invalid project ID: %w", err)
+	}
+
+	// Get the existing project to check permissions
+	existingProject, err := r.projectService.GetProject(uint(projectID))
+	if err != nil {
+		return nil, fmt.Errorf("project not found: %w", err)
+	}
+
+	// Check if user can update this project
+	canUpdate := false
+	if user.Role == string(database.RoleAdmin) {
+		canUpdate = true
+	} else {
+		// Get role group names from context
+		roleGroups := getRoleGroupNamesFromContext(ctx)
+
+		// Check if user has team + manager group combination
+		if existingProject.Team != "" {
+			hasTeamGroup := false
+			hasManagerGroup := false
+
+			for _, group := range user.UserGroups {
+				groupName := strings.TrimPrefix(group.GroupName, "/")
+				if groupName == existingProject.Team {
+					hasTeamGroup = true
+				}
+				if groupName == roleGroups.ManagerGroup {
+					hasManagerGroup = true
+				}
+			}
+
+			// If user is in both team and manager groups, they can update
+			if hasTeamGroup && hasManagerGroup {
+				canUpdate = true
+			}
+		}
+
+		// If not via groups, check scopes
+		if !canUpdate {
+			// Check scopes for update permission on this project
+			requiredScopes := []string{
+				fmt.Sprintf("project:write:%s", existingProject.ProjectID),
+				fmt.Sprintf("project:*:%s", existingProject.ProjectID),
+			}
+
+			// If project has a team, also check team-based scopes
+			if existingProject.Team != "" {
+				requiredScopes = append(requiredScopes,
+					fmt.Sprintf("project:write:%s:*", existingProject.Team),
+					fmt.Sprintf("project:*:%s:*", existingProject.Team),
+				)
+			}
+
+			scopes := getUserScopesFromContext(ctx)
+			for _, scope := range scopes {
+				for _, required := range requiredScopes {
+					if matchScope(scope, required) {
+						canUpdate = true
+						break
+					}
+				}
+				if canUpdate {
+					break
+				}
+			}
+
+			// Check explicit project permissions in database
+			if !canUpdate {
+				var perm database.ProjectPermission
+				now := time.Now()
+				err = r.db.Where("project_id = ? AND user_id = ? AND permission IN ? AND (expires_at IS NULL OR expires_at > ?)",
+					existingProject.ProjectID, user.UserID, []string{"write", "admin"}, now).First(&perm).Error
+				canUpdate = err == nil
+			}
+		}
+	}
+
+	if !canUpdate {
+		return nil, fmt.Errorf("insufficient permissions to update project")
+	}
+
+	// If team is being changed, verify user has permission to add to new team
+	if input.Team != nil && *input.Team != existingProject.Team && *input.Team != "" {
+		canAddToNewTeam := false
+		if user.Role == string(database.RoleAdmin) {
+			canAddToNewTeam = true
+		} else {
+			// Check if user can create projects in the new team
+			requiredScopes := []string{
+				fmt.Sprintf("project:create:%s", *input.Team),
+				fmt.Sprintf("project:*:%s", *input.Team),
+				"project:create:*",
+				"project:*:*",
+			}
+
+			scopes := getUserScopesFromContext(ctx)
+			for _, scope := range scopes {
+				for _, required := range requiredScopes {
+					if matchScope(scope, required) {
+						canAddToNewTeam = true
+						break
+					}
+				}
+				if canAddToNewTeam {
+					break
+				}
+			}
+		}
+
+		if !canAddToNewTeam {
+			return nil, fmt.Errorf("insufficient permissions to move project to team %s", *input.Team)
+		}
+	}
+
+	// Update project
+	updateInput := service.UpdateProjectInput{
+		Name:          convertPtrString(input.Name),
+		Description:   convertPtrString(input.Description),
+		Repository:    convertPtrString(input.Repository),
+		DefaultBranch: convertPtrString(input.DefaultBranch),
+		Settings:      input.Settings,
+		Team:          convertPtrString(input.Team),
+	}
+
+	project, err := r.projectService.UpdateProject(uint(projectID), updateInput)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update project: %w", err)
+	}
+
+	return convertProject(project), nil
 }
 
 // DeleteProject is the resolver for the deleteProject field.
 func (r *mutationResolver) DeleteProject(ctx context.Context, id string) (bool, error) {
-	panic(fmt.Errorf("not implemented: DeleteProject - deleteProject"))
+	// Check user permissions
+	user, err := getCurrentUser(ctx)
+	if err != nil {
+		return false, err
+	}
+
+	// Parse ID to uint
+	projectID, err := strconv.ParseUint(id, 10, 32)
+	if err != nil {
+		return false, fmt.Errorf("invalid project ID: %w", err)
+	}
+
+	// Get the existing project to check permissions
+	existingProject, err := r.projectService.GetProject(uint(projectID))
+	if err != nil {
+		return false, fmt.Errorf("project not found: %w", err)
+	}
+
+	// Check if user can delete this project
+	canDelete := false
+	if user.Role == string(database.RoleAdmin) {
+		canDelete = true
+	} else {
+		// Get role group names from context
+		roleGroups := getRoleGroupNamesFromContext(ctx)
+
+		// Check if user has team + manager group combination
+		if existingProject.Team != "" {
+			hasTeamGroup := false
+			hasManagerGroup := false
+
+			for _, group := range user.UserGroups {
+				groupName := strings.TrimPrefix(group.GroupName, "/")
+				if groupName == existingProject.Team {
+					hasTeamGroup = true
+				}
+				if groupName == roleGroups.ManagerGroup {
+					hasManagerGroup = true
+				}
+			}
+
+			// If user is in both team and manager groups, they can delete
+			if hasTeamGroup && hasManagerGroup {
+				canDelete = true
+			}
+		}
+
+		// If not via groups, check scopes
+		if !canDelete {
+			// Check scopes for delete permission on this project
+			requiredScopes := []string{
+				fmt.Sprintf("project:delete:%s", existingProject.ProjectID),
+				fmt.Sprintf("project:*:%s", existingProject.ProjectID),
+			}
+
+			// If project has a team, also check team-based scopes
+			if existingProject.Team != "" {
+				requiredScopes = append(requiredScopes,
+					fmt.Sprintf("project:delete:%s:*", existingProject.Team),
+					fmt.Sprintf("project:*:%s:*", existingProject.Team),
+				)
+			}
+
+			scopes := getUserScopesFromContext(ctx)
+			for _, scope := range scopes {
+				for _, required := range requiredScopes {
+					if matchScope(scope, required) {
+						canDelete = true
+						break
+					}
+				}
+				if canDelete {
+					break
+				}
+			}
+		}
+
+		// Check explicit project permissions in database
+		if !canDelete {
+			var perm database.ProjectPermission
+			now := time.Now()
+			err = r.db.Where("project_id = ? AND user_id = ? AND permission IN ? AND (expires_at IS NULL OR expires_at > ?)",
+				existingProject.ProjectID, user.UserID, []string{"delete", "admin"}, now).First(&perm).Error
+			canDelete = err == nil
+		}
+	}
+
+	if !canDelete {
+		return false, fmt.Errorf("insufficient permissions to delete project")
+	}
+
+	// Delete project
+	err = r.projectService.DeleteProject(uint(projectID))
+	if err != nil {
+		return false, fmt.Errorf("failed to delete project: %w", err)
+	}
+
+	r.logger.WithFields(map[string]interface{}{
+		"project_id": existingProject.ProjectID,
+		"deleted_by": user.UserID,
+	}).Info("Project deleted")
+
+	return true, nil
 }
 
 // ActivateProject is the resolver for the activateProject field.
@@ -87,11 +330,99 @@ func (r *mutationResolver) MarkSpecAsFlaky(ctx context.Context, specRunID string
 	panic(fmt.Errorf("not implemented: MarkSpecAsFlaky - markSpecAsFlaky"))
 }
 
+// CanManage is the resolver for the canManage field.
+func (r *projectResolver) CanManage(ctx context.Context, obj *model.Project) (bool, error) {
+	// Get current user from context
+	user, err := getCurrentUser(ctx)
+	if err != nil {
+		return false, nil // Not authenticated, can't manage
+	}
+
+	// Admin can manage all projects
+	if user.Role == string(database.RoleAdmin) {
+		return true, nil
+	}
+
+	// Get role group names from context
+	roleGroups := getRoleGroupNamesFromContext(ctx)
+
+	// Check if user has team + manager group combination
+	if obj.Team != nil && *obj.Team != "" {
+		hasTeamGroup := false
+		hasManagerGroup := false
+
+		for _, group := range user.UserGroups {
+			groupName := strings.TrimPrefix(group.GroupName, "/")
+			if groupName == *obj.Team {
+				hasTeamGroup = true
+			}
+			if groupName == roleGroups.ManagerGroup {
+				hasManagerGroup = true
+			}
+		}
+
+		// If user is in both team and manager groups, they can manage
+		if hasTeamGroup && hasManagerGroup {
+			return true, nil
+		}
+	}
+
+	// Check scopes for management permissions
+	requiredScopes := []string{
+		fmt.Sprintf("project:write:%s", obj.ProjectID),
+		fmt.Sprintf("project:delete:%s", obj.ProjectID),
+		fmt.Sprintf("project:*:%s", obj.ProjectID),
+	}
+
+	// If project has a team, also check team-based scopes
+	if obj.Team != nil && *obj.Team != "" {
+		requiredScopes = append(requiredScopes,
+			fmt.Sprintf("project:write:%s:*", *obj.Team),
+			fmt.Sprintf("project:*:%s:*", *obj.Team),
+		)
+	}
+
+	// Check if user has any of the required scopes
+	userScopes := getUserScopesFromContext(ctx)
+	for _, scope := range userScopes {
+		for _, required := range requiredScopes {
+			if matchScope(scope, required) {
+				return true, nil
+			}
+		}
+	}
+
+	// Check explicit project permissions in database
+	var perm database.ProjectPermission
+	now := time.Now()
+	err = r.db.Where("project_id = ? AND user_id = ? AND permission IN ? AND (expires_at IS NULL OR expires_at > ?)",
+		obj.ProjectID, user.UserID, []string{"write", "delete", "admin"}, now).First(&perm).Error
+
+	return err == nil, nil
+}
+
+// Stats is the resolver for the stats field.
+func (r *projectResolver) Stats(ctx context.Context, obj *model.Project) (*repository.ProjectStats, error) {
+	// Get project statistics
+	stats, err := r.projectService.GetProjectStats(obj.ProjectID)
+	if err != nil {
+		r.logger.WithError(err).WithField("project_id", obj.ProjectID).Warn("Failed to get project stats")
+		return nil, nil // Return nil stats on error
+	}
+	return stats, nil
+}
+
 // CurrentUser is the resolver for the currentUser field.
 func (r *queryResolver) CurrentUser(ctx context.Context) (*model.User, error) {
 	user, ok := ctx.Value("user").(*database.User)
 	if !ok {
 		return nil, fmt.Errorf("user not authenticated")
+	}
+
+	// Extract group names from UserGroups
+	groups := make([]string, len(user.UserGroups))
+	for i, ug := range user.UserGroups {
+		groups[i] = ug.GroupName
 	}
 
 	return &model.User{
@@ -103,8 +434,23 @@ func (r *queryResolver) CurrentUser(ctx context.Context) (*model.User, error) {
 		LastName:    convertStringPtr(user.LastName),
 		Role:        user.Role,
 		ProfileURL:  convertStringPtr(user.ProfileURL),
+		Groups:      groups,
 		CreatedAt:   user.CreatedAt,
 		LastLoginAt: user.LastLoginAt,
+	}, nil
+}
+
+// SystemConfig is the resolver for the systemConfig field.
+func (r *queryResolver) SystemConfig(ctx context.Context) (*model.SystemConfig, error) {
+	// Get role group names from context
+	roleGroups := getRoleGroupNamesFromContext(ctx)
+
+	return &model.SystemConfig{
+		RoleGroups: &model.RoleGroupConfig{
+			AdminGroup:   roleGroups.AdminGroup,
+			ManagerGroup: roleGroups.ManagerGroup,
+			UserGroup:    roleGroups.UserGroup,
+		},
 	}, nil
 }
 
@@ -599,6 +945,12 @@ func (r *queryResolver) ProjectByProjectID(ctx context.Context, projectID string
 
 // Projects is the resolver for the projects field.
 func (r *queryResolver) Projects(ctx context.Context, filter *model.ProjectFilter, first *int, after *string) (*model.ProjectConnection, error) {
+	// Get current user
+	user, err := getCurrentUser(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("user not authenticated")
+	}
+
 	// Build filter
 	repoFilter := service.ListProjectsFilter{}
 	if filter != nil {
@@ -608,6 +960,15 @@ func (r *queryResolver) Projects(ctx context.Context, filter *model.ProjectFilte
 		if filter.ActiveOnly != nil && *filter.ActiveOnly {
 			repoFilter.ActiveOnly = true
 		}
+	}
+
+	// If not admin, filter by teams the user has access to
+	if user.Role != string(database.RoleAdmin) {
+		teams := getUserTeamsFromContext(ctx)
+		if len(teams) > 0 {
+			repoFilter.Teams = teams
+		}
+		// TODO: Also include projects where user has explicit permissions
 	}
 
 	// Apply pagination
@@ -651,6 +1012,7 @@ func (r *queryResolver) Projects(ctx context.Context, filter *model.ProjectFilte
 			DefaultBranch: project.DefaultBranch,
 			Settings:      nil, // TODO: Parse JSON settings
 			IsActive:      project.IsActive,
+			Team:          convertStringPtr(project.Team),
 			CreatedAt:     project.CreatedAt,
 			UpdatedAt:     project.UpdatedAt,
 		}
@@ -751,14 +1113,14 @@ func (r *subscriptionResolver) FlakyTestDetected(ctx context.Context, projectID 
 // SpecRuns is the resolver for the specRuns field.
 func (r *suiteRunResolver) SpecRuns(ctx context.Context, obj *model.SuiteRun) ([]*model.SpecRun, error) {
 	r.logger.WithField("suite_run_id", obj.ID).Debug("Loading spec runs for suite run")
-	
+
 	// Get data loader from context
 	loaders := getLoaders(ctx)
 	if loaders == nil {
 		r.logger.Error("Data loaders not found in context")
 		return nil, fmt.Errorf("data loaders not found in context")
 	}
-	
+
 	// Load spec runs for this suite run - bypass DataLoader for now
 	var specRuns []*database.SpecRun
 	intID, err := strconv.Atoi(obj.ID)
@@ -766,17 +1128,17 @@ func (r *suiteRunResolver) SpecRuns(ctx context.Context, obj *model.SuiteRun) ([
 		r.logger.WithError(err).WithField("suite_run_id", obj.ID).Error("Failed to parse suite run ID")
 		return nil, fmt.Errorf("invalid suite run ID: %w", err)
 	}
-	
+
 	if err := r.db.Where("suite_run_id = ?", intID).Find(&specRuns).Error; err != nil {
 		r.logger.WithError(err).WithField("suite_run_id", obj.ID).Error("Failed to load spec runs directly")
 		return nil, fmt.Errorf("failed to load spec runs: %w", err)
 	}
-	
+
 	r.logger.WithFields(map[string]interface{}{
 		"suite_run_id": obj.ID,
 		"spec_count":   len(specRuns),
 	}).Debug("Loaded spec runs")
-	
+
 	// Convert to GraphQL models
 	result := make([]*model.SpecRun, len(specRuns))
 	for i, sp := range specRuns {
@@ -796,7 +1158,7 @@ func (r *suiteRunResolver) SpecRuns(ctx context.Context, obj *model.SuiteRun) ([
 			UpdatedAt:    sp.UpdatedAt,
 		}
 	}
-	
+
 	return result, nil
 }
 
@@ -808,7 +1170,7 @@ func (r *tagUsageResolver) ID(ctx context.Context, obj *repository.TagUsage) (st
 // SuiteRuns is the resolver for the suiteRuns field.
 func (r *testRunResolver) SuiteRuns(ctx context.Context, obj *model.TestRun) ([]*model.SuiteRun, error) {
 	r.logger.WithField("test_run_id", obj.ID).Debug("Loading suite runs for test run")
-	
+
 	// Get data loader from context
 	loaders := getLoaders(ctx)
 	if loaders == nil {
@@ -818,7 +1180,7 @@ func (r *testRunResolver) SuiteRuns(ctx context.Context, obj *model.TestRun) ([]
 
 	// Load suite runs for this test run
 	r.logger.WithField("test_run_id", obj.ID).Debug("About to load suite runs")
-	
+
 	// For now, bypass DataLoader to test if that's the issue
 	var suiteRuns []*database.SuiteRun
 	intID, err := strconv.Atoi(obj.ID)
@@ -826,12 +1188,12 @@ func (r *testRunResolver) SuiteRuns(ctx context.Context, obj *model.TestRun) ([]
 		r.logger.WithError(err).WithField("test_run_id", obj.ID).Error("Failed to parse test run ID")
 		return nil, fmt.Errorf("invalid test run ID: %w", err)
 	}
-	
+
 	if err := r.db.Where("test_run_id = ?", intID).Find(&suiteRuns).Error; err != nil {
 		r.logger.WithError(err).WithField("test_run_id", obj.ID).Error("Failed to load suite runs directly")
 		return nil, fmt.Errorf("failed to load suite runs: %w", err)
 	}
-	
+
 	r.logger.WithFields(map[string]interface{}{
 		"test_run_id": obj.ID,
 		"suite_count": len(suiteRuns),
@@ -863,6 +1225,9 @@ func (r *testRunResolver) SuiteRuns(ctx context.Context, obj *model.TestRun) ([]
 // Mutation returns generated.MutationResolver implementation.
 func (r *Resolver) Mutation() generated.MutationResolver { return &mutationResolver{r} }
 
+// Project returns generated.ProjectResolver implementation.
+func (r *Resolver) Project() generated.ProjectResolver { return &projectResolver{r} }
+
 // Query returns generated.QueryResolver implementation.
 func (r *Resolver) Query() generated.QueryResolver { return &queryResolver{r} }
 
@@ -879,6 +1244,7 @@ func (r *Resolver) TagUsage() generated.TagUsageResolver { return &tagUsageResol
 func (r *Resolver) TestRun() generated.TestRunResolver { return &testRunResolver{r} }
 
 type mutationResolver struct{ *Resolver }
+type projectResolver struct{ *Resolver }
 type queryResolver struct{ *Resolver }
 type subscriptionResolver struct{ *Resolver }
 type suiteRunResolver struct{ *Resolver }

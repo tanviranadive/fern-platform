@@ -85,6 +85,11 @@ type OAuthConfig struct {
 	UserRoleMapping  map[string]string `mapstructure:"userRoleMapping"`  // Map specific users to roles
 	GroupRoleMapping map[string]string `mapstructure:"groupRoleMapping"` // Map groups to roles
 	
+	// Role group names (configurable)
+	AdminGroupName   string `mapstructure:"adminGroupName"`   // Name of admin group (default: "admin")
+	ManagerGroupName string `mapstructure:"managerGroupName"` // Name of manager group (default: "manager")
+	UserGroupName    string `mapstructure:"userGroupName"`    // Name of user group (default: "user")
+	
 	// Token claim field mappings (customize based on your provider)
 	UserIDField    string `mapstructure:"userIdField"`    // Field in token containing user ID (default: "sub")
 	EmailField     string `mapstructure:"emailField"`     // Field containing email (default: "email") 
@@ -257,6 +262,11 @@ func (m *Manager) setDefaults() {
 	viper.SetDefault("auth.oauth.nameField", "name")
 	viper.SetDefault("auth.oauth.groupsField", "groups")
 	viper.SetDefault("auth.oauth.rolesField", "roles")
+	
+	// Role group name defaults
+	viper.SetDefault("auth.oauth.adminGroupName", "admin")
+	viper.SetDefault("auth.oauth.managerGroupName", "manager")
+	viper.SetDefault("auth.oauth.userGroupName", "user")
 
 	// Logging defaults
 	viper.SetDefault("logging.level", "info")
@@ -327,6 +337,11 @@ func (m *Manager) bindEnvVars() {
 	viper.BindEnv("auth.oauth.nameField", "OAUTH_NAME_FIELD")
 	viper.BindEnv("auth.oauth.groupsField", "OAUTH_GROUPS_FIELD")
 	viper.BindEnv("auth.oauth.rolesField", "OAUTH_ROLES_FIELD")
+	
+	// Role group names
+	viper.BindEnv("auth.oauth.adminGroupName", "OAUTH_ADMIN_GROUP_NAME")
+	viper.BindEnv("auth.oauth.managerGroupName", "OAUTH_MANAGER_GROUP_NAME")
+	viper.BindEnv("auth.oauth.userGroupName", "OAUTH_USER_GROUP_NAME")
 
 	// Redis
 	viper.BindEnv("redis.host", "REDIS_HOST")

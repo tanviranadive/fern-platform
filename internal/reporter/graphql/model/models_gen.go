@@ -19,6 +19,7 @@ type CreateProjectInput struct {
 	Repository    *string        `json:"repository,omitempty"`
 	DefaultBranch *string        `json:"defaultBranch,omitempty"`
 	Settings      map[string]any `json:"settings,omitempty"`
+	Team          *string        `json:"team,omitempty"`
 }
 
 type CreateTagInput struct {
@@ -117,6 +118,8 @@ type Project struct {
 	DefaultBranch string                   `json:"defaultBranch"`
 	Settings      map[string]any           `json:"settings,omitempty"`
 	IsActive      bool                     `json:"isActive"`
+	Team          *string                  `json:"team,omitempty"`
+	CanManage     bool                     `json:"canManage"`
 	Stats         *repository.ProjectStats `json:"stats,omitempty"`
 	CreatedAt     time.Time                `json:"createdAt"`
 	UpdatedAt     time.Time                `json:"updatedAt"`
@@ -149,6 +152,12 @@ type ProjectTreemapNode struct {
 }
 
 type Query struct {
+}
+
+type RoleGroupConfig struct {
+	AdminGroup   string `json:"adminGroup"`
+	ManagerGroup string `json:"managerGroup"`
+	UserGroup    string `json:"userGroup"`
 }
 
 type SeverityCount struct {
@@ -207,6 +216,10 @@ type SuiteTreemapNode struct {
 	PassedSpecs   int                `json:"passedSpecs"`
 	FailedSpecs   int                `json:"failedSpecs"`
 	PassRate      float64            `json:"passRate"`
+}
+
+type SystemConfig struct {
+	RoleGroups *RoleGroupConfig `json:"roleGroups"`
 }
 
 type Tag struct {
@@ -290,6 +303,7 @@ type UpdateProjectInput struct {
 	Repository    *string        `json:"repository,omitempty"`
 	DefaultBranch *string        `json:"defaultBranch,omitempty"`
 	Settings      map[string]any `json:"settings,omitempty"`
+	Team          *string        `json:"team,omitempty"`
 }
 
 type UpdateTagInput struct {
@@ -307,6 +321,7 @@ type User struct {
 	LastName    *string    `json:"lastName,omitempty"`
 	Role        string     `json:"role"`
 	ProfileURL  *string    `json:"profileUrl,omitempty"`
+	Groups      []string   `json:"groups"`
 	CreatedAt   time.Time  `json:"createdAt"`
 	LastLoginAt *time.Time `json:"lastLoginAt,omitempty"`
 }
