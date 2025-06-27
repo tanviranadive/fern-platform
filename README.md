@@ -103,6 +103,9 @@ cd fern-platform
 make deploy-all  # Installs k3d cluster, deploys everything
 # Visit http://fern-platform.local:8080
 
+# Test users and credentials are available after deployment
+# See docs/configuration/test-users.md for login details
+
 # Note: You'll be prompted to add entries to /etc/hosts for OAuth to work
 ```
 

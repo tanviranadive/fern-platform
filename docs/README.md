@@ -23,6 +23,7 @@ Choose your path based on your role and goals:
 - [**GraphQL API**](graphql-api.md) - GraphQL schema and queries
 - [**OAuth Configuration**](configuration/oauth.md) - Authentication setup
 - [**Authorization System**](configuration/scope-based-permissions.md) - Hybrid group & scope-based permissions
+- [**Test Users Guide**](configuration/test-users.md) - Default users and login credentials
 
 ### 🏗️ **For Platform Engineers & Architects**
 - [**Architecture Document**](ARCHITECTURE.md) - System design and technical decisions
@@ -73,6 +74,8 @@ docs/
 │   ├── oauth.md          # OAuth setup
 │   ├── scope-based-permissions.md # Authorization system
 │   ├── scope-examples.md # Authorization examples
+│   ├── test-users.md     # Test users and credentials
+│   ├── user-permissions.md # User permission setup
 │   └── environment.md    # Environment variables
 ├── graphql-api.md       # GraphQL API documentation
 ├── ARCHITECTURE.md      # System architecture

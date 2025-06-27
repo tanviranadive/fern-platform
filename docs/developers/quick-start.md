@@ -117,13 +117,13 @@ make deploy-all
 
 ### Test Credentials
 ```bash
-# Admin user (full access)
-Username: admin@fern.com
-Password: admin123
+# Multiple test users are available with different permission levels
+# See docs/configuration/test-users.md for complete list
 
-# Regular user (read-only)  
-Username: user@fern.com
-Password: user123
+# Example users:
+Admin: admin@fern.com / test123 (full system access)
+Manager: fern-manager@fern.com / test123 (can edit fern team projects)
+User: fern-user@fern.com / test123 (read-only access to fern team)
 ```
 
 ### What You Get
