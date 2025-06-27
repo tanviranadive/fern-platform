@@ -646,25 +646,7 @@ func (r *queryResolver) TestRun(ctx context.Context, id string) (*model.TestRun,
 		return nil, fmt.Errorf("test run not found")
 	}
 
-	return &model.TestRun{
-		ID:           fmt.Sprintf("%d", testRun.ID),
-		ProjectID:    testRun.ProjectID,
-		RunID:        testRun.RunID,
-		Branch:       convertStringPtr(testRun.Branch),
-		CommitSha:    convertStringPtr(testRun.CommitSHA),
-		Status:       testRun.Status,
-		StartTime:    testRun.StartTime,
-		EndTime:      testRun.EndTime,
-		TotalTests:   testRun.TotalTests,
-		PassedTests:  testRun.PassedTests,
-		FailedTests:  testRun.FailedTests,
-		SkippedTests: testRun.SkippedTests,
-		Duration:     int(testRun.Duration),
-		Environment:  convertStringPtr(testRun.Environment),
-		Metadata:     testRun.Metadata,
-		CreatedAt:    testRun.CreatedAt,
-		UpdatedAt:    testRun.UpdatedAt,
-	}, nil
+	return convertTestRun(testRun), nil
 }
 
 // TestRunByRunID is the resolver for the testRunByRunId field.
@@ -679,25 +661,7 @@ func (r *queryResolver) TestRunByRunID(ctx context.Context, runID string) (*mode
 		return nil, fmt.Errorf("test run not found")
 	}
 
-	return &model.TestRun{
-		ID:           fmt.Sprintf("%d", testRun.ID),
-		ProjectID:    testRun.ProjectID,
-		RunID:        testRun.RunID,
-		Branch:       convertStringPtr(testRun.Branch),
-		CommitSha:    convertStringPtr(testRun.CommitSHA),
-		Status:       testRun.Status,
-		StartTime:    testRun.StartTime,
-		EndTime:      testRun.EndTime,
-		TotalTests:   testRun.TotalTests,
-		PassedTests:  testRun.PassedTests,
-		FailedTests:  testRun.FailedTests,
-		SkippedTests: testRun.SkippedTests,
-		Duration:     int(testRun.Duration),
-		Environment:  convertStringPtr(testRun.Environment),
-		Metadata:     testRun.Metadata,
-		CreatedAt:    testRun.CreatedAt,
-		UpdatedAt:    testRun.UpdatedAt,
-	}, nil
+	return convertTestRun(testRun), nil
 }
 
 // TestRuns is the resolver for the testRuns field.
@@ -757,25 +721,7 @@ func (r *queryResolver) TestRuns(ctx context.Context, filter *model.TestRunFilte
 	edges := make([]*model.TestRunEdge, len(testRuns))
 	for i, run := range testRuns {
 		edges[i] = &model.TestRunEdge{
-			Node: &model.TestRun{
-				ID:           fmt.Sprintf("%d", run.ID),
-				ProjectID:    run.ProjectID,
-				RunID:        run.RunID,
-				Branch:       convertStringPtr(run.Branch),
-				CommitSha:    convertStringPtr(run.CommitSHA),
-				Status:       run.Status,
-				StartTime:    run.StartTime,
-				EndTime:      run.EndTime,
-				TotalTests:   run.TotalTests,
-				PassedTests:  run.PassedTests,
-				FailedTests:  run.FailedTests,
-				SkippedTests: run.SkippedTests,
-				Duration:     int(run.Duration),
-				Environment:  convertStringPtr(run.Environment),
-				Metadata:     run.Metadata,
-				CreatedAt:    run.CreatedAt,
-				UpdatedAt:    run.UpdatedAt,
-			},
+			Node:   convertTestRun(run),
 			Cursor: fmt.Sprintf("%d", offset+i), // Simple cursor
 		}
 	}
@@ -888,25 +834,7 @@ func (r *queryResolver) RecentTestRuns(ctx context.Context, projectID *string, l
 	// Convert to GraphQL models
 	result := make([]*model.TestRun, len(testRuns))
 	for i, run := range testRuns {
-		result[i] = &model.TestRun{
-			ID:           fmt.Sprintf("%d", run.ID),
-			ProjectID:    run.ProjectID,
-			RunID:        run.RunID,
-			Branch:       convertStringPtr(run.Branch),
-			CommitSha:    convertStringPtr(run.CommitSHA),
-			Status:       run.Status,
-			StartTime:    run.StartTime,
-			EndTime:      run.EndTime,
-			TotalTests:   run.TotalTests,
-			PassedTests:  run.PassedTests,
-			FailedTests:  run.FailedTests,
-			SkippedTests: run.SkippedTests,
-			Duration:     int(run.Duration),
-			Environment:  convertStringPtr(run.Environment),
-			Metadata:     run.Metadata,
-			CreatedAt:    run.CreatedAt,
-			UpdatedAt:    run.UpdatedAt,
-		}
+		result[i] = convertTestRun(run)
 	}
 
 	return result, nil
@@ -1142,12 +1070,22 @@ func (r *suiteRunResolver) SpecRuns(ctx context.Context, obj *model.SuiteRun) ([
 	// Convert to GraphQL models
 	result := make([]*model.SpecRun, len(specRuns))
 	for i, sp := range specRuns {
+		// Check for zero time values which might be interpreted as null
+		startTime := sp.StartTime
+		if startTime.IsZero() {
+			r.logger.WithFields(map[string]interface{}{
+				"spec_run_id": sp.ID,
+				"spec_name":   sp.SpecName,
+			}).Warn("SpecRun has zero StartTime, using current time")
+			startTime = time.Now() // Use current time as fallback
+		}
+		
 		result[i] = &model.SpecRun{
 			ID:           fmt.Sprintf("%d", sp.ID),
 			SuiteRunID:   fmt.Sprintf("%d", sp.SuiteRunID),
 			SpecName:     sp.SpecName,
 			Status:       sp.Status,
-			StartTime:    sp.StartTime,
+			StartTime:    startTime,
 			EndTime:      sp.EndTime,
 			Duration:     int(sp.Duration),
 			ErrorMessage: convertStringPtr(sp.ErrorMessage),

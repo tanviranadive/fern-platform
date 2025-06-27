@@ -348,6 +348,8 @@ func convertTestRun(tr *database.TestRun) *model.TestRun {
 		Duration:      int(tr.Duration),
 		Environment:   convertStringPtr(tr.Environment),
 		Metadata:      tr.Metadata,
+		Tags:          []*model.Tag{}, // Initialize as empty array to satisfy non-nullable field
+		SuiteRuns:     []*model.SuiteRun{}, // Initialize as empty array to satisfy non-nullable field
 		CreatedAt:     tr.CreatedAt,
 		UpdatedAt:     tr.UpdatedAt,
 	}
