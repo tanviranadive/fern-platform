@@ -107,6 +107,7 @@ const QUERIES = {
                 totalTests
                 passedTests
                 failedTests
+                skippedTests
                 suiteRuns {
                     id
                     suiteName
