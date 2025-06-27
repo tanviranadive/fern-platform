@@ -84,37 +84,38 @@
     
     <style>
         :root {
-            /* Space-themed colors */
-            --primary: #00d4ff;           /* Cosmic blue */
-            --primary-dark: #0099cc;      /* Deep space blue */
-            --secondary: #a78bfa;         /* Nebula purple */
-            --accent: #f59e0b;            /* Solar orange */
-            --success: #10b981;           /* Earth green */
-            --danger: #ef4444;            /* Mars red */
+            /* Biology-inspired colors */
+            --primary: #22c55e;           /* Fern green */
+            --primary-dark: #16a34a;      /* Deep forest green */
+            --secondary: #84cc16;         /* Moss green */
+            --accent: #fbbf24;            /* Pollen yellow */
+            --tertiary: #7c3aed;          /* Orchid purple */
+            --success: #22d3ee;           /* Water blue */
+            --danger: #dc2626;            /* Berry red */
             
-            /* Dark theme */
-            --bg-primary: #0a0a0f;        /* Deep space black */
-            --bg-secondary: #13131f;      /* Dark nebula */
-            --bg-tertiary: #1a1a2e;       /* Midnight blue */
-            --bg-card: #16161f;           /* Card background */
+            /* Organic backgrounds */
+            --bg-primary: #fefef8;        /* Natural white */
+            --bg-secondary: #f7fee7;      /* Soft moss */
+            --bg-tertiary: #ecfccb;       /* Light fern */
+            --bg-card: #ffffff;           /* Pure white */
             
             /* Text colors */
-            --text-primary: #f8fafc;      /* Bright star white */
-            --text-secondary: #94a3b8;    /* Cosmic gray */
-            --text-muted: #64748b;        /* Muted star */
+            --text-primary: #0f172a;      /* Rich soil */
+            --text-secondary: #475569;    /* Tree bark */
+            --text-muted: #64748b;        /* Stone gray */
             
             /* Borders and effects */
-            --border: #334155;            /* Space dust */
-            --border-light: #1e293b;      /* Light space dust */
-            --shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
-            --shadow-lg: 0 20px 40px rgba(0, 0, 0, 0.7);
-            --glow: 0 0 20px rgba(0, 212, 255, 0.3);
-            --border-radius: 12px;
+            --border: #d9f99d;            /* Leaf vein */
+            --border-light: #e7f5d0;      /* Light stem */
+            --shadow: 0 10px 25px rgba(34, 197, 94, 0.1);
+            --shadow-lg: 0 20px 40px rgba(34, 197, 94, 0.15);
+            --glow: 0 0 30px rgba(34, 197, 94, 0.3);
+            --border-radius: 16px;
             
-            /* Gradients */
-            --gradient-primary: linear-gradient(135deg, #00d4ff 0%, #a78bfa 100%);
-            --gradient-dark: linear-gradient(135deg, #0a0a0f 0%, #1a1a2e 100%);
-            --gradient-card: linear-gradient(135deg, #16161f 0%, #1a1a2e 100%);
+            /* Organic gradients */
+            --gradient-primary: linear-gradient(135deg, #22c55e 0%, #84cc16 100%);
+            --gradient-leaf: linear-gradient(135deg, #bbf7d0 0%, #86efac 100%);
+            --gradient-card: linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%);
         }
 
         * {
@@ -129,10 +130,26 @@
             color: var(--text-primary);
             background: var(--bg-primary);
             background-image: 
-                radial-gradient(circle at 20% 80%, rgba(0, 212, 255, 0.05) 0%, transparent 50%),
-                radial-gradient(circle at 80% 20%, rgba(167, 139, 250, 0.05) 0%, transparent 50%),
-                radial-gradient(circle at 40% 40%, rgba(245, 158, 11, 0.02) 0%, transparent 50%);
+                radial-gradient(circle at 20% 80%, rgba(34, 197, 94, 0.05) 0%, transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(132, 204, 22, 0.05) 0%, transparent 50%),
+                radial-gradient(circle at 40% 40%, rgba(251, 191, 36, 0.03) 0%, transparent 50%);
             min-height: 100vh;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: 
+                repeating-linear-gradient(45deg, transparent, transparent 35px, rgba(34, 197, 94, 0.02) 35px, rgba(34, 197, 94, 0.02) 70px),
+                repeating-linear-gradient(-45deg, transparent, transparent 35px, rgba(132, 204, 22, 0.02) 35px, rgba(132, 204, 22, 0.02) 70px);
+            pointer-events: none;
+            z-index: 0;
         }
 
         .container {
@@ -143,10 +160,10 @@
 
         /* Header */
         .header {
-            background: rgba(10, 10, 15, 0.8);
+            background: rgba(254, 254, 248, 0.9);
             backdrop-filter: blur(10px);
-            border-bottom: 1px solid var(--border-light);
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+            border-bottom: 2px solid var(--border-light);
+            box-shadow: 0 4px 20px rgba(34, 197, 94, 0.1);
             position: fixed;
             top: 0;
             left: 0;
@@ -181,13 +198,13 @@
             width: 180px;
             height: 80px;
             object-fit: contain;
-            filter: drop-shadow(0 0 10px rgba(0, 212, 255, 0.3));
+            filter: drop-shadow(0 2px 8px rgba(34, 197, 94, 0.2));
             transition: all 0.3s;
         }
 
         .logo:hover img {
-            filter: drop-shadow(0 0 20px rgba(0, 212, 255, 0.6));
-            transform: scale(1.05);
+            filter: drop-shadow(0 4px 16px rgba(34, 197, 94, 0.3));
+            transform: scale(1.05) rotate(2deg);
         }
 
         .nav-links {
@@ -227,7 +244,7 @@
         /* Hero Section */
         .hero {
             padding: 140px 0 80px;
-            background: var(--gradient-dark);
+            background: var(--gradient-leaf);
             text-align: center;
             position: relative;
             overflow: hidden;
@@ -240,13 +257,16 @@
             left: -50%;
             width: 200%;
             height: 200%;
-            background: radial-gradient(circle, rgba(0, 212, 255, 0.1) 0%, transparent 70%);
-            animation: pulse 20s ease-in-out infinite;
+            background-image: 
+                radial-gradient(circle at 30% 80%, rgba(34, 197, 94, 0.1) 0%, transparent 40%),
+                radial-gradient(circle at 70% 20%, rgba(132, 204, 22, 0.1) 0%, transparent 40%);
+            animation: organic-flow 30s ease-in-out infinite;
         }
 
-        @keyframes pulse {
-            0%, 100% { transform: scale(1); opacity: 0.5; }
-            50% { transform: scale(1.1); opacity: 0.3; }
+        @keyframes organic-flow {
+            0%, 100% { transform: scale(1) rotate(0deg); }
+            33% { transform: scale(1.1) rotate(120deg); }
+            66% { transform: scale(0.9) rotate(240deg); }
         }
 
         .hero h1 {
@@ -259,7 +279,6 @@
             background-clip: text;
             position: relative;
             z-index: 1;
-            text-shadow: 0 0 40px rgba(0, 212, 255, 0.5);
         }
 
         .hero .subtitle {
@@ -275,11 +294,11 @@
 
         .hero-image {
             margin: 3rem 0;
-            border-radius: var(--border-radius);
-            box-shadow: var(--shadow-lg);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(34, 197, 94, 0.15);
             max-width: 100%;
             height: auto;
-            border: 1px solid var(--border-light);
+            border: 3px solid var(--border);
             position: relative;
             z-index: 1;
         }
@@ -297,15 +316,33 @@
             text-align: center;
             padding: 1.5rem;
             background: var(--bg-card);
-            border-radius: var(--border-radius);
-            border: 1px solid var(--border-light);
+            border-radius: 50px;
+            border: 2px solid var(--border-light);
             transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stat::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, var(--primary) 0%, transparent 70%);
+            opacity: 0;
+            transition: opacity 0.3s;
         }
 
         .stat:hover {
-            transform: translateY(-5px);
-            box-shadow: var(--glow);
+            transform: translateY(-5px) scale(1.05);
+            box-shadow: 0 10px 30px rgba(34, 197, 94, 0.2);
             border-color: var(--primary);
+        }
+
+        .stat:hover::before {
+            opacity: 0.05;
         }
 
         .stat-number {
@@ -315,6 +352,7 @@
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
+            position: relative;
         }
 
         .stat-label {
@@ -362,6 +400,18 @@
             height: 3px;
             background: var(--gradient-primary);
             border-radius: 2px;
+            animation: ai-pulse 3s infinite ease-in-out;
+        }
+
+        @keyframes ai-pulse {
+            0%, 100% { 
+                width: 100px;
+                opacity: 1;
+            }
+            50% { 
+                width: 150px;
+                opacity: 0.6;
+            }
         }
 
         .section-subtitle {
@@ -383,10 +433,10 @@
 
         .feature-card {
             background: var(--gradient-card);
-            border-radius: var(--border-radius);
+            border-radius: 30px 10px;
             padding: 2rem;
             box-shadow: var(--shadow);
-            border: 1px solid var(--border-light);
+            border: 2px solid var(--border-light);
             transition: all 0.3s;
             display: flex;
             flex-direction: column;
@@ -398,25 +448,25 @@
         .feature-card::before {
             content: '';
             position: absolute;
-            top: -2px;
-            left: -2px;
-            right: -2px;
-            bottom: -2px;
-            background: var(--gradient-primary);
-            border-radius: var(--border-radius);
-            opacity: 0;
-            transition: opacity 0.3s;
-            z-index: -1;
+            top: -50%;
+            right: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, var(--secondary) 0%, transparent 60%);
+            opacity: 0.05;
+            transform: rotate(45deg);
+            transition: all 0.3s;
         }
 
         .feature-card:hover {
-            transform: translateY(-5px);
-            border-color: transparent;
-            box-shadow: var(--glow);
+            transform: translateY(-5px) rotate(-1deg);
+            border-color: var(--primary);
+            box-shadow: 0 15px 40px rgba(34, 197, 94, 0.15);
         }
 
         .feature-card:hover::before {
-            opacity: 0.3;
+            opacity: 0.1;
+            transform: rotate(90deg);
         }
 
         .feature-card .cta-button {
@@ -447,6 +497,29 @@
             font-size: 3rem;
             color: var(--primary);
             margin-bottom: 1rem;
+            position: relative;
+            display: inline-block;
+        }
+
+        /* AI innovation glow for specific features */
+        .ai-feature .feature-icon::after {
+            content: '✨';
+            position: absolute;
+            top: -10px;
+            right: -10px;
+            font-size: 1.5rem;
+            animation: sparkle 2s infinite ease-in-out;
+        }
+
+        @keyframes sparkle {
+            0%, 100% { 
+                opacity: 0;
+                transform: scale(0) rotate(0deg);
+            }
+            50% { 
+                opacity: 1;
+                transform: scale(1) rotate(180deg);
+            }
         }
 
         .feature-title {
@@ -482,13 +555,15 @@
         }
 
         .before {
-            background: linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, rgba(239, 68, 68, 0.05) 100%);
+            background: linear-gradient(135deg, rgba(220, 38, 38, 0.05) 0%, rgba(254, 242, 242, 1) 100%);
             border-left: 4px solid var(--danger);
+            border-radius: 10px 30px 30px 10px;
         }
 
         .after {
-            background: linear-gradient(135deg, rgba(0, 212, 255, 0.1) 0%, rgba(0, 212, 255, 0.05) 100%);
+            background: linear-gradient(135deg, rgba(34, 197, 94, 0.05) 0%, rgba(240, 253, 244, 1) 100%);
             border-left: 4px solid var(--primary);
+            border-radius: 30px 10px 10px 30px;
         }
 
         .comparison-title {
@@ -526,26 +601,24 @@
         }
 
         .code-block {
-            background: var(--bg-primary);
-            color: var(--primary);
+            background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+            color: var(--text-primary);
             padding: 2rem;
             border-radius: var(--border-radius);
             margin: 2rem 0;
             font-family: 'Courier New', monospace;
             overflow-x: auto;
-            border: 1px solid var(--border-light);
-            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
+            border: 2px solid var(--border);
+            box-shadow: 0 4px 12px rgba(34, 197, 94, 0.1);
             position: relative;
         }
 
         .code-block::before {
-            content: 'TERMINAL';
+            content: '🌿';
             position: absolute;
             top: 0.5rem;
             right: 1rem;
-            font-size: 0.7rem;
-            color: var(--text-muted);
-            letter-spacing: 0.1em;
+            font-size: 1.5rem;
         }
 
         .installation-options {
@@ -695,8 +768,8 @@
             background: var(--bg-card);
             color: var(--primary);
             padding: 8px 16px;
-            border-radius: 6px;
-            border: 1px solid var(--border-light);
+            border-radius: 20px;
+            border: 2px solid var(--border);
             text-decoration: none;
             font-size: 0.9rem;
             font-weight: 500;
@@ -705,19 +778,13 @@
 
         .github-stars:hover {
             background: var(--primary);
-            color: var(--bg-primary);
-            box-shadow: var(--glow);
-            transform: translateY(-2px);
+            color: white;
+            box-shadow: 0 8px 20px rgba(34, 197, 94, 0.3);
+            transform: translateY(-2px) scale(1.05);
         }
 
-        /* Space particles animation */
-        @keyframes float {
-            0%, 100% { transform: translateY(0px) translateX(0px); }
-            33% { transform: translateY(-30px) translateX(20px); }
-            66% { transform: translateY(20px) translateX(-20px); }
-        }
-
-        .particles {
+        /* Root Network Background Animation */
+        .root-network {
             position: fixed;
             top: 0;
             left: 0;
@@ -725,39 +792,174 @@
             height: 100%;
             pointer-events: none;
             overflow: hidden;
-            z-index: 1;
+            z-index: -1;
+            background: linear-gradient(to bottom, var(--bg-primary) 0%, var(--bg-secondary) 100%);
         }
 
-        .particle {
+        /* Trees/Plants at the top */
+        .tree {
             position: absolute;
-            background: var(--primary);
-            border-radius: 50%;
-            opacity: 0.3;
-            animation: float 20s infinite ease-in-out;
+            bottom: 50%;
+            width: 60px;
+            height: 80px;
+            opacity: 0.1;
         }
 
-        .particle:nth-child(1) { width: 2px; height: 2px; top: 10%; left: 20%; animation-delay: 0s; }
-        .particle:nth-child(2) { width: 3px; height: 3px; top: 20%; left: 80%; animation-delay: 2s; }
-        .particle:nth-child(3) { width: 2px; height: 2px; top: 60%; left: 10%; animation-delay: 4s; }
-        .particle:nth-child(4) { width: 4px; height: 4px; top: 80%; left: 50%; animation-delay: 6s; }
-        .particle:nth-child(5) { width: 2px; height: 2px; top: 30%; left: 40%; animation-delay: 8s; }
-        .particle:nth-child(6) { width: 3px; height: 3px; top: 50%; left: 90%; animation-delay: 10s; }
-        .particle:nth-child(7) { width: 2px; height: 2px; top: 90%; left: 30%; animation-delay: 12s; }
-        .particle:nth-child(8) { width: 3px; height: 3px; top: 40%; left: 60%; animation-delay: 14s; }
+        .tree::before {
+            content: '🌳';
+            font-size: 3rem;
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            filter: grayscale(0.8);
+        }
+
+        .tree:nth-child(1) { left: 10%; }
+        .tree:nth-child(2) { left: 25%; }
+        .tree:nth-child(3) { left: 40%; }
+        .tree:nth-child(4) { left: 55%; }
+        .tree:nth-child(5) { left: 70%; }
+        .tree:nth-child(6) { left: 85%; }
+
+        /* Root system SVG */
+        @keyframes root-grow {
+            0% {
+                stroke-dashoffset: 1000;
+                opacity: 0;
+            }
+            50% {
+                opacity: 0.1;
+            }
+            100% {
+                stroke-dashoffset: 0;
+                opacity: 0.08;
+            }
+        }
+
+        @keyframes root-pulse {
+            0%, 100% {
+                stroke-width: 1;
+                opacity: 0.08;
+            }
+            50% {
+                stroke-width: 2;
+                opacity: 0.15;
+            }
+        }
+
+        .root-system {
+            position: absolute;
+            top: 50%;
+            left: 0;
+            width: 100%;
+            height: 50%;
+        }
+
+        .root-path {
+            stroke: var(--primary);
+            stroke-width: 1;
+            fill: none;
+            stroke-dasharray: 1000;
+            stroke-dashoffset: 1000;
+            opacity: 0;
+            animation: root-grow 10s ease-out forwards;
+            animation-delay: var(--root-delay);
+        }
+
+        .root-path.connected {
+            animation: root-grow 10s ease-out forwards, root-pulse 4s ease-in-out infinite;
+            animation-delay: var(--root-delay), calc(var(--root-delay) + 10s);
+        }
+
+        /* Underground gradient effect */
+        .underground-gradient {
+            position: absolute;
+            top: 50%;
+            left: 0;
+            width: 100%;
+            height: 50%;
+            background: linear-gradient(to bottom, 
+                transparent 0%, 
+                rgba(34, 197, 94, 0.02) 30%,
+                rgba(34, 197, 94, 0.05) 100%);
+            pointer-events: none;
+        }
+
+        /* Nutrient flow effect */
+        @keyframes nutrient-flow {
+            0% {
+                transform: translateX(-100px);
+                opacity: 0;
+            }
+            50% {
+                opacity: 0.3;
+            }
+            100% {
+                transform: translateX(100px);
+                opacity: 0;
+            }
+        }
+
+        .nutrient {
+            position: absolute;
+            width: 3px;
+            height: 3px;
+            background: var(--accent);
+            border-radius: 50%;
+            opacity: 0;
+            filter: blur(1px);
+        }
+
+        .nutrient-1 { top: 55%; animation: nutrient-flow 15s infinite linear; animation-delay: 12s; }
+        .nutrient-2 { top: 65%; animation: nutrient-flow 18s infinite linear; animation-delay: 14s; }
+        .nutrient-3 { top: 75%; animation: nutrient-flow 20s infinite linear; animation-delay: 16s; }
+        .nutrient-4 { top: 85%; animation: nutrient-flow 16s infinite linear; animation-delay: 18s; }
 
     </style>
 </head>
 <body>
-    <!-- Space particles background -->
-    <div class="particles">
-        <div class="particle"></div>
-        <div class="particle"></div>
-        <div class="particle"></div>
-        <div class="particle"></div>
-        <div class="particle"></div>
-        <div class="particle"></div>
-        <div class="particle"></div>
-        <div class="particle"></div>
+    <!-- Root Network Background -->
+    <div class="root-network">
+        <!-- Trees at the surface -->
+        <div class="tree"></div>
+        <div class="tree"></div>
+        <div class="tree"></div>
+        <div class="tree"></div>
+        <div class="tree"></div>
+        <div class="tree"></div>
+        
+        <!-- Underground gradient -->
+        <div class="underground-gradient"></div>
+        
+        <!-- Root system growing underground -->
+        <svg class="root-system" viewBox="0 0 100 100" preserveAspectRatio="none">
+            <!-- Main roots growing down from each tree -->
+            <path class="root-path" d="M 10 0 Q 12 10 15 20 T 18 40" style="--root-delay: 0s;"></path>
+            <path class="root-path" d="M 25 0 Q 24 15 26 25 T 28 45" style="--root-delay: 0.5s;"></path>
+            <path class="root-path" d="M 40 0 Q 38 12 35 30 T 38 50" style="--root-delay: 1s;"></path>
+            <path class="root-path" d="M 55 0 Q 56 18 58 28 T 55 48" style="--root-delay: 1.5s;"></path>
+            <path class="root-path" d="M 70 0 Q 72 14 74 32 T 72 52" style="--root-delay: 2s;"></path>
+            <path class="root-path" d="M 85 0 Q 83 16 80 35 T 82 55" style="--root-delay: 2.5s;"></path>
+            
+            <!-- Horizontal connections forming between roots -->
+            <path class="root-path connected" d="M 18 40 Q 23 42 28 45" style="--root-delay: 3s;"></path>
+            <path class="root-path connected" d="M 28 45 Q 33 47 38 50" style="--root-delay: 3.5s;"></path>
+            <path class="root-path connected" d="M 38 50 Q 46 49 55 48" style="--root-delay: 4s;"></path>
+            <path class="root-path connected" d="M 55 48 Q 63 50 72 52" style="--root-delay: 4.5s;"></path>
+            <path class="root-path connected" d="M 72 52 Q 77 53 82 55" style="--root-delay: 5s;"></path>
+            
+            <!-- Deeper network connections -->
+            <path class="root-path connected" d="M 15 20 Q 30 60 45 70 T 65 65" style="--root-delay: 5.5s;"></path>
+            <path class="root-path connected" d="M 35 30 Q 50 70 70 75" style="--root-delay: 6s;"></path>
+            <path class="root-path connected" d="M 20 35 Q 40 80 80 85" style="--root-delay: 6.5s;"></path>
+        </svg>
+        
+        <!-- Nutrient particles flowing through the network -->
+        <div class="nutrient nutrient-1"></div>
+        <div class="nutrient nutrient-2"></div>
+        <div class="nutrient nutrient-3"></div>
+        <div class="nutrient nutrient-4"></div>
     </div>
 
     <!-- Header -->
@@ -787,7 +989,7 @@
             
             <a href="#quickstart" class="cta-button" onclick="trackEvent('cta_click', 'hero')">Get Started in 15 Minutes</a>
             
-            <img src="/fern-platform/docs/images/test-uber-treemap.png" alt="Fern Platform Treemap - Interactive test suite visualization showing project health at a glance" class="hero-image">
+            <img src="docs/images/test-uber-treemap.png" alt="Fern Platform Treemap - Interactive test suite visualization showing project health at a glance" class="hero-image">
             
             <div class="stats">
                 <div class="stat">
@@ -813,7 +1015,7 @@
             <p class="section-subtitle">Test data chaos is killing your productivity and release confidence</p>
             
             <div style="text-align: center; margin: 2rem 0;">
-                <img src="/fern-platform/docs/images/fern-health-dashboard.png" alt="Fern Platform Main Dashboard showing platform health, projects overview, and API endpoints" style="max-width: 80%; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1);">
+                <img src="docs/images/fern-health-dashboard.png" alt="Fern Platform Main Dashboard showing platform health, projects overview, and API endpoints" style="max-width: 80%; border-radius: 20px; box-shadow: 0 20px 40px rgba(34, 197, 94, 0.15); border: 3px solid #d9f99d;">
             </div>
             
             <div class="comparison">
@@ -855,28 +1057,28 @@
                     <div class="feature-icon">🎨</div>
                     <h3 class="feature-title">Interactive Treemap Visualization</h3>
                     <p class="feature-description">Visualize your entire test suite health at a glance. Drill down from project level to individual test failures with beautiful, interactive treemaps.</p>
-                    <img src="/fern-platform/docs/images/test-uber-treemap.png" alt="Interactive treemap showing test suite overview" style="width: 100%; border-radius: 8px; margin-top: 1rem;">
+                    <img src="docs/images/test-uber-treemap.png" alt="Interactive treemap showing test suite overview" style="width: 100%; border-radius: 8px; margin-top: 1rem;">
                 </div>
                 
                 <div class="feature-card">
                     <div class="feature-icon">📊</div>
                     <h3 class="feature-title">Test History & Trends</h3>
                     <p class="feature-description">Track pass/fail trends over time with beautiful stacked area charts. Identify patterns and monitor test stability across releases.</p>
-                    <img src="/fern-platform/docs/images/test-history.png" alt="Test history chart showing pass/fail trends" style="width: 100%; border-radius: 8px; margin-top: 1rem;">
+                    <img src="docs/images/test-history.png" alt="Test history chart showing pass/fail trends" style="width: 100%; border-radius: 8px; margin-top: 1rem;">
                 </div>
                 
                 <div class="feature-card">
                     <div class="feature-icon">📋</div>
                     <h3 class="feature-title">Detailed Test Runs</h3>
                     <p class="feature-description">Comprehensive test run details with status, duration, and branch information. Perfect for debugging and tracking CI/CD pipeline health.</p>
-                    <img src="/fern-platform/docs/images/test-runs.png" alt="Detailed test runs table with status and metrics" style="width: 100%; border-radius: 8px; margin-top: 1rem;">
+                    <img src="docs/images/test-runs.png" alt="Detailed test runs table with status and metrics" style="width: 100%; border-radius: 8px; margin-top: 1rem;">
                 </div>
                 
                 <div class="feature-card">
                     <div class="feature-icon">📈</div>
                     <h3 class="feature-title">Project Summary Views</h3>
                     <p class="feature-description">Clean project cards showing test metrics, pass rates, and quick access to detailed analysis. Perfect for team leads and managers.</p>
-                    <img src="/fern-platform/docs/images/test-summaries.png" alt="Project summary cards with test metrics and status" style="width: 100%; border-radius: 8px; margin-top: 1rem;">
+                    <img src="docs/images/test-summaries.png" alt="Project summary cards with test metrics and status" style="width: 100%; border-radius: 8px; margin-top: 1rem;">
                 </div>
                 
                 <div class="feature-card">
