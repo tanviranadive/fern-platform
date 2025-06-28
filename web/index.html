@@ -860,6 +860,98 @@
             border-radius: var(--radius-lg);
         }
         
+        /* Card Flip Animation Styles */
+        .card-flip-container {
+            perspective: 1000px;
+            width: 100%;
+            min-height: 450px;
+            position: relative;
+        }
+        
+        .card-flipper {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            transform-style: preserve-3d;
+            transition: transform 0.6s;
+        }
+        
+        .card-flipper.flipped {
+            transform: rotateY(180deg);
+        }
+        
+        .card-front,
+        .card-back {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            backface-visibility: hidden;
+            -webkit-backface-visibility: hidden;
+            border-radius: var(--radius-xl);
+        }
+        
+        .card-front {
+            z-index: 2;
+            transform: rotateY(0deg);
+        }
+        
+        .card-back {
+            transform: rotateY(180deg);
+            background: var(--bg-elevated);
+            border: 1px solid var(--border-light);
+            padding: 1rem 1rem 0.5rem 1rem;
+            display: flex;
+            flex-direction: column;
+            box-shadow: var(--shadow-md);
+            overflow: hidden;
+        }
+        
+        .treemap-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem;
+            border-bottom: 1px solid var(--border-light);
+            margin-bottom: 0.5rem;
+        }
+        
+        .treemap-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+        
+        .project-treemap-container {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            min-height: 350px;
+        }
+        
+        .breadcrumb-nav {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            padding: 0.5rem 0.75rem;
+            background: var(--bg-secondary);
+            border-radius: var(--radius-md);
+            margin-bottom: 0.5rem;
+        }
+        
+        .breadcrumb-nav button {
+            background: none;
+            border: none;
+            color: var(--primary);
+            cursor: pointer;
+            font-size: inherit;
+            padding: 0;
+            text-decoration: underline;
+        }
+        
         .legend-item {
             display: flex;
             align-items: center;
@@ -3651,6 +3743,283 @@
             );
         }
 
+        // Project Treemap Component with Drill-down
+        function ProjectTreemap({ project, testRuns }) {
+            const svgRef = useRef();
+            const [currentView, setCurrentView] = useState('suites'); // 'suites' or 'specs'
+            const [selectedSuite, setSelectedSuite] = useState(null);
+            const [tooltip, setTooltip] = useState({ show: false, x: 0, y: 0, content: null });
+
+            useEffect(() => {
+                if (!project || !testRuns) return;
+
+                const container = svgRef.current.parentNode;
+                const width = container.clientWidth;
+                const height = container.clientHeight || 400;
+
+                // Clear previous content
+                d3.select(svgRef.current).selectAll("*").remove();
+
+                const svg = d3.select(svgRef.current)
+                    .attr("viewBox", [0, 0, width, height])
+                    .attr("width", width)
+                    .attr("height", height);
+
+                // Get recent test runs for this project
+                const projectRuns = testRuns
+                    .filter(run => run.projectId === project.projectId)
+                    .slice(0, 5); // Last 5 runs
+
+                if (projectRuns.length === 0) {
+                    svg.append("text")
+                        .attr("x", width / 2)
+                        .attr("y", height / 2)
+                        .attr("text-anchor", "middle")
+                        .style("fill", "var(--text-secondary)")
+                        .text("No test data available");
+                    return;
+                }
+
+                // Aggregate suite data from recent runs
+                const suiteMap = new Map();
+                
+                projectRuns.forEach(run => {
+                    if (run.suiteRuns && run.suiteRuns.length > 0) {
+                        run.suiteRuns.forEach(suite => {
+                            const key = suite.suiteName;
+                            if (!suiteMap.has(key)) {
+                                suiteMap.set(key, {
+                                    name: suite.suiteName,
+                                    totalSpecs: 0,
+                                    passedSpecs: 0,
+                                    failedSpecs: 0,
+                                    skippedSpecs: 0,
+                                    duration: 0,
+                                    specRuns: []
+                                });
+                            }
+                            const suiteData = suiteMap.get(key);
+                            suiteData.totalSpecs += suite.totalSpecs || 0;
+                            suiteData.passedSpecs += suite.passedSpecs || 0;
+                            suiteData.failedSpecs += suite.failedSpecs || 0;
+                            suiteData.skippedSpecs += suite.skippedSpecs || 0;
+                            suiteData.duration += suite.duration || 0;
+                            if (suite.specRuns) {
+                                suiteData.specRuns.push(...suite.specRuns);
+                            }
+                        });
+                    }
+                });
+
+                if (currentView === 'specs' && selectedSuite) {
+                    // Show specs for selected suite
+                    const suiteData = suiteMap.get(selectedSuite);
+                    if (!suiteData || !suiteData.specRuns || suiteData.specRuns.length === 0) {
+                        svg.append("text")
+                            .attr("x", width / 2)
+                            .attr("y", height / 2)
+                            .attr("text-anchor", "middle")
+                            .style("fill", "var(--text-secondary)")
+                            .text("No spec data available");
+                        return;
+                    }
+
+                    // Aggregate spec data
+                    const specMap = new Map();
+                    suiteData.specRuns.forEach(spec => {
+                        const key = spec.specName;
+                        if (!specMap.has(key)) {
+                            specMap.set(key, {
+                                name: spec.specName,
+                                passCount: 0,
+                                failCount: 0,
+                                totalDuration: 0,
+                                runs: 0
+                            });
+                        }
+                        const specData = specMap.get(key);
+                        specData.runs++;
+                        specData.totalDuration += spec.duration || 0;
+                        if (spec.status === 'passed') {
+                            specData.passCount++;
+                        } else if (spec.status === 'failed') {
+                            specData.failCount++;
+                        }
+                    });
+
+                    const specData = Array.from(specMap.values()).map(spec => ({
+                        name: spec.name,
+                        value: spec.totalDuration || 1,
+                        passRate: spec.runs > 0 ? spec.passCount / spec.runs : 0,
+                        avgDuration: spec.runs > 0 ? spec.totalDuration / spec.runs : 0,
+                        runs: spec.runs
+                    }));
+
+                    const hierarchicalData = {
+                        name: selectedSuite,
+                        children: specData
+                    };
+
+                    renderTreemap(hierarchicalData, 'spec');
+                } else {
+                    // Show suites view
+                    const suiteData = Array.from(suiteMap.values()).map(suite => ({
+                        name: suite.name,
+                        value: suite.duration || 1,
+                        totalSpecs: suite.totalSpecs,
+                        passedSpecs: suite.passedSpecs,
+                        failedSpecs: suite.failedSpecs,
+                        passRate: suite.totalSpecs > 0 ? suite.passedSpecs / suite.totalSpecs : 0
+                    }));
+
+                    const hierarchicalData = {
+                        name: project.name,
+                        children: suiteData
+                    };
+
+                    renderTreemap(hierarchicalData, 'suite');
+                }
+
+                function renderTreemap(data, type) {
+                    const root = d3.hierarchy(data)
+                        .sum(d => d.value)
+                        .sort((a, b) => b.value - a.value);
+
+                    d3.treemap()
+                        .size([width, height])
+                        .paddingOuter(3)
+                        .paddingTop(20)
+                        .paddingInner(2)
+                        .round(true)(root);
+
+                    const colorScale = d3.scaleSequential(d3.interpolateRdYlGn)
+                        .domain([0, 1]);
+
+                    const nodes = root.leaves();
+                    
+                    const cell = svg.selectAll("g")
+                        .data(nodes)
+                        .join("g")
+                        .attr("transform", d => `translate(${d.x0},${d.y0})`);
+
+                    cell.append("rect")
+                        .attr("width", d => d.x1 - d.x0)
+                        .attr("height", d => d.y1 - d.y0)
+                        .attr("fill", d => colorScale(d.data.passRate || 0))
+                        .attr("stroke", "var(--bg-primary)")
+                        .attr("stroke-width", 1)
+                        .style("cursor", type === 'suite' ? "pointer" : "default")
+                        .on("click", function(event, d) {
+                            if (type === 'suite') {
+                                setSelectedSuite(d.data.name);
+                                setCurrentView('specs');
+                            }
+                        })
+                        .on("mouseover", function(event, d) {
+                            const rect = this.getBoundingClientRect();
+                            setTooltip({
+                                show: true,
+                                x: rect.left + rect.width / 2,
+                                y: rect.top - 10,
+                                content: d.data
+                            });
+                        })
+                        .on("mouseout", () => {
+                            setTooltip({ show: false, x: 0, y: 0, content: null });
+                        });
+
+                    // Add text labels
+                    cell.append("text")
+                        .attr("x", d => (d.x1 - d.x0) / 2)
+                        .attr("y", d => (d.y1 - d.y0) / 2)
+                        .attr("text-anchor", "middle")
+                        .attr("dominant-baseline", "middle")
+                        .style("font-size", d => {
+                            const width = d.x1 - d.x0;
+                            const height = d.y1 - d.y0;
+                            return Math.min(width / 10, height / 4, 14) + "px";
+                        })
+                        .style("fill", d => {
+                            const passRate = d.data.passRate || 0;
+                            return passRate > 0.5 ? "rgba(0, 0, 0, 0.8)" : "rgba(255, 255, 255, 0.9)";
+                        })
+                        .style("font-weight", "600")
+                        .style("pointer-events", "none")
+                        .text(d => {
+                            const width = d.x1 - d.x0;
+                            const name = d.data.name;
+                            if (width < 60) return "";
+                            if (width < 100) return name.substring(0, 10) + "...";
+                            return name;
+                        });
+
+                    // Add pass rate percentage
+                    if (type === 'suite') {
+                        cell.append("text")
+                            .attr("x", d => (d.x1 - d.x0) / 2)
+                            .attr("y", d => d.y1 - d.y0 - 10)
+                            .attr("text-anchor", "middle")
+                            .style("font-size", "11px")
+                            .style("fill", d => {
+                                const passRate = d.data.passRate || 0;
+                                return passRate > 0.5 ? "rgba(0, 0, 0, 0.6)" : "rgba(255, 255, 255, 0.7)";
+                            })
+                            .style("pointer-events", "none")
+                            .text(d => {
+                                const width = d.x1 - d.x0;
+                                if (width < 50) return "";
+                                return `${(d.data.passRate * 100).toFixed(0)}%`;
+                            });
+                    }
+                }
+            }, [project, testRuns, currentView, selectedSuite]);
+
+            return (
+                <>
+                    {currentView === 'specs' && (
+                        <div className="breadcrumb-nav">
+                            <button onClick={() => {
+                                setCurrentView('suites');
+                                setSelectedSuite(null);
+                            }}>
+                                {project.name}
+                            </button>
+                            <span>›</span>
+                            <span>{selectedSuite}</span>
+                        </div>
+                    )}
+                    <div className="project-treemap-container">
+                        <svg ref={svgRef} style={{ width: '100%', height: '100%' }}></svg>
+                    </div>
+                    {tooltip.show && tooltip.content && (
+                        <div className="treemap-tooltip" style={{
+                            position: 'fixed',
+                            left: tooltip.x,
+                            top: tooltip.y,
+                            transform: 'translate(-50%, -100%)'
+                        }}>
+                            <div style={{ fontWeight: '600', marginBottom: '0.25rem' }}>
+                                {tooltip.content.name}
+                            </div>
+                            {currentView === 'suites' ? (
+                                <div style={{ fontSize: '0.75rem' }}>
+                                    <div>Pass Rate: {((tooltip.content.passRate || 0) * 100).toFixed(1)}%</div>
+                                    <div>Total Specs: {tooltip.content.totalSpecs || 0}</div>
+                                    <div>Duration: {((tooltip.content.value || 0) / 1000).toFixed(1)}s</div>
+                                </div>
+                            ) : (
+                                <div style={{ fontSize: '0.75rem' }}>
+                                    <div>Pass Rate: {((tooltip.content.passRate || 0) * 100).toFixed(1)}%</div>
+                                    <div>Avg Duration: {tooltip.content.avgDuration ? tooltip.content.avgDuration.toFixed(0) : 0}ms</div>
+                                    <div>Runs: {tooltip.content.runs}</div>
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </>
+            );
+        }
+
         // Enhanced Test Summaries component
         function TestSummaries() {
             const [projects, setProjects] = useState([]);
@@ -3672,10 +4041,23 @@
             } = userPrefs;
 
             const [viewMode, setViewMode] = useState(preferences?.defaultTestSummariesView || 'grid');
+            const [flippedCards, setFlippedCards] = useState(new Set());
 
             const showProjectHistory = (project) => {
                 setSelectedProject(project);
                 setShowHistory(true);
+            };
+            
+            const toggleCardFlip = (projectId) => {
+                setFlippedCards(prev => {
+                    const newSet = new Set(prev);
+                    if (newSet.has(projectId)) {
+                        newSet.delete(projectId);
+                    } else {
+                        newSet.add(projectId);
+                    }
+                    return newSet;
+                });
             };
             
             const hideProjectHistory = () => {
@@ -3805,14 +4187,28 @@
                         <div className="view-toggle">
                             <button 
                                 className={`toggle-button ${viewMode === 'grid' ? 'active' : ''}`}
-                                onClick={() => setViewMode('grid')}
+                                onClick={() => {
+                                    setFlippedCards(new Set());
+                                    setViewMode('grid');
+                                }}
                             >
                                 <i className="fas fa-th-large"></i>
                                 Card View
                             </button>
                             <button 
                                 className={`toggle-button ${viewMode === 'treemap' ? 'active' : ''}`}
-                                onClick={() => setViewMode('treemap')}
+                                onClick={() => {
+                                    if (viewMode === 'grid') {
+                                        // Flip all cards to treemap view
+                                        const allProjectIds = getDisplayProjects().map(p => p.id);
+                                        setFlippedCards(new Set(allProjectIds));
+                                        setViewMode('treemap');
+                                    } else {
+                                        // Unflip all cards and go back to grid view
+                                        setFlippedCards(new Set());
+                                        setViewMode('grid');
+                                    }
+                                }}
                             >
                                 <i className="fas fa-chart-bar"></i>
                                 Treemap View
@@ -3820,20 +4216,22 @@
                         </div>
                     </div>
 
-                    {viewMode === 'treemap' && (
-                        <TreemapVisualization projects={getDisplayProjects()} testRuns={testRuns} />
-                    )}
-                    
-                    {viewMode === 'grid' && getDisplayProjects().length > 0 && (
-                        <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(400px, 1fr))', gap: '2rem'}}>
+                    {(viewMode === 'grid' || viewMode === 'treemap') && getDisplayProjects().length > 0 && (
+                        <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(400px, 1fr))', gap: '2.5rem', rowGap: '3rem'}}>
                             {getDisplayProjects().map(project => {
                                 const projectRuns = testRuns.filter(run => run.projectId === project.projectId);
                                 const totalTests = projectRuns.reduce((sum, run) => sum + (run.totalTests || 0), 0);
                                 const passedTests = projectRuns.reduce((sum, run) => sum + (run.passedTests || 0), 0);
                                 const failedTests = projectRuns.reduce((sum, run) => sum + (run.failedTests || 0), 0);
 
+                                const isFlipped = viewMode === 'treemap' || flippedCards.has(project.id);
+                                
                                 return (
-                                    <div key={project.id} className="card">
+                                    <div key={project.id} className="card-flip-container">
+                                        <div className={`card-flipper ${isFlipped ? 'flipped' : ''}`}>
+                                            {/* Front of card */}
+                                            <div className="card-front">
+                                                <div className="card">
                                         <div className="card-header">
                                             <div style={{display: 'flex', alignItems: 'flex-start', gap: '0.75rem', flex: 1}}>
                                                 <div style={{flex: 1}}>
@@ -3910,6 +4308,19 @@
                                                 >
                                                     📊 View Test History
                                                 </button>
+                                            </div>
+                                        </div>
+                                                </div>
+                                            </div>
+                                            
+                                            {/* Back of card */}
+                                            <div className="card-back">
+                                                <div className="treemap-header">
+                                                    <h3 className="treemap-title">{project.name} - Test Suites</h3>
+                                                </div>
+                                                <div style={{flex: 1, minHeight: '350px', maxHeight: '380px', overflow: 'hidden', position: 'relative', paddingBottom: '1rem'}}>
+                                                    <ProjectTreemap project={project} testRuns={testRuns} />
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
