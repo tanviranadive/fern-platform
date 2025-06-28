@@ -16,7 +16,6 @@ import (
 	"github.com/99designs/gqlgen/graphql"
 	"github.com/99designs/gqlgen/graphql/introspection"
 	"github.com/guidewire-oss/fern-platform/internal/reporter/graphql/model"
-	"github.com/guidewire-oss/fern-platform/internal/reporter/repository"
 	gqlparser "github.com/vektah/gqlparser/v2"
 	"github.com/vektah/gqlparser/v2/ast"
 )
@@ -46,7 +45,6 @@ type ResolverRoot interface {
 	Query() QueryResolver
 	Subscription() SubscriptionResolver
 	SuiteRun() SuiteRunResolver
-	TagUsage() TagUsageResolver
 	TestRun() TestRunResolver
 }
 
@@ -388,7 +386,7 @@ type MutationResolver interface {
 }
 type ProjectResolver interface {
 	CanManage(ctx context.Context, obj *model.Project) (bool, error)
-	Stats(ctx context.Context, obj *model.Project) (*repository.ProjectStats, error)
+	Stats(ctx context.Context, obj *model.Project) (*model.ProjectStats, error)
 }
 type QueryResolver interface {
 	CurrentUser(ctx context.Context) (*model.User, error)
@@ -399,7 +397,7 @@ type QueryResolver interface {
 	TestRun(ctx context.Context, id string) (*model.TestRun, error)
 	TestRunByRunID(ctx context.Context, runID string) (*model.TestRun, error)
 	TestRuns(ctx context.Context, filter *model.TestRunFilter, first *int, after *string, orderBy *string, orderDirection *model.OrderDirection) (*model.TestRunConnection, error)
-	TestRunStats(ctx context.Context, projectID *string, days *int) (*repository.TestRunStats, error)
+	TestRunStats(ctx context.Context, projectID *string, days *int) (*model.TestRunStats, error)
 	RecentTestRuns(ctx context.Context, projectID *string, limit *int) ([]*model.TestRun, error)
 	Project(ctx context.Context, id string) (*model.Project, error)
 	ProjectByProjectID(ctx context.Context, projectID string) (*model.Project, error)
@@ -407,8 +405,8 @@ type QueryResolver interface {
 	Tag(ctx context.Context, id string) (*model.Tag, error)
 	TagByName(ctx context.Context, name string) (*model.Tag, error)
 	Tags(ctx context.Context, filter *model.TagFilter, first *int, after *string) (*model.TagConnection, error)
-	TagUsageStats(ctx context.Context) ([]*repository.TagUsage, error)
-	PopularTags(ctx context.Context, limit *int) ([]*repository.TagUsage, error)
+	TagUsageStats(ctx context.Context) ([]*model.TagUsage, error)
+	PopularTags(ctx context.Context, limit *int) ([]*model.TagUsage, error)
 	FlakyTest(ctx context.Context, id string) (*model.FlakyTest, error)
 	FlakyTests(ctx context.Context, filter *model.FlakyTestFilter, first *int, after *string, orderBy *string, orderDirection *model.OrderDirection) (*model.FlakyTestConnection, error)
 	FlakyTestStats(ctx context.Context, projectID *string) (*model.FlakyTestStats, error)
@@ -422,9 +420,6 @@ type SubscriptionResolver interface {
 }
 type SuiteRunResolver interface {
 	SpecRuns(ctx context.Context, obj *model.SuiteRun) ([]*model.SpecRun, error)
-}
-type TagUsageResolver interface {
-	ID(ctx context.Context, obj *repository.TagUsage) (string, error)
 }
 type TestRunResolver interface {
 	SuiteRuns(ctx context.Context, obj *model.TestRun) ([]*model.SuiteRun, error)
@@ -7691,9 +7686,9 @@ func (ec *executionContext) _Project_stats(ctx context.Context, field graphql.Co
 	if resTmp == nil {
 		return graphql.Null
 	}
-	res := resTmp.(*repository.ProjectStats)
+	res := resTmp.(*model.ProjectStats)
 	fc.Result = res
-	return ec.marshalOProjectStats2ᚖgithubᚗcomᚋguidewireᚑossᚋfernᚑplatformᚋinternalᚋreporterᚋrepositoryᚐProjectStats(ctx, field.Selections, res)
+	return ec.marshalOProjectStats2ᚖgithubᚗcomᚋguidewireᚑossᚋfernᚑplatformᚋinternalᚋreporterᚋgraphqlᚋmodelᚐProjectStats(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Project_stats(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -8075,7 +8070,7 @@ func (ec *executionContext) fieldContext_ProjectEdge_cursor(_ context.Context, f
 	return fc, nil
 }
 
-func (ec *executionContext) _ProjectStats_totalTestRuns(ctx context.Context, field graphql.CollectedField, obj *repository.ProjectStats) (ret graphql.Marshaler) {
+func (ec *executionContext) _ProjectStats_totalTestRuns(ctx context.Context, field graphql.CollectedField, obj *model.ProjectStats) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_ProjectStats_totalTestRuns(ctx, field)
 	if err != nil {
 		return graphql.Null
@@ -8101,9 +8096,9 @@ func (ec *executionContext) _ProjectStats_totalTestRuns(ctx context.Context, fie
 		}
 		return graphql.Null
 	}
-	res := resTmp.(int64)
+	res := resTmp.(int)
 	fc.Result = res
-	return ec.marshalNInt2int64(ctx, field.Selections, res)
+	return ec.marshalNInt2int(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_ProjectStats_totalTestRuns(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -8119,7 +8114,7 @@ func (ec *executionContext) fieldContext_ProjectStats_totalTestRuns(_ context.Co
 	return fc, nil
 }
 
-func (ec *executionContext) _ProjectStats_recentTestRuns(ctx context.Context, field graphql.CollectedField, obj *repository.ProjectStats) (ret graphql.Marshaler) {
+func (ec *executionContext) _ProjectStats_recentTestRuns(ctx context.Context, field graphql.CollectedField, obj *model.ProjectStats) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_ProjectStats_recentTestRuns(ctx, field)
 	if err != nil {
 		return graphql.Null
@@ -8145,9 +8140,9 @@ func (ec *executionContext) _ProjectStats_recentTestRuns(ctx context.Context, fi
 		}
 		return graphql.Null
 	}
-	res := resTmp.(int64)
+	res := resTmp.(int)
 	fc.Result = res
-	return ec.marshalNInt2int64(ctx, field.Selections, res)
+	return ec.marshalNInt2int(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_ProjectStats_recentTestRuns(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -8163,7 +8158,7 @@ func (ec *executionContext) fieldContext_ProjectStats_recentTestRuns(_ context.C
 	return fc, nil
 }
 
-func (ec *executionContext) _ProjectStats_uniqueBranches(ctx context.Context, field graphql.CollectedField, obj *repository.ProjectStats) (ret graphql.Marshaler) {
+func (ec *executionContext) _ProjectStats_uniqueBranches(ctx context.Context, field graphql.CollectedField, obj *model.ProjectStats) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_ProjectStats_uniqueBranches(ctx, field)
 	if err != nil {
 		return graphql.Null
@@ -8189,9 +8184,9 @@ func (ec *executionContext) _ProjectStats_uniqueBranches(ctx context.Context, fi
 		}
 		return graphql.Null
 	}
-	res := resTmp.(int64)
+	res := resTmp.(int)
 	fc.Result = res
-	return ec.marshalNInt2int64(ctx, field.Selections, res)
+	return ec.marshalNInt2int(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_ProjectStats_uniqueBranches(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -8207,7 +8202,7 @@ func (ec *executionContext) fieldContext_ProjectStats_uniqueBranches(_ context.C
 	return fc, nil
 }
 
-func (ec *executionContext) _ProjectStats_successRate(ctx context.Context, field graphql.CollectedField, obj *repository.ProjectStats) (ret graphql.Marshaler) {
+func (ec *executionContext) _ProjectStats_successRate(ctx context.Context, field graphql.CollectedField, obj *model.ProjectStats) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_ProjectStats_successRate(ctx, field)
 	if err != nil {
 		return graphql.Null
@@ -8251,7 +8246,7 @@ func (ec *executionContext) fieldContext_ProjectStats_successRate(_ context.Cont
 	return fc, nil
 }
 
-func (ec *executionContext) _ProjectStats_averageDuration(ctx context.Context, field graphql.CollectedField, obj *repository.ProjectStats) (ret graphql.Marshaler) {
+func (ec *executionContext) _ProjectStats_averageDuration(ctx context.Context, field graphql.CollectedField, obj *model.ProjectStats) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_ProjectStats_averageDuration(ctx, field)
 	if err != nil {
 		return graphql.Null
@@ -8277,9 +8272,9 @@ func (ec *executionContext) _ProjectStats_averageDuration(ctx context.Context, f
 		}
 		return graphql.Null
 	}
-	res := resTmp.(int64)
+	res := resTmp.(int)
 	fc.Result = res
-	return ec.marshalNInt2int64(ctx, field.Selections, res)
+	return ec.marshalNInt2int(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_ProjectStats_averageDuration(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -8295,7 +8290,7 @@ func (ec *executionContext) fieldContext_ProjectStats_averageDuration(_ context.
 	return fc, nil
 }
 
-func (ec *executionContext) _ProjectStats_lastRunTime(ctx context.Context, field graphql.CollectedField, obj *repository.ProjectStats) (ret graphql.Marshaler) {
+func (ec *executionContext) _ProjectStats_lastRunTime(ctx context.Context, field graphql.CollectedField, obj *model.ProjectStats) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_ProjectStats_lastRunTime(ctx, field)
 	if err != nil {
 		return graphql.Null
@@ -9255,9 +9250,9 @@ func (ec *executionContext) _Query_testRunStats(ctx context.Context, field graph
 		}
 		return graphql.Null
 	}
-	res := resTmp.(*repository.TestRunStats)
+	res := resTmp.(*model.TestRunStats)
 	fc.Result = res
-	return ec.marshalNTestRunStats2ᚖgithubᚗcomᚋguidewireᚑossᚋfernᚑplatformᚋinternalᚋreporterᚋrepositoryᚐTestRunStats(ctx, field.Selections, res)
+	return ec.marshalNTestRunStats2ᚖgithubᚗcomᚋguidewireᚑossᚋfernᚑplatformᚋinternalᚋreporterᚋgraphqlᚋmodelᚐTestRunStats(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Query_testRunStats(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -9837,9 +9832,9 @@ func (ec *executionContext) _Query_tagUsageStats(ctx context.Context, field grap
 		}
 		return graphql.Null
 	}
-	res := resTmp.([]*repository.TagUsage)
+	res := resTmp.([]*model.TagUsage)
 	fc.Result = res
-	return ec.marshalNTagUsage2ᚕᚖgithubᚗcomᚋguidewireᚑossᚋfernᚑplatformᚋinternalᚋreporterᚋrepositoryᚐTagUsageᚄ(ctx, field.Selections, res)
+	return ec.marshalNTagUsage2ᚕᚖgithubᚗcomᚋguidewireᚑossᚋfernᚑplatformᚋinternalᚋreporterᚋgraphqlᚋmodelᚐTagUsageᚄ(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Query_tagUsageStats(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -9893,9 +9888,9 @@ func (ec *executionContext) _Query_popularTags(ctx context.Context, field graphq
 		}
 		return graphql.Null
 	}
-	res := resTmp.([]*repository.TagUsage)
+	res := resTmp.([]*model.TagUsage)
 	fc.Result = res
-	return ec.marshalNTagUsage2ᚕᚖgithubᚗcomᚋguidewireᚑossᚋfernᚑplatformᚋinternalᚋreporterᚋrepositoryᚐTagUsageᚄ(ctx, field.Selections, res)
+	return ec.marshalNTagUsage2ᚕᚖgithubᚗcomᚋguidewireᚑossᚋfernᚑplatformᚋinternalᚋreporterᚋgraphqlᚋmodelᚐTagUsageᚄ(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Query_popularTags(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -11347,7 +11342,7 @@ func (ec *executionContext) fieldContext_SpecTreemapNode_isFlaky(_ context.Conte
 	return fc, nil
 }
 
-func (ec *executionContext) _StatusCount_status(ctx context.Context, field graphql.CollectedField, obj *repository.StatusCount) (ret graphql.Marshaler) {
+func (ec *executionContext) _StatusCount_status(ctx context.Context, field graphql.CollectedField, obj *model.StatusCount) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_StatusCount_status(ctx, field)
 	if err != nil {
 		return graphql.Null
@@ -11391,7 +11386,7 @@ func (ec *executionContext) fieldContext_StatusCount_status(_ context.Context, f
 	return fc, nil
 }
 
-func (ec *executionContext) _StatusCount_count(ctx context.Context, field graphql.CollectedField, obj *repository.StatusCount) (ret graphql.Marshaler) {
+func (ec *executionContext) _StatusCount_count(ctx context.Context, field graphql.CollectedField, obj *model.StatusCount) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_StatusCount_count(ctx, field)
 	if err != nil {
 		return graphql.Null
@@ -11417,9 +11412,9 @@ func (ec *executionContext) _StatusCount_count(ctx context.Context, field graphq
 		}
 		return graphql.Null
 	}
-	res := resTmp.(int64)
+	res := resTmp.(int)
 	fc.Result = res
-	return ec.marshalNInt2int64(ctx, field.Selections, res)
+	return ec.marshalNInt2int(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_StatusCount_count(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -13453,7 +13448,7 @@ func (ec *executionContext) fieldContext_TagEdge_cursor(_ context.Context, field
 	return fc, nil
 }
 
-func (ec *executionContext) _TagUsage_id(ctx context.Context, field graphql.CollectedField, obj *repository.TagUsage) (ret graphql.Marshaler) {
+func (ec *executionContext) _TagUsage_id(ctx context.Context, field graphql.CollectedField, obj *model.TagUsage) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_TagUsage_id(ctx, field)
 	if err != nil {
 		return graphql.Null
@@ -13467,7 +13462,7 @@ func (ec *executionContext) _TagUsage_id(ctx context.Context, field graphql.Coll
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.TagUsage().ID(rctx, obj)
+		return obj.ID, nil
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -13488,8 +13483,8 @@ func (ec *executionContext) fieldContext_TagUsage_id(_ context.Context, field gr
 	fc = &graphql.FieldContext{
 		Object:     "TagUsage",
 		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
+		IsMethod:   false,
+		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type ID does not have child fields")
 		},
@@ -13497,7 +13492,7 @@ func (ec *executionContext) fieldContext_TagUsage_id(_ context.Context, field gr
 	return fc, nil
 }
 
-func (ec *executionContext) _TagUsage_name(ctx context.Context, field graphql.CollectedField, obj *repository.TagUsage) (ret graphql.Marshaler) {
+func (ec *executionContext) _TagUsage_name(ctx context.Context, field graphql.CollectedField, obj *model.TagUsage) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_TagUsage_name(ctx, field)
 	if err != nil {
 		return graphql.Null
@@ -13541,7 +13536,7 @@ func (ec *executionContext) fieldContext_TagUsage_name(_ context.Context, field 
 	return fc, nil
 }
 
-func (ec *executionContext) _TagUsage_description(ctx context.Context, field graphql.CollectedField, obj *repository.TagUsage) (ret graphql.Marshaler) {
+func (ec *executionContext) _TagUsage_description(ctx context.Context, field graphql.CollectedField, obj *model.TagUsage) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_TagUsage_description(ctx, field)
 	if err != nil {
 		return graphql.Null
@@ -13564,9 +13559,9 @@ func (ec *executionContext) _TagUsage_description(ctx context.Context, field gra
 	if resTmp == nil {
 		return graphql.Null
 	}
-	res := resTmp.(string)
+	res := resTmp.(*string)
 	fc.Result = res
-	return ec.marshalOString2string(ctx, field.Selections, res)
+	return ec.marshalOString2ᚖstring(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_TagUsage_description(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -13582,7 +13577,7 @@ func (ec *executionContext) fieldContext_TagUsage_description(_ context.Context,
 	return fc, nil
 }
 
-func (ec *executionContext) _TagUsage_color(ctx context.Context, field graphql.CollectedField, obj *repository.TagUsage) (ret graphql.Marshaler) {
+func (ec *executionContext) _TagUsage_color(ctx context.Context, field graphql.CollectedField, obj *model.TagUsage) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_TagUsage_color(ctx, field)
 	if err != nil {
 		return graphql.Null
@@ -13605,9 +13600,9 @@ func (ec *executionContext) _TagUsage_color(ctx context.Context, field graphql.C
 	if resTmp == nil {
 		return graphql.Null
 	}
-	res := resTmp.(string)
+	res := resTmp.(*string)
 	fc.Result = res
-	return ec.marshalOString2string(ctx, field.Selections, res)
+	return ec.marshalOString2ᚖstring(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_TagUsage_color(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -13623,7 +13618,7 @@ func (ec *executionContext) fieldContext_TagUsage_color(_ context.Context, field
 	return fc, nil
 }
 
-func (ec *executionContext) _TagUsage_usageCount(ctx context.Context, field graphql.CollectedField, obj *repository.TagUsage) (ret graphql.Marshaler) {
+func (ec *executionContext) _TagUsage_usageCount(ctx context.Context, field graphql.CollectedField, obj *model.TagUsage) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_TagUsage_usageCount(ctx, field)
 	if err != nil {
 		return graphql.Null
@@ -13649,9 +13644,9 @@ func (ec *executionContext) _TagUsage_usageCount(ctx context.Context, field grap
 		}
 		return graphql.Null
 	}
-	res := resTmp.(int64)
+	res := resTmp.(int)
 	fc.Result = res
-	return ec.marshalNInt2int64(ctx, field.Selections, res)
+	return ec.marshalNInt2int(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_TagUsage_usageCount(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -14810,7 +14805,7 @@ func (ec *executionContext) fieldContext_TestRunEdge_cursor(_ context.Context, f
 	return fc, nil
 }
 
-func (ec *executionContext) _TestRunStats_totalRuns(ctx context.Context, field graphql.CollectedField, obj *repository.TestRunStats) (ret graphql.Marshaler) {
+func (ec *executionContext) _TestRunStats_totalRuns(ctx context.Context, field graphql.CollectedField, obj *model.TestRunStats) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_TestRunStats_totalRuns(ctx, field)
 	if err != nil {
 		return graphql.Null
@@ -14836,9 +14831,9 @@ func (ec *executionContext) _TestRunStats_totalRuns(ctx context.Context, field g
 		}
 		return graphql.Null
 	}
-	res := resTmp.(int64)
+	res := resTmp.(int)
 	fc.Result = res
-	return ec.marshalNInt2int64(ctx, field.Selections, res)
+	return ec.marshalNInt2int(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_TestRunStats_totalRuns(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -14854,7 +14849,7 @@ func (ec *executionContext) fieldContext_TestRunStats_totalRuns(_ context.Contex
 	return fc, nil
 }
 
-func (ec *executionContext) _TestRunStats_statusCounts(ctx context.Context, field graphql.CollectedField, obj *repository.TestRunStats) (ret graphql.Marshaler) {
+func (ec *executionContext) _TestRunStats_statusCounts(ctx context.Context, field graphql.CollectedField, obj *model.TestRunStats) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_TestRunStats_statusCounts(ctx, field)
 	if err != nil {
 		return graphql.Null
@@ -14880,9 +14875,9 @@ func (ec *executionContext) _TestRunStats_statusCounts(ctx context.Context, fiel
 		}
 		return graphql.Null
 	}
-	res := resTmp.([]repository.StatusCount)
+	res := resTmp.([]*model.StatusCount)
 	fc.Result = res
-	return ec.marshalNStatusCount2ᚕgithubᚗcomᚋguidewireᚑossᚋfernᚑplatformᚋinternalᚋreporterᚋrepositoryᚐStatusCountᚄ(ctx, field.Selections, res)
+	return ec.marshalNStatusCount2ᚕᚖgithubᚗcomᚋguidewireᚑossᚋfernᚑplatformᚋinternalᚋreporterᚋgraphqlᚋmodelᚐStatusCountᚄ(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_TestRunStats_statusCounts(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -14904,7 +14899,7 @@ func (ec *executionContext) fieldContext_TestRunStats_statusCounts(_ context.Con
 	return fc, nil
 }
 
-func (ec *executionContext) _TestRunStats_averageDuration(ctx context.Context, field graphql.CollectedField, obj *repository.TestRunStats) (ret graphql.Marshaler) {
+func (ec *executionContext) _TestRunStats_averageDuration(ctx context.Context, field graphql.CollectedField, obj *model.TestRunStats) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_TestRunStats_averageDuration(ctx, field)
 	if err != nil {
 		return graphql.Null
@@ -14930,9 +14925,9 @@ func (ec *executionContext) _TestRunStats_averageDuration(ctx context.Context, f
 		}
 		return graphql.Null
 	}
-	res := resTmp.(int64)
+	res := resTmp.(int)
 	fc.Result = res
-	return ec.marshalNInt2int64(ctx, field.Selections, res)
+	return ec.marshalNInt2int(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_TestRunStats_averageDuration(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -14948,7 +14943,7 @@ func (ec *executionContext) fieldContext_TestRunStats_averageDuration(_ context.
 	return fc, nil
 }
 
-func (ec *executionContext) _TestRunStats_successRate(ctx context.Context, field graphql.CollectedField, obj *repository.TestRunStats) (ret graphql.Marshaler) {
+func (ec *executionContext) _TestRunStats_successRate(ctx context.Context, field graphql.CollectedField, obj *model.TestRunStats) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_TestRunStats_successRate(ctx, field)
 	if err != nil {
 		return graphql.Null
@@ -18878,7 +18873,7 @@ func (ec *executionContext) _ProjectEdge(ctx context.Context, sel ast.SelectionS
 
 var projectStatsImplementors = []string{"ProjectStats"}
 
-func (ec *executionContext) _ProjectStats(ctx context.Context, sel ast.SelectionSet, obj *repository.ProjectStats) graphql.Marshaler {
+func (ec *executionContext) _ProjectStats(ctx context.Context, sel ast.SelectionSet, obj *model.ProjectStats) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, projectStatsImplementors)
 
 	out := graphql.NewFieldSet(fields)
@@ -19755,7 +19750,7 @@ func (ec *executionContext) _SpecTreemapNode(ctx context.Context, sel ast.Select
 
 var statusCountImplementors = []string{"StatusCount"}
 
-func (ec *executionContext) _StatusCount(ctx context.Context, sel ast.SelectionSet, obj *repository.StatusCount) graphql.Marshaler {
+func (ec *executionContext) _StatusCount(ctx context.Context, sel ast.SelectionSet, obj *model.StatusCount) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, statusCountImplementors)
 
 	out := graphql.NewFieldSet(fields)
@@ -20218,7 +20213,7 @@ func (ec *executionContext) _TagEdge(ctx context.Context, sel ast.SelectionSet, 
 
 var tagUsageImplementors = []string{"TagUsage"}
 
-func (ec *executionContext) _TagUsage(ctx context.Context, sel ast.SelectionSet, obj *repository.TagUsage) graphql.Marshaler {
+func (ec *executionContext) _TagUsage(ctx context.Context, sel ast.SelectionSet, obj *model.TagUsage) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, tagUsageImplementors)
 
 	out := graphql.NewFieldSet(fields)
@@ -20228,45 +20223,14 @@ func (ec *executionContext) _TagUsage(ctx context.Context, sel ast.SelectionSet,
 		case "__typename":
 			out.Values[i] = graphql.MarshalString("TagUsage")
 		case "id":
-			field := field
-
-			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
-				defer func() {
-					if r := recover(); r != nil {
-						ec.Error(ctx, ec.Recover(ctx, r))
-					}
-				}()
-				res = ec._TagUsage_id(ctx, field, obj)
-				if res == graphql.Null {
-					atomic.AddUint32(&fs.Invalids, 1)
-				}
-				return res
+			out.Values[i] = ec._TagUsage_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
 			}
-
-			if field.Deferrable != nil {
-				dfs, ok := deferred[field.Deferrable.Label]
-				di := 0
-				if ok {
-					dfs.AddField(field)
-					di = len(dfs.Values) - 1
-				} else {
-					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
-					deferred[field.Deferrable.Label] = dfs
-				}
-				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
-					return innerFunc(ctx, dfs)
-				})
-
-				// don't run the out.Concurrently() call below
-				out.Values[i] = graphql.Null
-				continue
-			}
-
-			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
 		case "name":
 			out.Values[i] = ec._TagUsage_name(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				atomic.AddUint32(&out.Invalids, 1)
+				out.Invalids++
 			}
 		case "description":
 			out.Values[i] = ec._TagUsage_description(ctx, field, obj)
@@ -20275,7 +20239,7 @@ func (ec *executionContext) _TagUsage(ctx context.Context, sel ast.SelectionSet,
 		case "usageCount":
 			out.Values[i] = ec._TagUsage_usageCount(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				atomic.AddUint32(&out.Invalids, 1)
+				out.Invalids++
 			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
@@ -20540,7 +20504,7 @@ func (ec *executionContext) _TestRunEdge(ctx context.Context, sel ast.SelectionS
 
 var testRunStatsImplementors = []string{"TestRunStats"}
 
-func (ec *executionContext) _TestRunStats(ctx context.Context, sel ast.SelectionSet, obj *repository.TestRunStats) graphql.Marshaler {
+func (ec *executionContext) _TestRunStats(ctx context.Context, sel ast.SelectionSet, obj *model.TestRunStats) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, testRunStatsImplementors)
 
 	out := graphql.NewFieldSet(fields)
@@ -21335,22 +21299,6 @@ func (ec *executionContext) marshalNInt2int(ctx context.Context, sel ast.Selecti
 	return res
 }
 
-func (ec *executionContext) unmarshalNInt2int64(ctx context.Context, v any) (int64, error) {
-	res, err := graphql.UnmarshalInt64(v)
-	return res, graphql.ErrorOnPath(ctx, err)
-}
-
-func (ec *executionContext) marshalNInt2int64(ctx context.Context, sel ast.SelectionSet, v int64) graphql.Marshaler {
-	_ = sel
-	res := graphql.MarshalInt64(v)
-	if res == graphql.Null {
-		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
-			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
-		}
-	}
-	return res
-}
-
 func (ec *executionContext) marshalNPageInfo2ᚖgithubᚗcomᚋguidewireᚑossᚋfernᚑplatformᚋinternalᚋreporterᚋgraphqlᚋmodelᚐPageInfo(ctx context.Context, sel ast.SelectionSet, v *model.PageInfo) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
@@ -21673,11 +21621,7 @@ func (ec *executionContext) marshalNSpecTreemapNode2ᚖgithubᚗcomᚋguidewire�
 	return ec._SpecTreemapNode(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNStatusCount2githubᚗcomᚋguidewireᚑossᚋfernᚑplatformᚋinternalᚋreporterᚋrepositoryᚐStatusCount(ctx context.Context, sel ast.SelectionSet, v repository.StatusCount) graphql.Marshaler {
-	return ec._StatusCount(ctx, sel, &v)
-}
-
-func (ec *executionContext) marshalNStatusCount2ᚕgithubᚗcomᚋguidewireᚑossᚋfernᚑplatformᚋinternalᚋreporterᚋrepositoryᚐStatusCountᚄ(ctx context.Context, sel ast.SelectionSet, v []repository.StatusCount) graphql.Marshaler {
+func (ec *executionContext) marshalNStatusCount2ᚕᚖgithubᚗcomᚋguidewireᚑossᚋfernᚑplatformᚋinternalᚋreporterᚋgraphqlᚋmodelᚐStatusCountᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.StatusCount) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -21701,7 +21645,7 @@ func (ec *executionContext) marshalNStatusCount2ᚕgithubᚗcomᚋguidewireᚑos
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNStatusCount2githubᚗcomᚋguidewireᚑossᚋfernᚑplatformᚋinternalᚋreporterᚋrepositoryᚐStatusCount(ctx, sel, v[i])
+			ret[i] = ec.marshalNStatusCount2ᚖgithubᚗcomᚋguidewireᚑossᚋfernᚑplatformᚋinternalᚋreporterᚋgraphqlᚋmodelᚐStatusCount(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -21719,6 +21663,16 @@ func (ec *executionContext) marshalNStatusCount2ᚕgithubᚗcomᚋguidewireᚑos
 	}
 
 	return ret
+}
+
+func (ec *executionContext) marshalNStatusCount2ᚖgithubᚗcomᚋguidewireᚑossᚋfernᚑplatformᚋinternalᚋreporterᚋgraphqlᚋmodelᚐStatusCount(ctx context.Context, sel ast.SelectionSet, v *model.StatusCount) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._StatusCount(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalNString2string(ctx context.Context, v any) (string, error) {
@@ -22015,7 +21969,7 @@ func (ec *executionContext) marshalNTagEdge2ᚖgithubᚗcomᚋguidewireᚑossᚋ
 	return ec._TagEdge(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNTagUsage2ᚕᚖgithubᚗcomᚋguidewireᚑossᚋfernᚑplatformᚋinternalᚋreporterᚋrepositoryᚐTagUsageᚄ(ctx context.Context, sel ast.SelectionSet, v []*repository.TagUsage) graphql.Marshaler {
+func (ec *executionContext) marshalNTagUsage2ᚕᚖgithubᚗcomᚋguidewireᚑossᚋfernᚑplatformᚋinternalᚋreporterᚋgraphqlᚋmodelᚐTagUsageᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.TagUsage) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -22039,7 +21993,7 @@ func (ec *executionContext) marshalNTagUsage2ᚕᚖgithubᚗcomᚋguidewireᚑos
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNTagUsage2ᚖgithubᚗcomᚋguidewireᚑossᚋfernᚑplatformᚋinternalᚋreporterᚋrepositoryᚐTagUsage(ctx, sel, v[i])
+			ret[i] = ec.marshalNTagUsage2ᚖgithubᚗcomᚋguidewireᚑossᚋfernᚑplatformᚋinternalᚋreporterᚋgraphqlᚋmodelᚐTagUsage(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -22059,7 +22013,7 @@ func (ec *executionContext) marshalNTagUsage2ᚕᚖgithubᚗcomᚋguidewireᚑos
 	return ret
 }
 
-func (ec *executionContext) marshalNTagUsage2ᚖgithubᚗcomᚋguidewireᚑossᚋfernᚑplatformᚋinternalᚋreporterᚋrepositoryᚐTagUsage(ctx context.Context, sel ast.SelectionSet, v *repository.TagUsage) graphql.Marshaler {
+func (ec *executionContext) marshalNTagUsage2ᚖgithubᚗcomᚋguidewireᚑossᚋfernᚑplatformᚋinternalᚋreporterᚋgraphqlᚋmodelᚐTagUsage(ctx context.Context, sel ast.SelectionSet, v *model.TagUsage) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -22195,11 +22149,11 @@ func (ec *executionContext) marshalNTestRunEdge2ᚖgithubᚗcomᚋguidewireᚑos
 	return ec._TestRunEdge(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNTestRunStats2githubᚗcomᚋguidewireᚑossᚋfernᚑplatformᚋinternalᚋreporterᚋrepositoryᚐTestRunStats(ctx context.Context, sel ast.SelectionSet, v repository.TestRunStats) graphql.Marshaler {
+func (ec *executionContext) marshalNTestRunStats2githubᚗcomᚋguidewireᚑossᚋfernᚑplatformᚋinternalᚋreporterᚋgraphqlᚋmodelᚐTestRunStats(ctx context.Context, sel ast.SelectionSet, v model.TestRunStats) graphql.Marshaler {
 	return ec._TestRunStats(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNTestRunStats2ᚖgithubᚗcomᚋguidewireᚑossᚋfernᚑplatformᚋinternalᚋreporterᚋrepositoryᚐTestRunStats(ctx context.Context, sel ast.SelectionSet, v *repository.TestRunStats) graphql.Marshaler {
+func (ec *executionContext) marshalNTestRunStats2ᚖgithubᚗcomᚋguidewireᚑossᚋfernᚑplatformᚋinternalᚋreporterᚋgraphqlᚋmodelᚐTestRunStats(ctx context.Context, sel ast.SelectionSet, v *model.TestRunStats) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -22631,23 +22585,11 @@ func (ec *executionContext) unmarshalOProjectFilter2ᚖgithubᚗcomᚋguidewire�
 	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) marshalOProjectStats2ᚖgithubᚗcomᚋguidewireᚑossᚋfernᚑplatformᚋinternalᚋreporterᚋrepositoryᚐProjectStats(ctx context.Context, sel ast.SelectionSet, v *repository.ProjectStats) graphql.Marshaler {
+func (ec *executionContext) marshalOProjectStats2ᚖgithubᚗcomᚋguidewireᚑossᚋfernᚑplatformᚋinternalᚋreporterᚋgraphqlᚋmodelᚐProjectStats(ctx context.Context, sel ast.SelectionSet, v *model.ProjectStats) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ProjectStats(ctx, sel, v)
-}
-
-func (ec *executionContext) unmarshalOString2string(ctx context.Context, v any) (string, error) {
-	res, err := graphql.UnmarshalString(v)
-	return res, graphql.ErrorOnPath(ctx, err)
-}
-
-func (ec *executionContext) marshalOString2string(ctx context.Context, sel ast.SelectionSet, v string) graphql.Marshaler {
-	_ = sel
-	_ = ctx
-	res := graphql.MarshalString(v)
-	return res
 }
 
 func (ec *executionContext) unmarshalOString2ᚕstringᚄ(ctx context.Context, v any) ([]string, error) {

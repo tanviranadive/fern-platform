@@ -16,7 +16,7 @@ import (
 	"github.com/gorilla/websocket"
 	// "github.com/guidewire-oss/fern-platform/internal/reporter/graphql/dataloader"
 	"github.com/guidewire-oss/fern-platform/internal/reporter/graphql/generated"
-	"github.com/guidewire-oss/fern-platform/pkg/middleware"
+	authInterfaces "github.com/guidewire-oss/fern-platform/internal/domains/auth/interfaces"
 	"github.com/vektah/gqlparser/v2/gqlerror"
 )
 
@@ -134,7 +134,7 @@ func NewHandler(resolver *Resolver, roleGroupNames *RoleGroupNames) *Handler {
 }
 
 // RegisterRoutes registers GraphQL routes with the Gin router
-func (h *Handler) RegisterRoutes(router *gin.Engine, authMiddleware *middleware.OAuthMiddleware) {
+func (h *Handler) RegisterRoutes(router *gin.Engine, authMiddleware *authInterfaces.AuthMiddlewareAdapter) {
 	// GraphQL playground (development only)
 	router.GET("/graphql", func(c *gin.Context) {
 		// Check if we're in development mode
@@ -146,10 +146,10 @@ func (h *Handler) RegisterRoutes(router *gin.Engine, authMiddleware *middleware.
 	})
 
 	// GraphQL endpoint with authentication
-	router.POST("/query", authMiddleware.RequireOAuth(), h.graphqlHandler())
+	router.POST("/query", authMiddleware.RequireAuth(), h.graphqlHandler())
 	
 	// WebSocket endpoint for subscriptions
-	router.GET("/query", authMiddleware.RequireOAuth(), h.graphqlHandler())
+	router.GET("/query", authMiddleware.RequireAuth(), h.graphqlHandler())
 }
 
 // graphqlHandler returns a Gin handler for GraphQL queries
@@ -168,7 +168,7 @@ func (h *Handler) graphqlHandler() gin.HandlerFunc {
 		ctx = context.WithValue(ctx, "roleGroupNames", h.roleGroupNames)
 		
 		// Get user from auth context
-		if user, exists := middleware.GetOAuthUser(c); exists {
+		if user, exists := authInterfaces.GetAuthUser(c); exists {
 			ctx = context.WithValue(ctx, "user", user)
 		}
 		

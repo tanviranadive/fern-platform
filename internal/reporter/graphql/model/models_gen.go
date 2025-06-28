@@ -8,8 +8,6 @@ import (
 	"io"
 	"strconv"
 	"time"
-
-	"github.com/guidewire-oss/fern-platform/internal/reporter/repository"
 )
 
 type CreateProjectInput struct {
@@ -110,19 +108,19 @@ type PageInfo struct {
 }
 
 type Project struct {
-	ID            string                   `json:"id"`
-	ProjectID     string                   `json:"projectId"`
-	Name          string                   `json:"name"`
-	Description   *string                  `json:"description,omitempty"`
-	Repository    *string                  `json:"repository,omitempty"`
-	DefaultBranch string                   `json:"defaultBranch"`
-	Settings      map[string]any           `json:"settings,omitempty"`
-	IsActive      bool                     `json:"isActive"`
-	Team          *string                  `json:"team,omitempty"`
-	CanManage     bool                     `json:"canManage"`
-	Stats         *repository.ProjectStats `json:"stats,omitempty"`
-	CreatedAt     time.Time                `json:"createdAt"`
-	UpdatedAt     time.Time                `json:"updatedAt"`
+	ID            string         `json:"id"`
+	ProjectID     string         `json:"projectId"`
+	Name          string         `json:"name"`
+	Description   *string        `json:"description,omitempty"`
+	Repository    *string        `json:"repository,omitempty"`
+	DefaultBranch string         `json:"defaultBranch"`
+	Settings      map[string]any `json:"settings,omitempty"`
+	IsActive      bool           `json:"isActive"`
+	Team          *string        `json:"team,omitempty"`
+	CanManage     bool           `json:"canManage"`
+	Stats         *ProjectStats  `json:"stats,omitempty"`
+	CreatedAt     time.Time      `json:"createdAt"`
+	UpdatedAt     time.Time      `json:"updatedAt"`
 }
 
 type ProjectConnection struct {
@@ -139,6 +137,15 @@ type ProjectEdge struct {
 type ProjectFilter struct {
 	Search     *string `json:"search,omitempty"`
 	ActiveOnly *bool   `json:"activeOnly,omitempty"`
+}
+
+type ProjectStats struct {
+	TotalTestRuns   int        `json:"totalTestRuns"`
+	RecentTestRuns  int        `json:"recentTestRuns"`
+	UniqueBranches  int        `json:"uniqueBranches"`
+	SuccessRate     float64    `json:"successRate"`
+	AverageDuration int        `json:"averageDuration"`
+	LastRunTime     *time.Time `json:"lastRunTime,omitempty"`
 }
 
 type ProjectTreemapNode struct {
@@ -186,6 +193,11 @@ type SpecTreemapNode struct {
 	Duration int      `json:"duration"`
 	Status   string   `json:"status"`
 	IsFlaky  bool     `json:"isFlaky"`
+}
+
+type StatusCount struct {
+	Status string `json:"status"`
+	Count  int    `json:"count"`
 }
 
 type Subscription struct {
@@ -247,6 +259,14 @@ type TagFilter struct {
 	Search *string `json:"search,omitempty"`
 }
 
+type TagUsage struct {
+	ID          string  `json:"id"`
+	Name        string  `json:"name"`
+	Description *string `json:"description,omitempty"`
+	Color       *string `json:"color,omitempty"`
+	UsageCount  int     `json:"usageCount"`
+}
+
 type TestRun struct {
 	ID           string         `json:"id"`
 	ProjectID    string         `json:"projectId"`
@@ -288,6 +308,13 @@ type TestRunFilter struct {
 	StartTime   *time.Time `json:"startTime,omitempty"`
 	EndTime     *time.Time `json:"endTime,omitempty"`
 	Tags        []string   `json:"tags,omitempty"`
+}
+
+type TestRunStats struct {
+	TotalRuns       int            `json:"totalRuns"`
+	StatusCounts    []*StatusCount `json:"statusCounts"`
+	AverageDuration int            `json:"averageDuration"`
+	SuccessRate     float64        `json:"successRate"`
 }
 
 type TreemapData struct {

@@ -7,7 +7,7 @@ import (
 	"time"
 	
 	"github.com/guidewire-oss/fern-platform/internal/reporter/graphql/dataloader"
-	"github.com/guidewire-oss/fern-platform/pkg/database"
+	authDomain "github.com/guidewire-oss/fern-platform/internal/domains/auth/domain"
 )
 
 // getLoaders gets the dataloader from context
@@ -29,8 +29,8 @@ func getLoaders(ctx context.Context) *dataloader.Loaders {
 }
 
 // getCurrentUser gets the current user from context
-func getCurrentUser(ctx context.Context) (*database.User, error) {
-	user, ok := ctx.Value("user").(*database.User)
+func getCurrentUser(ctx context.Context) (*authDomain.User, error) {
+	user, ok := ctx.Value("user").(*authDomain.User)
 	if !ok {
 		return nil, fmt.Errorf("user not authenticated")
 	}
@@ -96,7 +96,7 @@ func getUserTeamsFromContext(ctx context.Context) []string {
 	var teams []string
 	teamMap := make(map[string]bool)
 	
-	for _, group := range user.UserGroups {
+	for _, group := range user.Groups {
 		groupName := strings.TrimPrefix(group.GroupName, "/")
 		
 		// Check if this is a team group (not a role group)
@@ -120,10 +120,10 @@ func getUserScopesFromContext(ctx context.Context) []string {
 		return nil
 	}
 	
-	scopes := make([]string, 0, len(user.UserScopes))
+	scopes := make([]string, 0, len(user.Scopes))
 	now := time.Now()
 	
-	for _, scope := range user.UserScopes {
+	for _, scope := range user.Scopes {
 		// Skip expired scopes
 		if scope.ExpiresAt != nil && scope.ExpiresAt.Before(now) {
 			continue
@@ -191,8 +191,8 @@ func isRoleGroup(groupName string, roleGroups *RoleGroupNames) bool {
 }
 
 // hasManagerRole checks if user has the manager role group
-func hasManagerRole(user *database.User, roleGroups *RoleGroupNames) bool {
-	for _, group := range user.UserGroups {
+func hasManagerRole(user *authDomain.User, roleGroups *RoleGroupNames) bool {
+	for _, group := range user.Groups {
 		groupName := strings.TrimPrefix(group.GroupName, "/")
 		if groupName == roleGroups.ManagerGroup {
 			return true
@@ -202,8 +202,8 @@ func hasManagerRole(user *database.User, roleGroups *RoleGroupNames) bool {
 }
 
 // hasUserRole checks if user has the user role group
-func hasUserRole(user *database.User, roleGroups *RoleGroupNames) bool {
-	for _, group := range user.UserGroups {
+func hasUserRole(user *authDomain.User, roleGroups *RoleGroupNames) bool {
+	for _, group := range user.Groups {
 		groupName := strings.TrimPrefix(group.GroupName, "/")
 		if groupName == roleGroups.UserGroup {
 			return true

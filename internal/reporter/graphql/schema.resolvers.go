@@ -13,9 +13,8 @@ import (
 
 	"github.com/guidewire-oss/fern-platform/internal/reporter/graphql/generated"
 	"github.com/guidewire-oss/fern-platform/internal/reporter/graphql/model"
-	"github.com/guidewire-oss/fern-platform/internal/reporter/repository"
-	"github.com/guidewire-oss/fern-platform/internal/reporter/service"
 	"github.com/guidewire-oss/fern-platform/pkg/database"
+	authDomain "github.com/guidewire-oss/fern-platform/internal/domains/auth/domain"
 )
 
 // CreateTestRun is the resolver for the createTestRun field.
@@ -40,259 +39,20 @@ func (r *mutationResolver) AssignTagsToTestRun(ctx context.Context, testRunID st
 
 // CreateProject is the resolver for the createProject field.
 func (r *mutationResolver) CreateProject(ctx context.Context, input model.CreateProjectInput) (*model.Project, error) {
-	// The implementation is in resolver_implementations.go
-	return r.CreateProject_impl(ctx, input)
+	// Use domain service implementation
+	return r.CreateProject_domain(ctx, input)
 }
 
 // UpdateProject is the resolver for the updateProject field.
 func (r *mutationResolver) UpdateProject(ctx context.Context, id string, input model.UpdateProjectInput) (*model.Project, error) {
-	// Check user permissions
-	user, err := getCurrentUser(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	// Parse ID to uint
-	projectID, err := strconv.ParseUint(id, 10, 32)
-	if err != nil {
-		return nil, fmt.Errorf("invalid project ID: %w", err)
-	}
-
-	// Get the existing project to check permissions
-	existingProject, err := r.projectService.GetProject(uint(projectID))
-	if err != nil {
-		return nil, fmt.Errorf("project not found: %w", err)
-	}
-
-	// Check if user can update this project
-	canUpdate := false
-	if user.Role == string(database.RoleAdmin) {
-		canUpdate = true
-	} else {
-		// Get role group names from context
-		roleGroups := getRoleGroupNamesFromContext(ctx)
-
-		// Check if user has team + manager group combination
-		if existingProject.Team != "" {
-			hasTeamGroup := false
-			hasManagerGroup := false
-
-			for _, group := range user.UserGroups {
-				groupName := strings.TrimPrefix(group.GroupName, "/")
-				if groupName == existingProject.Team {
-					hasTeamGroup = true
-				}
-				if groupName == roleGroups.ManagerGroup {
-					hasManagerGroup = true
-				}
-			}
-
-			// If user is in both team and manager groups, they can update
-			if hasTeamGroup && hasManagerGroup {
-				canUpdate = true
-			}
-		}
-
-		// If not via groups, check scopes
-		if !canUpdate {
-			// Check scopes for update permission on this project
-			requiredScopes := []string{
-				fmt.Sprintf("project:write:%s", existingProject.ProjectID),
-				fmt.Sprintf("project:*:%s", existingProject.ProjectID),
-			}
-
-			// If project has a team, also check team-based scopes
-			if existingProject.Team != "" {
-				requiredScopes = append(requiredScopes,
-					fmt.Sprintf("project:write:%s:*", existingProject.Team),
-					fmt.Sprintf("project:*:%s:*", existingProject.Team),
-				)
-			}
-
-			scopes := getUserScopesFromContext(ctx)
-			for _, scope := range scopes {
-				for _, required := range requiredScopes {
-					if matchScope(scope, required) {
-						canUpdate = true
-						break
-					}
-				}
-				if canUpdate {
-					break
-				}
-			}
-
-			// Check explicit project permissions in database
-			if !canUpdate {
-				var perm database.ProjectPermission
-				now := time.Now()
-				err = r.db.Where("project_id = ? AND user_id = ? AND permission IN ? AND (expires_at IS NULL OR expires_at > ?)",
-					existingProject.ProjectID, user.UserID, []string{"write", "admin"}, now).First(&perm).Error
-				canUpdate = err == nil
-			}
-		}
-	}
-
-	if !canUpdate {
-		return nil, fmt.Errorf("insufficient permissions to update project")
-	}
-
-	// If team is being changed, verify user has permission to add to new team
-	if input.Team != nil && *input.Team != existingProject.Team && *input.Team != "" {
-		canAddToNewTeam := false
-		if user.Role == string(database.RoleAdmin) {
-			canAddToNewTeam = true
-		} else {
-			// Check if user can create projects in the new team
-			requiredScopes := []string{
-				fmt.Sprintf("project:create:%s", *input.Team),
-				fmt.Sprintf("project:*:%s", *input.Team),
-				"project:create:*",
-				"project:*:*",
-			}
-
-			scopes := getUserScopesFromContext(ctx)
-			for _, scope := range scopes {
-				for _, required := range requiredScopes {
-					if matchScope(scope, required) {
-						canAddToNewTeam = true
-						break
-					}
-				}
-				if canAddToNewTeam {
-					break
-				}
-			}
-		}
-
-		if !canAddToNewTeam {
-			return nil, fmt.Errorf("insufficient permissions to move project to team %s", *input.Team)
-		}
-	}
-
-	// Update project
-	updateInput := service.UpdateProjectInput{
-		Name:          convertPtrString(input.Name),
-		Description:   convertPtrString(input.Description),
-		Repository:    convertPtrString(input.Repository),
-		DefaultBranch: convertPtrString(input.DefaultBranch),
-		Settings:      input.Settings,
-		Team:          convertPtrString(input.Team),
-	}
-
-	project, err := r.projectService.UpdateProject(uint(projectID), updateInput)
-	if err != nil {
-		return nil, fmt.Errorf("failed to update project: %w", err)
-	}
-
-	return convertProject(project), nil
+	// Use domain service implementation
+	return r.UpdateProject_domain(ctx, id, input)
 }
 
 // DeleteProject is the resolver for the deleteProject field.
 func (r *mutationResolver) DeleteProject(ctx context.Context, id string) (bool, error) {
-	// Check user permissions
-	user, err := getCurrentUser(ctx)
-	if err != nil {
-		return false, err
-	}
-
-	// Parse ID to uint
-	projectID, err := strconv.ParseUint(id, 10, 32)
-	if err != nil {
-		return false, fmt.Errorf("invalid project ID: %w", err)
-	}
-
-	// Get the existing project to check permissions
-	existingProject, err := r.projectService.GetProject(uint(projectID))
-	if err != nil {
-		return false, fmt.Errorf("project not found: %w", err)
-	}
-
-	// Check if user can delete this project
-	canDelete := false
-	if user.Role == string(database.RoleAdmin) {
-		canDelete = true
-	} else {
-		// Get role group names from context
-		roleGroups := getRoleGroupNamesFromContext(ctx)
-
-		// Check if user has team + manager group combination
-		if existingProject.Team != "" {
-			hasTeamGroup := false
-			hasManagerGroup := false
-
-			for _, group := range user.UserGroups {
-				groupName := strings.TrimPrefix(group.GroupName, "/")
-				if groupName == existingProject.Team {
-					hasTeamGroup = true
-				}
-				if groupName == roleGroups.ManagerGroup {
-					hasManagerGroup = true
-				}
-			}
-
-			// If user is in both team and manager groups, they can delete
-			if hasTeamGroup && hasManagerGroup {
-				canDelete = true
-			}
-		}
-
-		// If not via groups, check scopes
-		if !canDelete {
-			// Check scopes for delete permission on this project
-			requiredScopes := []string{
-				fmt.Sprintf("project:delete:%s", existingProject.ProjectID),
-				fmt.Sprintf("project:*:%s", existingProject.ProjectID),
-			}
-
-			// If project has a team, also check team-based scopes
-			if existingProject.Team != "" {
-				requiredScopes = append(requiredScopes,
-					fmt.Sprintf("project:delete:%s:*", existingProject.Team),
-					fmt.Sprintf("project:*:%s:*", existingProject.Team),
-				)
-			}
-
-			scopes := getUserScopesFromContext(ctx)
-			for _, scope := range scopes {
-				for _, required := range requiredScopes {
-					if matchScope(scope, required) {
-						canDelete = true
-						break
-					}
-				}
-				if canDelete {
-					break
-				}
-			}
-		}
-
-		// Check explicit project permissions in database
-		if !canDelete {
-			var perm database.ProjectPermission
-			now := time.Now()
-			err = r.db.Where("project_id = ? AND user_id = ? AND permission IN ? AND (expires_at IS NULL OR expires_at > ?)",
-				existingProject.ProjectID, user.UserID, []string{"delete", "admin"}, now).First(&perm).Error
-			canDelete = err == nil
-		}
-	}
-
-	if !canDelete {
-		return false, fmt.Errorf("insufficient permissions to delete project")
-	}
-
-	// Delete project
-	err = r.projectService.DeleteProject(uint(projectID))
-	if err != nil {
-		return false, fmt.Errorf("failed to delete project: %w", err)
-	}
-
-	r.logger.WithFields(map[string]interface{}{
-		"project_id": existingProject.ProjectID,
-		"deleted_by": user.UserID,
-	}).Info("Project deleted")
-
-	return true, nil
+	// Use domain service implementation
+	return r.DeleteProject_domain(ctx, id)
 }
 
 // ActivateProject is the resolver for the activateProject field.
@@ -307,7 +67,8 @@ func (r *mutationResolver) DeactivateProject(ctx context.Context, projectID stri
 
 // CreateTag is the resolver for the createTag field.
 func (r *mutationResolver) CreateTag(ctx context.Context, input model.CreateTagInput) (*model.Tag, error) {
-	panic(fmt.Errorf("not implemented: CreateTag - createTag"))
+	// Use domain service implementation
+	return r.CreateTag_domain(ctx, input)
 }
 
 // UpdateTag is the resolver for the updateTag field.
@@ -339,7 +100,7 @@ func (r *projectResolver) CanManage(ctx context.Context, obj *model.Project) (bo
 	}
 
 	// Admin can manage all projects
-	if user.Role == string(database.RoleAdmin) {
+	if user.Role == authDomain.RoleAdmin {
 		return true, nil
 	}
 
@@ -351,7 +112,7 @@ func (r *projectResolver) CanManage(ctx context.Context, obj *model.Project) (bo
 		hasTeamGroup := false
 		hasManagerGroup := false
 
-		for _, group := range user.UserGroups {
+		for _, group := range user.Groups {
 			groupName := strings.TrimPrefix(group.GroupName, "/")
 			if groupName == *obj.Team {
 				hasTeamGroup = true
@@ -393,7 +154,15 @@ func (r *projectResolver) CanManage(ctx context.Context, obj *model.Project) (bo
 	}
 
 	// Check explicit project permissions in database
-	var perm database.ProjectPermission
+	// TODO: Migrate to domain permission model
+	type ProjectPermission struct {
+		ID         uint
+		ProjectID  string
+		UserID     string
+		Permission string
+		ExpiresAt  *time.Time
+	}
+	var perm ProjectPermission
 	now := time.Now()
 	err = r.db.Where("project_id = ? AND user_id = ? AND permission IN ? AND (expires_at IS NULL OR expires_at > ?)",
 		obj.ProjectID, user.UserID, []string{"write", "delete", "admin"}, now).First(&perm).Error
@@ -402,27 +171,22 @@ func (r *projectResolver) CanManage(ctx context.Context, obj *model.Project) (bo
 }
 
 // Stats is the resolver for the stats field.
-func (r *projectResolver) Stats(ctx context.Context, obj *model.Project) (*repository.ProjectStats, error) {
-	// Get project statistics
-	stats, err := r.projectService.GetProjectStats(obj.ProjectID)
-	if err != nil {
-		r.logger.WithError(err).WithField("project_id", obj.ProjectID).Warn("Failed to get project stats")
-		return nil, nil // Return nil stats on error
-	}
-	return stats, nil
+func (r *projectResolver) Stats(ctx context.Context, obj *model.Project) (*model.ProjectStats, error) {
+	// TODO: Implement project stats in domain service
+	return nil, nil
 }
 
 // CurrentUser is the resolver for the currentUser field.
 func (r *queryResolver) CurrentUser(ctx context.Context) (*model.User, error) {
-	user, ok := ctx.Value("user").(*database.User)
+	user, ok := ctx.Value("user").(*authDomain.User)
 	if !ok {
 		return nil, fmt.Errorf("user not authenticated")
 	}
 
-	// Extract group names from UserGroups
-	groups := make([]string, len(user.UserGroups))
-	for i, ug := range user.UserGroups {
-		groups[i] = ug.GroupName
+	// Extract group names from Groups
+	groups := make([]string, len(user.Groups))
+	for i, g := range user.Groups {
+		groups[i] = g.GroupName
 	}
 
 	return &model.User{
@@ -430,9 +194,9 @@ func (r *queryResolver) CurrentUser(ctx context.Context) (*model.User, error) {
 		UserID:      user.UserID,
 		Email:       user.Email,
 		Name:        user.Name,
-		FirstName:   convertStringPtr(user.FirstName),
-		LastName:    convertStringPtr(user.LastName),
-		Role:        user.Role,
+		FirstName:   &user.FirstName,
+		LastName:    &user.LastName,
+		Role:        string(user.Role),
 		ProfileURL:  convertStringPtr(user.ProfileURL),
 		Groups:      groups,
 		CreatedAt:   user.CreatedAt,
@@ -456,63 +220,8 @@ func (r *queryResolver) SystemConfig(ctx context.Context) (*model.SystemConfig, 
 
 // DashboardSummary is the resolver for the dashboardSummary field.
 func (r *queryResolver) DashboardSummary(ctx context.Context) (*model.DashboardSummary, error) {
-	// Get project count - we use count here instead of loading all projects
-	_, totalProjects, err := r.projectService.ListProjects(service.ListProjectsFilter{})
-	if err != nil {
-		return nil, fmt.Errorf("failed to get project count: %w", err)
-	}
-
-	// Get active project count
-	_, activeProjects, err := r.projectService.ListProjects(service.ListProjectsFilter{ActiveOnly: true})
-	if err != nil {
-		return nil, fmt.Errorf("failed to get active project count: %w", err)
-	}
-
-	// Get test run stats from the last 30 days
-	startTime := time.Now().AddDate(0, 0, -30)
-	testRuns, totalTestRunCount, err := r.testRunService.ListTestRuns(repository.ListTestRunsFilter{
-		StartTime: &startTime,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to get test runs: %w", err)
-	}
-
-	// Calculate stats from the actual test runs we retrieved
-	totalTests := 0
-	passedTests := 0
-	totalDuration := 0
-
-	for _, run := range testRuns {
-		totalTests += run.TotalTests
-		passedTests += run.PassedTests
-		totalDuration += int(run.Duration)
-	}
-
-	overallPassRate := float64(0)
-	avgDuration := 0
-	if totalTests > 0 {
-		overallPassRate = float64(passedTests) / float64(totalTests) * 100
-	}
-	if len(testRuns) > 0 {
-		avgDuration = totalDuration / len(testRuns)
-	}
-
-	version := "1.0.0"
-	return &model.DashboardSummary{
-		Health: &model.HealthStatus{
-			Status:    "healthy",
-			Service:   "fern-platform",
-			Timestamp: time.Now(),
-			Version:   &version,
-		},
-		ProjectCount:        int(totalProjects),
-		ActiveProjectCount:  int(activeProjects),
-		TotalTestRuns:       int(totalTestRunCount),
-		RecentTestRuns:      len(testRuns),
-		OverallPassRate:     overallPassRate,
-		TotalTestsExecuted:  totalTests,
-		AverageTestDuration: avgDuration,
-	}, nil
+	// Use domain service implementation
+	return r.DashboardSummary_domain(ctx)
 }
 
 // Health is the resolver for the health field.
@@ -528,449 +237,65 @@ func (r *queryResolver) Health(ctx context.Context) (*model.HealthStatus, error)
 
 // TreemapData is the resolver for the treemapData field.
 func (r *queryResolver) TreemapData(ctx context.Context, projectID *string, days *int) (*model.TreemapData, error) {
-	daysFilter := 7
-	if days != nil {
-		daysFilter = *days
-	}
-
-	startTime := time.Now().AddDate(0, 0, -daysFilter)
-
-	filter := repository.ListTestRunsFilter{
-		StartTime: &startTime,
-	}
-	if projectID != nil {
-		filter.ProjectID = *projectID
-	}
-
-	// Get test runs
-	testRuns, _, err := r.testRunService.ListTestRuns(filter)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get test runs: %w", err)
-	}
-
-	// Get all projects
-	projects, _, err := r.projectService.ListProjects(service.ListProjectsFilter{})
-	if err != nil {
-		return nil, fmt.Errorf("failed to get projects: %w", err)
-	}
-
-	// Build project map
-	projectMap := make(map[string]*database.ProjectDetails)
-	for i := range projects {
-		projectMap[projects[i].ProjectID] = projects[i]
-	}
-
-	// Group test runs by project
-	projectNodes := make(map[string]*model.ProjectTreemapNode)
-	totalDuration := 0
-	totalTests := 0
-	totalPassed := 0
-
-	for _, run := range testRuns {
-		project, exists := projectMap[run.ProjectID]
-		if !exists {
-			continue
-		}
-
-		node, exists := projectNodes[run.ProjectID]
-		if !exists {
-			node = &model.ProjectTreemapNode{
-				Project: &model.Project{
-					ID:            fmt.Sprintf("%d", project.ID),
-					ProjectID:     project.ProjectID,
-					Name:          project.Name,
-					Description:   convertStringPtr(project.Description),
-					Repository:    convertStringPtr(project.Repository),
-					DefaultBranch: project.DefaultBranch,
-					IsActive:      project.IsActive,
-					CreatedAt:     project.CreatedAt,
-					UpdatedAt:     project.UpdatedAt,
-				},
-				Suites: []*model.SuiteTreemapNode{},
-			}
-			projectNodes[run.ProjectID] = node
-		}
-
-		// Add to totals
-		node.TotalDuration += int(run.Duration)
-		node.TotalTests += run.TotalTests
-		node.PassedTests += run.PassedTests
-		node.FailedTests += run.FailedTests
-
-		totalDuration += int(run.Duration)
-		totalTests += run.TotalTests
-		totalPassed += run.PassedTests
-	}
-
-	// Calculate pass rates
-	for _, node := range projectNodes {
-		if node.TotalTests > 0 {
-			node.PassRate = float64(node.PassedTests) / float64(node.TotalTests)
-		}
-	}
-
-	// Convert map to slice
-	projectNodeList := make([]*model.ProjectTreemapNode, 0, len(projectNodes))
-	for _, node := range projectNodes {
-		projectNodeList = append(projectNodeList, node)
-	}
-
-	overallPassRate := float64(0)
-	if totalTests > 0 {
-		overallPassRate = float64(totalPassed) / float64(totalTests)
-	}
-
-	return &model.TreemapData{
-		Projects:        projectNodeList,
-		TotalDuration:   totalDuration,
-		TotalTests:      totalTests,
-		OverallPassRate: overallPassRate,
-	}, nil
+	// Use domain service implementation
+	return r.TreemapData_domain(ctx, projectID, days)
 }
 
 // TestRun is the resolver for the testRun field.
 func (r *queryResolver) TestRun(ctx context.Context, id string) (*model.TestRun, error) {
-	// Parse ID to int64
-	intID, err := strconv.ParseInt(id, 10, 64)
-	if err != nil {
-		return nil, fmt.Errorf("invalid ID format: %w", err)
-	}
-
-	// Get test run by ID
-	testRun, err := r.testRunService.GetTestRun(uint(intID))
-	if err != nil {
-		return nil, fmt.Errorf("failed to get test run: %w", err)
-	}
-
-	if testRun == nil {
-		return nil, fmt.Errorf("test run not found")
-	}
-
-	return convertTestRun(testRun), nil
+	// Use domain service implementation
+	return r.GetTestRun_domain(ctx, id)
 }
 
 // TestRunByRunID is the resolver for the testRunByRunId field.
 func (r *queryResolver) TestRunByRunID(ctx context.Context, runID string) (*model.TestRun, error) {
-	// Get test run by run ID
-	testRun, err := r.testRunService.GetTestRunByRunID(runID)
+	// Use domain service implementation
+	testRun, err := r.testingService.GetTestRunByRunID(ctx, runID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get test run: %w", err)
 	}
-
-	if testRun == nil {
-		return nil, fmt.Errorf("test run not found")
-	}
-
-	return convertTestRun(testRun), nil
+	return r.convertTestRunToGraphQL(testRun), nil
 }
 
 // TestRuns is the resolver for the testRuns field.
 func (r *queryResolver) TestRuns(ctx context.Context, filter *model.TestRunFilter, first *int, after *string, orderBy *string, orderDirection *model.OrderDirection) (*model.TestRunConnection, error) {
-	// Build repository filter
-	repoFilter := repository.ListTestRunsFilter{}
-
-	if filter != nil {
-		if filter.ProjectID != nil {
-			repoFilter.ProjectID = *filter.ProjectID
-		}
-		if filter.Branch != nil {
-			repoFilter.Branch = *filter.Branch
-		}
-		if filter.Status != nil {
-			repoFilter.Status = *filter.Status
-		}
-		if filter.Environment != nil {
-			repoFilter.Environment = *filter.Environment
-		}
-		if filter.StartTime != nil {
-			repoFilter.StartTime = filter.StartTime
-		}
-		if filter.EndTime != nil {
-			repoFilter.EndTime = filter.EndTime
-		}
-		// TODO: Handle tags filter
-	}
-
-	// Apply pagination
-	pageSize := 20
-	if first != nil && *first > 0 && *first <= 100 {
-		pageSize = *first
-	}
-
-	offset := 0
-	if after != nil && *after != "" {
-		// Simple cursor: just the index
-		if idx, err := strconv.Atoi(*after); err == nil && idx >= 0 {
-			offset = idx + 1
-		}
-	}
-
-	// Set pagination params
-	repoFilter.Limit = pageSize
-	repoFilter.Offset = offset
-
-	// Get test runs with pagination
-	testRuns, totalCount, err := r.testRunService.ListTestRuns(repoFilter)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list test runs: %w", err)
-	}
-
-	hasMore := offset+len(testRuns) < int(totalCount)
-
-	// Build edges
-	edges := make([]*model.TestRunEdge, len(testRuns))
-	for i, run := range testRuns {
-		edges[i] = &model.TestRunEdge{
-			Node:   convertTestRun(run),
-			Cursor: fmt.Sprintf("%d", offset+i), // Simple cursor
-		}
-	}
-
-	// Build page info
-	pageInfo := &model.PageInfo{
-		HasNextPage:     hasMore,
-		HasPreviousPage: offset > 0,
-	}
-	if len(edges) > 0 {
-		pageInfo.StartCursor = &edges[0].Cursor
-		pageInfo.EndCursor = &edges[len(edges)-1].Cursor
-	}
-
-	return &model.TestRunConnection{
-		Edges:      edges,
-		PageInfo:   pageInfo,
-		TotalCount: int(totalCount),
-	}, nil
+	// Use domain service implementation
+	return r.TestRuns_domain(ctx, filter, first, after, orderBy, orderDirection)
 }
 
 // TestRunStats is the resolver for the testRunStats field.
-func (r *queryResolver) TestRunStats(ctx context.Context, projectID *string, days *int) (*repository.TestRunStats, error) {
-	// Default to 30 days if not specified
-	daysFilter := 30
-	if days != nil && *days > 0 {
-		daysFilter = *days
-	}
-
-	startTime := time.Now().AddDate(0, 0, -daysFilter)
-
-	filter := repository.ListTestRunsFilter{
-		StartTime: &startTime,
-	}
-
-	if projectID != nil {
-		filter.ProjectID = *projectID
-	}
-
-	// Get test runs
-	testRuns, _, err := r.testRunService.ListTestRuns(filter)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get test runs: %w", err)
-	}
-
-	// Calculate stats
-	statusCounts := make(map[string]int)
-	totalDuration := int64(0)
-	totalTests := 0
-	passedTests := 0
-
-	for _, run := range testRuns {
-		statusCounts[run.Status]++
-		totalDuration += run.Duration
-		totalTests += run.TotalTests
-		passedTests += run.PassedTests
-	}
-
-	// Build status count array
-	var statusCountArray []repository.StatusCount
-	for status, count := range statusCounts {
-		statusCountArray = append(statusCountArray, repository.StatusCount{
-			Status: status,
-			Count:  int64(count),
-		})
-	}
-
-	avgDuration := int64(0)
-	successRate := float64(0)
-
-	if len(testRuns) > 0 {
-		avgDuration = totalDuration / int64(len(testRuns))
-	}
-
-	if totalTests > 0 {
-		successRate = float64(passedTests) / float64(totalTests) * 100
-	}
-
-	return &repository.TestRunStats{
-		TotalRuns:       int64(len(testRuns)),
-		StatusCounts:    statusCountArray,
-		AverageDuration: avgDuration,
-		SuccessRate:     successRate,
+func (r *queryResolver) TestRunStats(ctx context.Context, projectID *string, days *int) (*model.TestRunStats, error) {
+	// TODO: Implement test run stats using domain service
+	return &model.TestRunStats{
+		TotalRuns:       0,
+		StatusCounts:    []*model.StatusCount{},
+		AverageDuration: 0,
+		SuccessRate:     0.0,
 	}, nil
 }
 
 // RecentTestRuns is the resolver for the recentTestRuns field.
 func (r *queryResolver) RecentTestRuns(ctx context.Context, projectID *string, limit *int) ([]*model.TestRun, error) {
-	maxLimit := 100
-	defaultLimit := 10
-
-	if limit != nil && *limit > 0 && *limit <= maxLimit {
-		defaultLimit = *limit
-	}
-
-	filter := repository.ListTestRunsFilter{
-		Limit: defaultLimit,
-	}
-
-	if projectID != nil {
-		filter.ProjectID = *projectID
-	}
-
-	// Get test runs ordered by start time descending
-	testRuns, _, err := r.testRunService.ListTestRuns(filter)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get recent test runs: %w", err)
-	}
-
-	// Convert to GraphQL models
-	result := make([]*model.TestRun, len(testRuns))
-	for i, run := range testRuns {
-		result[i] = convertTestRun(run)
-	}
-
-	return result, nil
+	// Use domain service implementation
+	return r.RecentTestRuns_domain(ctx, projectID, limit)
 }
 
 // Project is the resolver for the project field.
 func (r *queryResolver) Project(ctx context.Context, id string) (*model.Project, error) {
-	panic(fmt.Errorf("not implemented: Project - project"))
+	// Use domain service implementation
+	return r.Project_domain(ctx, id)
 }
 
 // ProjectByProjectID is the resolver for the projectByProjectId field.
 func (r *queryResolver) ProjectByProjectID(ctx context.Context, projectID string) (*model.Project, error) {
-	// Get project by project ID
-	project, err := r.projectService.GetProjectByProjectID(projectID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get project: %w", err)
-	}
-
-	if project == nil {
-		return nil, fmt.Errorf("project not found")
-	}
-
-	return &model.Project{
-		ID:            fmt.Sprintf("%d", project.ID),
-		ProjectID:     project.ProjectID,
-		Name:          project.Name,
-		Description:   convertStringPtr(project.Description),
-		Repository:    convertStringPtr(project.Repository),
-		DefaultBranch: project.DefaultBranch,
-		Settings:      nil, // TODO: Parse JSON settings
-		IsActive:      project.IsActive,
-		CreatedAt:     project.CreatedAt,
-		UpdatedAt:     project.UpdatedAt,
-	}, nil
+	// Use domain service implementation
+	return r.ProjectByProjectID_domain(ctx, projectID)
 }
 
 // Projects is the resolver for the projects field.
 func (r *queryResolver) Projects(ctx context.Context, filter *model.ProjectFilter, first *int, after *string) (*model.ProjectConnection, error) {
-	// Get current user
-	user, err := getCurrentUser(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("user not authenticated")
-	}
-
-	// Build filter
-	repoFilter := service.ListProjectsFilter{}
-	if filter != nil {
-		if filter.Search != nil {
-			repoFilter.Search = *filter.Search
-		}
-		if filter.ActiveOnly != nil && *filter.ActiveOnly {
-			repoFilter.ActiveOnly = true
-		}
-	}
-
-	// If not admin, filter by teams the user has access to
-	if user.Role != string(database.RoleAdmin) {
-		teams := getUserTeamsFromContext(ctx)
-		if len(teams) > 0 {
-			repoFilter.Teams = teams
-		}
-		// TODO: Also include projects where user has explicit permissions
-	}
-
-	// Apply pagination
-	pageSize := 20
-	if first != nil && *first > 0 && *first <= 100 {
-		pageSize = *first
-	}
-
-	offset := 0
-	if after != nil && *after != "" {
-		// Simple cursor: just the index
-		if idx, err := strconv.Atoi(*after); err == nil && idx >= 0 {
-			offset = idx + 1
-		}
-	}
-
-	// Set pagination params
-	repoFilter.Limit = pageSize
-	repoFilter.Offset = offset
-
-	// Get projects with pagination
-	projects, totalCount, err := r.projectService.ListProjects(repoFilter)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list projects: %w", err)
-	}
-
-	hasMore := offset+len(projects) < int(totalCount)
-
-	// Build edges with stats
-	edges := make([]*model.ProjectEdge, len(projects))
-	for i, project := range projects {
-		// Get project stats
-		stats, _ := r.projectService.GetProjectStats(project.ProjectID)
-
-		projectNode := &model.Project{
-			ID:            fmt.Sprintf("%d", project.ID),
-			ProjectID:     project.ProjectID,
-			Name:          project.Name,
-			Description:   convertStringPtr(project.Description),
-			Repository:    convertStringPtr(project.Repository),
-			DefaultBranch: project.DefaultBranch,
-			Settings:      nil, // TODO: Parse JSON settings
-			IsActive:      project.IsActive,
-			Team:          convertStringPtr(project.Team),
-			CreatedAt:     project.CreatedAt,
-			UpdatedAt:     project.UpdatedAt,
-		}
-
-		// Add stats if available
-		if stats != nil {
-			projectNode.Stats = stats
-		}
-
-		edges[i] = &model.ProjectEdge{
-			Node:   projectNode,
-			Cursor: strconv.Itoa(offset + i),
-		}
-	}
-
-	// Build page info
-	pageInfo := &model.PageInfo{
-		HasNextPage:     hasMore,
-		HasPreviousPage: offset > 0,
-	}
-	if len(edges) > 0 {
-		pageInfo.StartCursor = &edges[0].Cursor
-		pageInfo.EndCursor = &edges[len(edges)-1].Cursor
-	}
-
-	return &model.ProjectConnection{
-		Edges:      edges,
-		PageInfo:   pageInfo,
-		TotalCount: int(totalCount),
-	}, nil
+	// Use domain service implementation
+	return r.Projects_domain(ctx, filter, first, after)
 }
 
 // Tag is the resolver for the tag field.
@@ -985,16 +310,17 @@ func (r *queryResolver) TagByName(ctx context.Context, name string) (*model.Tag,
 
 // Tags is the resolver for the tags field.
 func (r *queryResolver) Tags(ctx context.Context, filter *model.TagFilter, first *int, after *string) (*model.TagConnection, error) {
-	panic(fmt.Errorf("not implemented: Tags - tags"))
+	// Use domain service implementation
+	return r.Tags_domain(ctx, filter, first, after)
 }
 
 // TagUsageStats is the resolver for the tagUsageStats field.
-func (r *queryResolver) TagUsageStats(ctx context.Context) ([]*repository.TagUsage, error) {
+func (r *queryResolver) TagUsageStats(ctx context.Context) ([]*model.TagUsage, error) {
 	panic(fmt.Errorf("not implemented: TagUsageStats - tagUsageStats"))
 }
 
 // PopularTags is the resolver for the popularTags field.
-func (r *queryResolver) PopularTags(ctx context.Context, limit *int) ([]*repository.TagUsage, error) {
+func (r *queryResolver) PopularTags(ctx context.Context, limit *int) ([]*model.TagUsage, error) {
 	panic(fmt.Errorf("not implemented: PopularTags - popularTags"))
 }
 
@@ -1079,7 +405,7 @@ func (r *suiteRunResolver) SpecRuns(ctx context.Context, obj *model.SuiteRun) ([
 			}).Warn("SpecRun has zero StartTime, using current time")
 			startTime = time.Now() // Use current time as fallback
 		}
-		
+
 		result[i] = &model.SpecRun{
 			ID:           fmt.Sprintf("%d", sp.ID),
 			SuiteRunID:   fmt.Sprintf("%d", sp.SuiteRunID),
@@ -1098,11 +424,6 @@ func (r *suiteRunResolver) SpecRuns(ctx context.Context, obj *model.SuiteRun) ([
 	}
 
 	return result, nil
-}
-
-// ID is the resolver for the id field.
-func (r *tagUsageResolver) ID(ctx context.Context, obj *repository.TagUsage) (string, error) {
-	panic(fmt.Errorf("not implemented: ID - id"))
 }
 
 // SuiteRuns is the resolver for the suiteRuns field.
@@ -1175,9 +496,6 @@ func (r *Resolver) Subscription() generated.SubscriptionResolver { return &subsc
 // SuiteRun returns generated.SuiteRunResolver implementation.
 func (r *Resolver) SuiteRun() generated.SuiteRunResolver { return &suiteRunResolver{r} }
 
-// TagUsage returns generated.TagUsageResolver implementation.
-func (r *Resolver) TagUsage() generated.TagUsageResolver { return &tagUsageResolver{r} }
-
 // TestRun returns generated.TestRunResolver implementation.
 func (r *Resolver) TestRun() generated.TestRunResolver { return &testRunResolver{r} }
 
@@ -1186,5 +504,18 @@ type projectResolver struct{ *Resolver }
 type queryResolver struct{ *Resolver }
 type subscriptionResolver struct{ *Resolver }
 type suiteRunResolver struct{ *Resolver }
-type tagUsageResolver struct{ *Resolver }
 type testRunResolver struct{ *Resolver }
+
+// !!! WARNING !!!
+// The code below was going to be deleted when updating resolvers. It has been copied here so you have
+// one last chance to move it out of harms way if you want. There are two reasons this happens:
+//  - When renaming or deleting a resolver the old code will be put in here. You can safely delete
+//    it when you're done.
+//  - You have helper methods in this file. Move them out to keep these resolver files clean.
+/*
+	func (r *tagUsageResolver) ID(ctx context.Context, obj interface{}) (string, error) {
+	panic(fmt.Errorf("not implemented: ID - id"))
+}
+func (r *Resolver) TagUsage() generated.TagUsageResolver { return &tagUsageResolver{r} }
+type tagUsageResolver struct{ *Resolver }
+*/
