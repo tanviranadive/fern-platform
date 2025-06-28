@@ -17,12 +17,12 @@ import (
 	"github.com/guidewire-oss/fern-platform/pkg/logging"
 	"github.com/guidewire-oss/fern-platform/pkg/middleware"
 	"github.com/guidewire-oss/fern-platform/internal/domains"
-	"github.com/guidewire-oss/fern-platform/internal/reporter/api"
+	api "github.com/guidewire-oss/fern-platform/internal/api"
 	"github.com/guidewire-oss/fern-platform/internal/reporter/graphql"
 )
 
 func main() {
-	var configPath = flag.String("config", "", "Path to configuration file")
+	configPath := flag.String("config", "", "Path to configuration file")
 	flag.Parse()
 
 	// Load configuration
@@ -54,15 +54,14 @@ func main() {
 	}
 
 	// Initialize domain factory for DDD architecture
-	domainFactory := domains.NewDomainFactory(db.DB, logger)
+	domainFactory := domains.NewDomainFactory(db.DB, logger, &cfg.Auth)
 	
-	// Get domain-based services that maintain backward compatibility
-	testRunService := domainFactory.GetTestRunService()
-	projectService := domainFactory.GetProjectService()
-	tagService := domainFactory.GetTagService()
-
-	// Initialize GraphQL resolver
-	resolver := graphql.NewResolver(testRunService, projectService, tagService, db.DB, logger)
+	// Get domain services directly
+	testingService := domainFactory.GetTestingService()
+	projectService := domainFactory.GetProjectDomainService()
+	tagService := domainFactory.GetTagDomainService()
+	flakyDetectionService := domainFactory.GetFlakyDetectionService()
+	authMiddleware := domainFactory.GetAuthMiddleware()
 
 	// Initialize HTTP server
 	if cfg.Server.Host == "0.0.0.0" {
@@ -88,22 +87,29 @@ func main() {
 		router.Use(middleware.NewCORSMiddleware(corsConfig))
 	}
 
-	// Auth middleware
-	authMiddleware := middleware.NewAuthMiddleware(&cfg.Auth, logger)
-	oauthMiddleware := middleware.NewOAuthMiddleware(&cfg.Auth, db.DB, logger)
-
-	// REST API routes
-	apiHandler := api.NewHandler(testRunService, projectService, tagService, authMiddleware, oauthMiddleware, logger)
-	apiHandler.RegisterRoutes(router)
+	// Use the new domain-based API handler
+	domainHandler := api.NewDomainHandler(
+		testingService,
+		projectService,
+		tagService,
+		flakyDetectionService,
+		authMiddleware,
+		logger,
+	)
+	domainHandler.RegisterRoutes(router)
 
 	// GraphQL routes with role group names from config
+	// Initialize GraphQL resolver with domain services
+	resolver := graphql.NewResolver(testingService, projectService, tagService, flakyDetectionService, db.DB, logger)
+	
 	roleGroupNames := &graphql.RoleGroupNames{
 		AdminGroup:   cfg.Auth.OAuth.AdminGroupName,
 		ManagerGroup: cfg.Auth.OAuth.ManagerGroupName,
 		UserGroup:    cfg.Auth.OAuth.UserGroupName,
 	}
+	
 	gqlHandler := graphql.NewHandler(resolver, roleGroupNames)
-	gqlHandler.RegisterRoutes(router, oauthMiddleware)
+	gqlHandler.RegisterRoutes(router, authMiddleware)
 
 	// Note: Static file serving is handled by the API handler
 

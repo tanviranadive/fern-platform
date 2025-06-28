@@ -41,11 +41,35 @@ Fern Platform provides comprehensive APIs for integration:
 
 ## 🏗️ Architecture & Design
 
-- **[Architecture Overview](../ARCHITECTURE.md)** - System design and components
+- **[Architecture Overview](../ARCHITECTURE.md)** - Domain-driven design and components
+- **[Domain Structure](../../internal/domains/README.md)** - DDD implementation guide
 - **[UI Enhancements](../UI_ENHANCEMENTS.md)** - Frontend features and design
 - **[RFCs](../rfc/)** - Design proposals and future plans
 
 ## 💻 Development Workflow
+
+### Working with Domains
+The codebase follows Domain-Driven Design (DDD):
+
+1. **Domain Layer** (`internal/domains/{domain}/domain/`)
+   - Contains business entities, value objects, and domain services
+   - No dependencies on external frameworks
+   - Example: `TestRun`, `Project`, `User` entities
+
+2. **Application Layer** (`internal/domains/{domain}/application/`)
+   - Use cases and application services
+   - Orchestrates domain objects
+   - Example: `RecordTestRunHandler`, `CreateProjectHandler`
+
+3. **Infrastructure Layer** (`internal/domains/{domain}/infrastructure/`)
+   - Database repositories, external API clients
+   - Implements domain interfaces
+   - Example: `GormTestRunRepository`, `KeycloakAuthClient`
+
+4. **Interface Layer** (`internal/domains/{domain}/interfaces/`)
+   - REST/GraphQL handlers, CLI commands
+   - Adapts external requests to application services
+   - Example: `TestRunHTTPHandler`, `ProjectGraphQLResolver`
 
 ### Local Development
 1. Clone the repository
