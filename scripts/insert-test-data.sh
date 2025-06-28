@@ -1,7 +1,35 @@
 #!/bin/bash
 
-# Script to insert test data into fern-platform database
-# This script uses kubectl to get database credentials from secrets and then applies test data
+# Test Data Bootstrap Script for Fern Platform
+# ============================================
+# 
+# Purpose:
+# This script populates the Fern Platform database with realistic test data for development,
+# testing, and demonstration purposes. It creates a comprehensive dataset that simulates
+# real-world test execution scenarios across multiple projects.
+#
+# What it does:
+# 1. Connects to the PostgreSQL database running in Kubernetes using credentials from secrets
+# 2. Creates 3 sample projects representing different types of applications:
+#    - E-Commerce Frontend (React/TypeScript) - High pass rate (~87%)
+#    - API Gateway Service (Go) - Lower pass rate (~51%) to simulate a struggling project
+#    - Mobile Banking App (React Native) - High pass rate (~88%)
+# 3. Generates test execution data for each project including:
+#    - Multiple test runs with varying statuses (passed, failed, running)
+#    - Test suites organized by type (unit, integration, e2e, etc.)
+#    - Individual test specs with realistic names and error messages
+#    - Historical data spanning several days for trend analysis
+#
+# Prerequisites:
+# - kubectl configured with access to the Kubernetes cluster
+# - Fern Platform deployed with PostgreSQL database
+# - postgres-app secret containing database credentials
+#
+# Usage:
+# ./scripts/insert-test-data.sh
+#
+# Note: This script is idempotent - running it multiple times will add more test data
+# without removing existing data. Projects are created with ON CONFLICT handling.
 
 set -e
 

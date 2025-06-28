@@ -1,19 +1,57 @@
--- Test data for fern-platform database
--- This script creates sample projects, test runs, suite runs, and spec runs
+-- Test Data Generation Script for Fern Platform
+-- ==============================================
+--
+-- Purpose:
+-- This SQL script generates comprehensive test data for the Fern Platform database.
+-- It creates a realistic dataset that simulates test execution patterns across
+-- different types of software projects, providing data for all dashboard views,
+-- analytics features, and trend analysis.
+--
+-- Data Generated:
+-- 1. Projects (3 total):
+--    - E-Commerce Frontend: React/TypeScript project with good test coverage
+--    - API Gateway Service: Go project with performance issues (lower pass rate)
+--    - Mobile Banking App: React Native project with stable test results
+--
+-- 2. Test Runs:
+--    - Multiple runs per project spanning several days
+--    - Mix of completed, failed, and running statuses
+--    - Realistic execution times and branch names
+--
+-- 3. Test Suites:
+--    - 2-5 suites per test run
+--    - Project-specific suite names (Component/Integration/E2E for frontend,
+--      API/Performance/Security for backend, UI/Device/Network for mobile)
+--    - Aggregated pass/fail/skip counts
+--
+-- 4. Test Specs:
+--    - 5-10 specs per suite
+--    - Realistic test names based on project type
+--    - Error messages and stack traces for failed tests
+--    - Varying execution times (100ms - 5s)
+--
+-- Key Features:
+-- - Idempotent: Uses ON CONFLICT for projects to avoid duplicates
+-- - Time-distributed: Creates historical data for trend analysis
+-- - Realistic patterns: API Gateway has ~50% pass rate, others have ~80-90%
+-- - Dashboard-ready: Provides data for all UI components including treemaps
+--
+-- Note: Running this script multiple times will create additional test runs,
+-- allowing you to build up a larger dataset over time.
 
 -- Clear existing test data (optional - comment out if you want to keep existing data)
--- DELETE FROM spec_runs WHERE test_run_id IN (SELECT id FROM test_runs WHERE project_id IN ('project-frontend-001', 'project-backend-002', 'project-mobile-003'));
--- DELETE FROM suite_runs WHERE test_run_id IN (SELECT id FROM test_runs WHERE project_id IN ('project-frontend-001', 'project-backend-002', 'project-mobile-003'));
--- DELETE FROM test_runs WHERE project_id IN ('project-frontend-001', 'project-backend-002', 'project-mobile-003');
--- DELETE FROM project_details WHERE project_id IN ('project-frontend-001', 'project-backend-002', 'project-mobile-003');
+-- DELETE FROM spec_runs WHERE suite_run_id IN (SELECT id FROM suite_runs WHERE test_run_id IN (SELECT id FROM test_runs WHERE project_id IN ('550e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440002', '550e8400-e29b-41d4-a716-446655440003')));
+-- DELETE FROM suite_runs WHERE test_run_id IN (SELECT id FROM test_runs WHERE project_id IN ('550e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440002', '550e8400-e29b-41d4-a716-446655440003'));
+-- DELETE FROM test_runs WHERE project_id IN ('550e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440002', '550e8400-e29b-41d4-a716-446655440003');
+-- DELETE FROM project_details WHERE project_id IN ('550e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440002', '550e8400-e29b-41d4-a716-446655440003');
 
--- Insert sample projects (skip if they already exist)
+-- Insert sample projects with UUIDs (skip if they already exist)
 INSERT INTO project_details (project_id, name, description, repository, default_branch, team, is_active, created_at, updated_at) VALUES
-('project-frontend-001', 'E-Commerce Frontend', 'React-based e-commerce platform frontend with TypeScript', 'https://github.com/example/ecommerce-frontend', 'main', 'frontend', true, NOW() - INTERVAL '30 days', NOW()),
-('project-backend-002', 'API Gateway Service', 'High-performance API gateway built with Go', 'https://github.com/example/api-gateway', 'main', 'backend', true, NOW() - INTERVAL '45 days', NOW()),
-('project-mobile-003', 'Mobile Banking App', 'Cross-platform mobile banking application using React Native', 'https://github.com/example/mobile-banking', 'develop', 'mobile', true, NOW() - INTERVAL '60 days', NOW())
+('550e8400-e29b-41d4-a716-446655440001', 'E-Commerce Frontend', 'React-based e-commerce platform frontend with TypeScript', 'https://github.com/example/ecommerce-frontend', 'main', 'fern', true, NOW() - INTERVAL '30 days', NOW()),
+('550e8400-e29b-41d4-a716-446655440002', 'API Gateway Service', 'High-performance API gateway built with Go', 'https://github.com/example/api-gateway', 'main', 'fern', true, NOW() - INTERVAL '45 days', NOW()),
+('550e8400-e29b-41d4-a716-446655440003', 'Mobile Banking App', 'Cross-platform mobile banking application using React Native', 'https://github.com/example/mobile-banking', 'develop', 'fern', true, NOW() - INTERVAL '60 days', NOW())
 ON CONFLICT (project_id) DO UPDATE 
-SET updated_at = NOW();
+SET team = 'fern', updated_at = NOW();
 
 -- Function to generate test data
 DO $$
@@ -39,7 +77,7 @@ BEGIN
     FOR project_rec IN 
         SELECT project_id, name 
         FROM project_details 
-        WHERE project_id IN ('project-frontend-001', 'project-backend-002', 'project-mobile-003')
+        WHERE project_id IN ('550e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440002', '550e8400-e29b-41d4-a716-446655440003')
     LOOP
         -- Create 3-5 test runs per project
         FOR i IN 1..3 + floor(random() * 3)::int LOOP
@@ -88,6 +126,12 @@ BEGIN
             -- Create 2-5 test suites per test run
             suite_counter := 2 + floor(random() * 4)::int;
             FOR j IN 1..suite_counter LOOP
+                -- Reset suite-level counters
+                total_specs := 0;
+                passed_specs := 0;
+                failed_specs := 0;
+                skipped_specs := 0;
+                
                 -- Insert suite run
                 INSERT INTO suite_runs (
                     test_run_id, suite_name, status, start_time, end_time,
@@ -96,7 +140,7 @@ BEGIN
                 ) VALUES (
                     test_run_id,
                     CASE project_rec.project_id
-                        WHEN 'project-frontend-001' THEN 
+                        WHEN '550e8400-e29b-41d4-a716-446655440001' THEN 
                             CASE j
                                 WHEN 1 THEN 'Component Tests'
                                 WHEN 2 THEN 'Integration Tests'
@@ -104,7 +148,7 @@ BEGIN
                                 WHEN 4 THEN 'Unit Tests'
                                 ELSE 'Smoke Tests'
                             END
-                        WHEN 'project-backend-002' THEN
+                        WHEN '550e8400-e29b-41d4-a716-446655440002' THEN
                             CASE j
                                 WHEN 1 THEN 'API Tests'
                                 WHEN 2 THEN 'Performance Tests'
@@ -112,7 +156,7 @@ BEGIN
                                 WHEN 4 THEN 'Database Tests'
                                 ELSE 'Load Tests'
                             END
-                        ELSE -- project-mobile-003
+                        ELSE -- 550e8400-e29b-41d4-a716-446655440003
                             CASE j
                                 WHEN 1 THEN 'UI Tests'
                                 WHEN 2 THEN 'Device Tests'
@@ -137,8 +181,8 @@ BEGIN
                 spec_counter := 5 + floor(random() * 6)::int;
                 FOR k IN 1..spec_counter LOOP
                     -- Determine test status based on project
-                    -- project-backend-002 should have ~50% pass rate
-                    IF project_rec.project_id = 'project-backend-002' THEN
+                    -- API Gateway Service should have ~50% pass rate
+                    IF project_rec.project_id = '550e8400-e29b-41d4-a716-446655440002' THEN
                         IF random() < 0.5 THEN
                             test_status := 'passed';
                             passed_tests := passed_tests + 1;
@@ -182,7 +226,7 @@ BEGIN
                     ) VALUES (
                         suite_run_id,
                         CASE project_rec.project_id
-                            WHEN 'project-frontend-001' THEN 
+                            WHEN '550e8400-e29b-41d4-a716-446655440001' THEN 
                                 'should ' || 
                                 CASE floor(random() * 10)::int
                                     WHEN 0 THEN 'render component correctly'
@@ -196,7 +240,7 @@ BEGIN
                                     WHEN 8 THEN 'apply correct styling'
                                     ELSE 'handle edge cases'
                                 END
-                            WHEN 'project-backend-002' THEN
+                            WHEN '550e8400-e29b-41d4-a716-446655440002' THEN
                                 'should ' ||
                                 CASE floor(random() * 10)::int
                                     WHEN 0 THEN 'route requests correctly'
@@ -210,7 +254,7 @@ BEGIN
                                     WHEN 8 THEN 'log requests properly'
                                     ELSE 'handle concurrent requests'
                                 END
-                            ELSE -- project-mobile-003
+                            ELSE -- 550e8400-e29b-41d4-a716-446655440003
                                 'should ' ||
                                 CASE floor(random() * 10)::int
                                     WHEN 0 THEN 'render on all screen sizes'
@@ -251,11 +295,11 @@ BEGIN
                     failed_specs = $4,
                     skipped_specs = $5
                 WHERE id = $6'
-                USING (run_duration / suite_counter), 
-                      (total_specs / suite_counter),
-                      (passed_specs / suite_counter),
-                      (failed_specs / suite_counter),
-                      (skipped_specs / suite_counter),
+                USING spec_duration * spec_counter, 
+                      total_specs,
+                      passed_specs,
+                      failed_specs,
+                      skipped_specs,
                       suite_run_id;
             END LOOP;
             
@@ -284,12 +328,13 @@ DECLARE
     project_rec RECORD;
     test_run_id INTEGER;
     suite_run_id INTEGER;
+    j INTEGER;
 BEGIN
     -- Add very recent test runs (within last 24 hours)
     FOR project_rec IN 
         SELECT project_id, name 
         FROM project_details 
-        WHERE project_id IN ('project-frontend-001', 'project-backend-002', 'project-mobile-003')
+        WHERE project_id IN ('550e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440002', '550e8400-e29b-41d4-a716-446655440003')
     LOOP
         -- Insert a recent test run
         INSERT INTO test_runs (
@@ -315,47 +360,128 @@ BEGIN
             NOW()
         ) RETURNING id INTO test_run_id;
         
-        -- Add one suite that's running
-        INSERT INTO suite_runs (
-            test_run_id, suite_name, status, start_time, end_time,
-            duration_ms, total_specs, passed_specs, failed_specs,
-            skipped_specs, created_at, updated_at
-        ) VALUES (
-            test_run_id,
-            'Integration Tests',
-            'running',
-            NOW() - INTERVAL '30 minutes',
-            NULL,
-            0,
-            0,
-            0,
-            0,
-            0,
-            NOW(),
-            NOW()
-        );
+        -- Add 3-5 suites for recent test runs
+        FOR j IN 1..(3 + floor(random() * 3)::int) LOOP
+            INSERT INTO suite_runs (
+                test_run_id, suite_name, status, start_time, end_time,
+                duration_ms, total_specs, passed_specs, failed_specs,
+                skipped_specs, created_at, updated_at
+            ) VALUES (
+                test_run_id,
+                CASE project_rec.project_id
+                    WHEN '550e8400-e29b-41d4-a716-446655440001' THEN 
+                        CASE j
+                            WHEN 1 THEN 'Component Tests'
+                            WHEN 2 THEN 'Integration Tests'
+                            WHEN 3 THEN 'E2E Tests'
+                            WHEN 4 THEN 'Unit Tests'
+                            ELSE 'Smoke Tests'
+                        END
+                    WHEN '550e8400-e29b-41d4-a716-446655440002' THEN
+                        CASE j
+                            WHEN 1 THEN 'API Tests'
+                            WHEN 2 THEN 'Performance Tests'
+                            WHEN 3 THEN 'Security Tests'
+                            WHEN 4 THEN 'Database Tests'
+                            ELSE 'Load Tests'
+                        END
+                    ELSE -- 550e8400-e29b-41d4-a716-446655440003
+                        CASE j
+                            WHEN 1 THEN 'UI Tests'
+                            WHEN 2 THEN 'Device Tests'
+                            WHEN 3 THEN 'Network Tests'
+                            WHEN 4 THEN 'Offline Tests'
+                            ELSE 'Platform Tests'
+                        END
+                END,
+                CASE 
+                    WHEN j = 1 THEN 'running'
+                    WHEN j = 2 AND random() < 0.5 THEN 'running'
+                    ELSE 'completed'
+                END,
+                NOW() - INTERVAL '30 minutes' - INTERVAL '5 minutes' * (j - 1),
+                CASE 
+                    WHEN j = 1 THEN NULL
+                    WHEN j = 2 AND random() < 0.5 THEN NULL
+                    ELSE NOW() - INTERVAL '25 minutes' - INTERVAL '5 minutes' * (j - 1)
+                END,
+                CASE 
+                    WHEN j = 1 THEN 0
+                    ELSE (300000 + floor(random() * 600000)::int)
+                END,
+                CASE 
+                    WHEN j = 1 THEN 0
+                    ELSE (10 + floor(random() * 20)::int)
+                END,
+                CASE 
+                    WHEN j = 1 THEN 0
+                    ELSE (8 + floor(random() * 15)::int)
+                END,
+                CASE 
+                    WHEN j = 1 THEN 0
+                    ELSE floor(random() * 5)::int
+                END,
+                CASE 
+                    WHEN j = 1 THEN 0
+                    ELSE floor(random() * 3)::int
+                END,
+                NOW(),
+                NOW()
+            );
+        END LOOP;
     END LOOP;
 END $$;
+
+-- Update recent running test runs with aggregated counts
+UPDATE test_runs tr
+SET 
+    total_tests = COALESCE((
+        SELECT SUM(sr.total_specs)
+        FROM suite_runs sr
+        WHERE sr.test_run_id = tr.id
+    ), 0),
+    passed_tests = COALESCE((
+        SELECT SUM(sr.passed_specs)
+        FROM suite_runs sr
+        WHERE sr.test_run_id = tr.id
+    ), 0),
+    failed_tests = COALESCE((
+        SELECT SUM(sr.failed_specs)
+        FROM suite_runs sr
+        WHERE sr.test_run_id = tr.id
+    ), 0),
+    skipped_tests = COALESCE((
+        SELECT SUM(sr.skipped_specs)
+        FROM suite_runs sr
+        WHERE sr.test_run_id = tr.id
+    ), 0),
+    duration_ms = COALESCE((
+        SELECT SUM(sr.duration_ms)
+        FROM suite_runs sr
+        WHERE sr.test_run_id = tr.id
+    ), 0)
+WHERE tr.status = 'running' 
+AND tr.project_id IN ('550e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440002', '550e8400-e29b-41d4-a716-446655440003');
 
 -- Display summary
 SELECT 
     'Projects created' as metric,
     COUNT(DISTINCT project_id) as count
 FROM project_details
-WHERE project_id IN ('project-frontend-001', 'project-backend-002', 'project-mobile-003')
+WHERE project_id IN ('550e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440002', '550e8400-e29b-41d4-a716-446655440003')
 UNION ALL
 SELECT 
     'Test runs created',
     COUNT(*)
 FROM test_runs
-WHERE project_id IN ('project-frontend-001', 'project-backend-002', 'project-mobile-003')
+WHERE project_id IN ('550e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440002', '550e8400-e29b-41d4-a716-446655440003')
 UNION ALL
 SELECT 
     'Suite runs created',
     COUNT(*)
 FROM suite_runs sr
 JOIN test_runs tr ON sr.test_run_id = tr.id
-WHERE tr.project_id IN ('project-frontend-001', 'project-backend-002', 'project-mobile-003')
+WHERE tr.project_id IN ('550e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440002', '550e8400-e29b-41d4-a716-446655440003')
 UNION ALL
 SELECT 
     'Spec runs created',
@@ -363,7 +489,7 @@ SELECT
 FROM spec_runs spr
 JOIN suite_runs sr ON spr.suite_run_id = sr.id
 JOIN test_runs tr ON sr.test_run_id = tr.id
-WHERE tr.project_id IN ('project-frontend-001', 'project-backend-002', 'project-mobile-003');
+WHERE tr.project_id IN ('550e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440002', '550e8400-e29b-41d4-a716-446655440003');
 
 -- Show pass rates by project
 SELECT 
@@ -380,6 +506,6 @@ SELECT
     END, 2) as pass_rate_percentage
 FROM project_details pd
 JOIN test_runs tr ON pd.project_id = tr.project_id
-WHERE pd.project_id IN ('project-frontend-001', 'project-backend-002', 'project-mobile-003')
+WHERE pd.project_id IN ('550e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440002', '550e8400-e29b-41d4-a716-446655440003')
 GROUP BY pd.name
 ORDER BY pd.name;
