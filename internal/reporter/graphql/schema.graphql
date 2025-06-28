@@ -331,6 +331,7 @@ type ProjectTreemapNode {
   passedTests: Int!
   failedTests: Int!
   passRate: Float!
+  totalRuns: Int!
 }
 
 type SuiteTreemapNode {
