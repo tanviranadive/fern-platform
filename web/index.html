@@ -3744,7 +3744,7 @@
         }
 
         // Project Treemap Component with Drill-down
-        function ProjectTreemap({ project, testRuns }) {
+        function ProjectTreemap({ project, testRuns, timeRange }) {
             const svgRef = useRef();
             const [currentView, setCurrentView] = useState('suites'); // 'suites' or 'specs'
             const [selectedSuite, setSelectedSuite] = useState(null);
@@ -3766,9 +3766,21 @@
                     .attr("height", height);
 
                 // Get recent test runs for this project
+                const cutoffDate = timeRange ? new Date() : null;
+                if (cutoffDate && timeRange) {
+                    cutoffDate.setDate(cutoffDate.getDate() - timeRange);
+                }
+                
                 const projectRuns = testRuns
-                    .filter(run => run.projectId === project.projectId)
-                    .slice(0, 5); // Last 5 runs
+                    .filter(run => {
+                        if (run.projectId !== project.projectId) return false;
+                        if (cutoffDate && timeRange) {
+                            const runDate = new Date(run.startTime);
+                            return runDate >= cutoffDate;
+                        }
+                        return true;
+                    })
+                    .slice(-5); // Last 5 runs within time range
 
                 if (projectRuns.length === 0) {
                     svg.append("text")
@@ -3972,7 +3984,7 @@
                             });
                     }
                 }
-            }, [project, testRuns, currentView, selectedSuite]);
+            }, [project, testRuns, currentView, selectedSuite, timeRange]);
 
             return (
                 <>
@@ -4042,6 +4054,7 @@
 
             const [viewMode, setViewMode] = useState(preferences?.defaultTestSummariesView || 'grid');
             const [flippedCards, setFlippedCards] = useState(new Set());
+            const [timeRange, setTimeRange] = useState(7); // Default to 7 days
 
             const showProjectHistory = (project) => {
                 setSelectedProject(project);
@@ -4067,7 +4080,7 @@
 
             useEffect(() => {
                 fetchData();
-            }, []);
+            }, [timeRange]); // Re-fetch when time range changes
 
             // Update view mode when preferences change
             useEffect(() => {
@@ -4184,7 +4197,32 @@
                             )}
                         </div>
                         
-                        <div className="view-toggle">
+                        <div style={{display: 'flex', alignItems: 'center', gap: '1rem'}}>
+                            <select 
+                                value={timeRange} 
+                                onChange={(e) => setTimeRange(Number(e.target.value))}
+                                style={{
+                                    background: 'var(--bg-elevated)',
+                                    border: '1px solid var(--border-color)',
+                                    borderRadius: 'var(--radius-md)',
+                                    color: 'var(--text-primary)',
+                                    padding: '0.5rem 2.5rem 0.5rem 0.75rem',
+                                    fontSize: '0.875rem',
+                                    fontWeight: '500',
+                                    cursor: 'pointer',
+                                    appearance: 'none',
+                                    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7280' d='M5.998 7.5L2.25 3.75h7.5L5.998 7.5z'/%3E%3C/svg%3E")`,
+                                    backgroundRepeat: 'no-repeat',
+                                    backgroundPosition: 'right 0.5rem center',
+                                    backgroundSize: '12px'
+                                }}
+                            >
+                                <option value={7}>Last 7 days</option>
+                                <option value={30}>Last 1 month</option>
+                                <option value={180}>Last 6 months</option>
+                                <option value={365}>Last 1 year</option>
+                            </select>
+                            <div className="view-toggle">
                             <button 
                                 className={`toggle-button ${viewMode === 'grid' ? 'active' : ''}`}
                                 onClick={() => {
@@ -4214,12 +4252,22 @@
                                 Treemap View
                             </button>
                         </div>
+                        </div>
                     </div>
 
                     {(viewMode === 'grid' || viewMode === 'treemap') && getDisplayProjects().length > 0 && (
                         <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(400px, 1fr))', gap: '2.5rem', rowGap: '3rem'}}>
                             {getDisplayProjects().map(project => {
-                                const projectRuns = testRuns.filter(run => run.projectId === project.projectId);
+                                // Filter runs by time range
+                                const cutoffDate = new Date();
+                                cutoffDate.setDate(cutoffDate.getDate() - timeRange);
+                                
+                                const projectRuns = testRuns.filter(run => {
+                                    if (run.projectId !== project.projectId) return false;
+                                    const runDate = new Date(run.startTime);
+                                    return runDate >= cutoffDate;
+                                });
+                                
                                 const totalTests = projectRuns.reduce((sum, run) => sum + (run.totalTests || 0), 0);
                                 const passedTests = projectRuns.reduce((sum, run) => sum + (run.passedTests || 0), 0);
                                 const failedTests = projectRuns.reduce((sum, run) => sum + (run.failedTests || 0), 0);
@@ -4319,7 +4367,7 @@
                                                     <h3 className="treemap-title">{project.name} - Test Suites</h3>
                                                 </div>
                                                 <div style={{flex: 1, minHeight: '350px', maxHeight: '380px', overflow: 'hidden', position: 'relative', paddingBottom: '1rem'}}>
-                                                    <ProjectTreemap project={project} testRuns={testRuns} />
+                                                    <ProjectTreemap project={project} testRuns={testRuns} timeRange={timeRange} />
                                                 </div>
                                             </div>
                                         </div>
