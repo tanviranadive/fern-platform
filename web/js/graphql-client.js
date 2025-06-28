@@ -160,6 +160,7 @@ const QUERIES = {
                     totalDuration
                     totalTests
                     passRate
+                    totalRuns
                 }
                 totalDuration
                 totalTests
