@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="https://github.com/guidewire-oss/fern-reporter/blob/main/docs/images/logo-color.png" alt="Fern Platform" width="150"/>
+  <img src="https://github.com/guidewire-oss/fern-platform/blob/main/docs/images/logo-color.png" alt="Fern Platform" width="150"/>
   
   # Fern Platform - Go Acceptance Tests
 
@@ -38,7 +38,7 @@ acceptance-go/
 
 ### Required Software
 
-- **Go 1.21+**
+- **Go 1.23+**
 - **kubectl** - Kubernetes CLI
 - **vela** - KubeVela CLI
 - **k3d** - Local Kubernetes cluster
