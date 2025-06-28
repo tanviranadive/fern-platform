@@ -18,6 +18,32 @@ import (
 
 // convertTestRunToGraphQL converts a domain test run to GraphQL model
 func (r *Resolver) convertTestRunToGraphQL(testRun *testingDomain.TestRun) *model.TestRun {
+	// Convert suite runs
+	suiteRuns := make([]*model.SuiteRun, len(testRun.SuiteRuns))
+	for i, suite := range testRun.SuiteRuns {
+		suiteRuns[i] = r.convertSuiteRunToGraphQL(&suite)
+	}
+
+	// Log for debugging with more detail
+	suiteDetails := make([]map[string]interface{}, len(testRun.SuiteRuns))
+	for i, s := range testRun.SuiteRuns {
+		suiteDetails[i] = map[string]interface{}{
+			"name": s.Name,
+			"id": s.ID,
+			"total_specs": s.TotalTests,
+			"passed_specs": s.PassedTests,
+			"failed_specs": s.FailedTests,
+			"spec_count": len(s.SpecRuns),
+		}
+	}
+	
+	r.logger.WithFields(map[string]interface{}{
+		"test_run_id": testRun.ID,
+		"run_id": testRun.RunID,
+		"suite_count": len(testRun.SuiteRuns),
+		"suite_details": suiteDetails,
+	}).Info("Converting test run to GraphQL")
+
 	return &model.TestRun{
 		ID:           strconv.FormatUint(uint64(testRun.ID), 10),
 		RunID:        testRun.RunID,
@@ -33,8 +59,64 @@ func (r *Resolver) convertTestRunToGraphQL(testRun *testingDomain.TestRun) *mode
 		SkippedTests: testRun.SkippedTests,
 		Duration:     int(testRun.Duration.Milliseconds()),
 		Environment:  convertStringPtr(testRun.Environment),
+		SuiteRuns:    suiteRuns,
 		CreatedAt:    testRun.StartTime, // Use StartTime as CreatedAt
 		UpdatedAt:    testRun.StartTime, // Use StartTime as UpdatedAt
+	}
+}
+
+// convertSuiteRunToGraphQL converts a domain suite run to GraphQL model
+func (r *Resolver) convertSuiteRunToGraphQL(suite *testingDomain.SuiteRun) *model.SuiteRun {
+	// Convert spec runs
+	specRuns := make([]*model.SpecRun, len(suite.SpecRuns))
+	for i, spec := range suite.SpecRuns {
+		specRuns[i] = r.convertSpecRunToGraphQL(spec)
+	}
+
+	return &model.SuiteRun{
+		ID:           strconv.FormatUint(uint64(suite.ID), 10),
+		TestRunID:    strconv.FormatUint(uint64(suite.TestRunID), 10),
+		SuiteName:    suite.Name,
+		Status:       suite.Status,
+		StartTime:    suite.StartTime,
+		EndTime:      suite.EndTime,
+		TotalSpecs:   suite.TotalTests,
+		PassedSpecs:  suite.PassedTests,
+		FailedSpecs:  suite.FailedTests,
+		SkippedSpecs: suite.SkippedTests,
+		Duration:     int(suite.Duration.Milliseconds()),
+		SpecRuns:     specRuns,
+		CreatedAt:    suite.StartTime,
+		UpdatedAt:    suite.StartTime,
+	}
+}
+
+// convertSpecRunToGraphQL converts a domain spec run to GraphQL model
+func (r *Resolver) convertSpecRunToGraphQL(spec *testingDomain.SpecRun) *model.SpecRun {
+	var errorMessage *string
+	if spec.ErrorMessage != "" {
+		errorMessage = &spec.ErrorMessage
+	}
+	
+	var stackTrace *string
+	if spec.StackTrace != "" {
+		stackTrace = &spec.StackTrace
+	}
+
+	return &model.SpecRun{
+		ID:           strconv.FormatUint(uint64(spec.ID), 10),
+		SuiteRunID:   strconv.FormatUint(uint64(spec.SuiteRunID), 10),
+		SpecName:     spec.Name,
+		Status:       spec.Status,
+		StartTime:    spec.StartTime,
+		EndTime:      spec.EndTime,
+		Duration:     int(spec.Duration.Milliseconds()),
+		ErrorMessage: errorMessage,
+		StackTrace:   stackTrace,
+		RetryCount:   spec.RetryCount,
+		IsFlaky:      spec.IsFlaky,
+		CreatedAt:    spec.StartTime,
+		UpdatedAt:    spec.StartTime,
 	}
 }
 
@@ -245,12 +327,12 @@ func (r *mutationResolver) CreateProject_domain(ctx context.Context, input model
 
 	// Save updates if any fields were set
 	if updateReq.Description != nil || updateReq.Repository != nil || updateReq.DefaultBranch != nil {
-		if err := r.projectService.UpdateProject(ctx, projectsDomain.ProjectID(input.ProjectID), updateReq); err != nil {
+		if err := r.projectService.UpdateProject(ctx, projectsDomain.ProjectID(projectID), updateReq); err != nil {
 			return nil, err
 		}
 		
 		// Fetch updated project
-		project, err = r.projectService.GetProject(ctx, projectsDomain.ProjectID(input.ProjectID))
+		project, err = r.projectService.GetProject(ctx, projectsDomain.ProjectID(projectID))
 		if err != nil {
 			return nil, err
 		}
@@ -280,37 +362,47 @@ func getStringValue(ptr *string) string {
 
 // UpdateProject implementation using domain service
 func (r *mutationResolver) UpdateProject_domain(ctx context.Context, id string, input model.UpdateProjectInput) (*model.Project, error) {
+	r.logger.WithFields(map[string]interface{}{
+		"id": id,
+		"input": input,
+	}).Info("UpdateProject mutation called")
+	
 	// Check user permissions
 	user, err := getCurrentUser(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	// For domain service, we need to get the project by its ProjectID, not database ID
-	// First get the current project to get its ProjectID
-	// Since we don't have a way to get by database ID in domain service, 
-	// we'll need to list projects and find the one with matching ID
-	// This is a temporary workaround - ideally domain service should support GetByID
-	projects, _, err := r.projectService.ListProjects(ctx, 1000, 0)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list projects: %w", err)
-	}
-
-	var existingProject *projectsDomain.Project
-	idUint, err := strconv.ParseUint(id, 10, 32)
-	if err != nil {
-		return nil, fmt.Errorf("invalid project ID: %w", err)
-	}
-
-	for _, p := range projects {
-		if p.ID() == uint(idUint) {
-			existingProject = p
-			break
+	// Try to parse as database ID first
+	var projectID projectsDomain.ProjectID
+	if idUint, err := strconv.ParseUint(id, 10, 32); err == nil {
+		// It's a numeric ID, need to find the project
+		projects, _, err := r.projectService.ListProjects(ctx, 1000, 0)
+		if err != nil {
+			return nil, fmt.Errorf("failed to list projects: %w", err)
 		}
+
+		var found bool
+		for _, p := range projects {
+			if p.ID() == uint(idUint) {
+				projectID = p.ProjectID()
+				found = true
+				break
+			}
+		}
+
+		if !found {
+			return nil, fmt.Errorf("project not found")
+		}
+	} else {
+		// Assume it's a project UUID
+		projectID = projectsDomain.ProjectID(id)
 	}
 
-	if existingProject == nil {
-		return nil, fmt.Errorf("project not found")
+	// Get the existing project
+	existingProject, err := r.projectService.GetProject(ctx, projectID)
+	if err != nil {
+		return nil, fmt.Errorf("project not found: %w", err)
 	}
 
 	snapshot := existingProject.ToSnapshot()
@@ -376,6 +468,13 @@ func (r *mutationResolver) UpdateProject_domain(ctx context.Context, id string, 
 	}
 
 	if !canUpdate {
+		r.logger.WithFields(map[string]interface{}{
+			"user_id": user.UserID,
+			"project_id": projectID,
+			"user_role": user.Role,
+			"user_groups": user.Groups,
+			"project_team": snapshot.Team,
+		}).Warn("User lacks permission to update project")
 		return nil, fmt.Errorf("insufficient permissions to update project")
 	}
 
@@ -399,48 +498,71 @@ func (r *mutationResolver) UpdateProject_domain(ctx context.Context, id string, 
 	}
 
 	// Update the project
-	if err := r.projectService.UpdateProject(ctx, snapshot.ProjectID, updateReq); err != nil {
+	r.logger.WithFields(map[string]interface{}{
+		"project_id": projectID,
+		"update_request": updateReq,
+	}).Info("Updating project")
+	
+	if err := r.projectService.UpdateProject(ctx, projectID, updateReq); err != nil {
 		return nil, fmt.Errorf("failed to update project: %w", err)
 	}
 
 	// Fetch updated project
-	updatedProject, err := r.projectService.GetProject(ctx, snapshot.ProjectID)
+	updatedProject, err := r.projectService.GetProject(ctx, projectID)
 	if err != nil {
 		return nil, err
 	}
+
+	r.logger.WithFields(map[string]interface{}{
+		"project_id": projectID,
+		"updated_by": user.UserID,
+	}).Info("Project updated successfully")
 
 	return r.convertProjectToGraphQL(updatedProject), nil
 }
 
 // DeleteProject implementation using domain service
 func (r *mutationResolver) DeleteProject_domain(ctx context.Context, id string) (bool, error) {
+	r.logger.WithFields(map[string]interface{}{
+		"id": id,
+	}).Info("DeleteProject mutation called")
+	
 	// Check user permissions
 	user, err := getCurrentUser(ctx)
 	if err != nil {
 		return false, err
 	}
 
-	// Same workaround as UpdateProject - find project by ID
-	projects, _, err := r.projectService.ListProjects(ctx, 1000, 0)
-	if err != nil {
-		return false, fmt.Errorf("failed to list projects: %w", err)
-	}
-
-	var existingProject *projectsDomain.Project
-	idUint, err := strconv.ParseUint(id, 10, 32)
-	if err != nil {
-		return false, fmt.Errorf("invalid project ID: %w", err)
-	}
-
-	for _, p := range projects {
-		if p.ID() == uint(idUint) {
-			existingProject = p
-			break
+	// Try to parse as database ID first
+	var projectID projectsDomain.ProjectID
+	if idUint, err := strconv.ParseUint(id, 10, 32); err == nil {
+		// It's a numeric ID, need to find the project
+		projects, _, err := r.projectService.ListProjects(ctx, 1000, 0)
+		if err != nil {
+			return false, fmt.Errorf("failed to list projects: %w", err)
 		}
+
+		var found bool
+		for _, p := range projects {
+			if p.ID() == uint(idUint) {
+				projectID = p.ProjectID()
+				found = true
+				break
+			}
+		}
+
+		if !found {
+			return false, fmt.Errorf("project not found")
+		}
+	} else {
+		// Assume it's a project UUID
+		projectID = projectsDomain.ProjectID(id)
 	}
 
-	if existingProject == nil {
-		return false, fmt.Errorf("project not found")
+	// Get the existing project
+	existingProject, err := r.projectService.GetProject(ctx, projectID)
+	if err != nil {
+		return false, fmt.Errorf("project not found: %w", err)
 	}
 
 	snapshot := existingProject.ToSnapshot()
@@ -510,13 +632,13 @@ func (r *mutationResolver) DeleteProject_domain(ctx context.Context, id string) 
 	}
 
 	// Delete project
-	err = r.projectService.DeleteProject(ctx, snapshot.ProjectID)
+	err = r.projectService.DeleteProject(ctx, projectID)
 	if err != nil {
 		return false, fmt.Errorf("failed to delete project: %w", err)
 	}
 
 	r.logger.WithFields(map[string]interface{}{
-		"project_id": snapshot.ProjectID,
+		"project_id": projectID,
 		"deleted_by": user.UserID,
 	}).Info("Project deleted")
 

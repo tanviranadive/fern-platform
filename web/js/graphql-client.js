@@ -43,6 +43,8 @@ class GraphQLClient {
 
         const result = await response.json();
         
+        console.log('GraphQL response:', result);
+        
         if (result.errors) {
             console.error('GraphQL errors:', result.errors);
             throw new Error(result.errors[0].message);
@@ -52,6 +54,7 @@ class GraphQLClient {
     }
 
     async mutation(mutation, variables = {}) {
+        console.log('GraphQL mutation called with:', { mutation: mutation.substring(0, 100) + '...', variables });
         return this.query(mutation, variables);
     }
 }

@@ -117,7 +117,7 @@ func (r *GormTestRunRepository) GetByProjectID(ctx context.Context, projectID st
 // GetLatestByProjectID retrieves the latest test runs for a project
 func (r *GormTestRunRepository) GetLatestByProjectID(ctx context.Context, projectID string, limit int) ([]*domain.TestRun, error) {
 	var dbTestRuns []database.TestRun
-	query := r.db.WithContext(ctx).Where("project_id = ?", projectID).Order("created_at DESC")
+	query := r.db.WithContext(ctx).Where("project_id = ?", projectID).Preload("SuiteRuns.SpecRuns").Order("created_at DESC")
 	
 	if limit > 0 {
 		query = query.Limit(limit)
@@ -213,6 +213,14 @@ func (r *GormTestRunRepository) toDomainTestRun(dbTestRun *database.TestRun) *do
 		metadata = map[string]interface{}(dbTestRun.Metadata)
 	}
 
+	// Convert suite runs
+	suiteRuns := make([]domain.SuiteRun, len(dbTestRun.SuiteRuns))
+	for i, dbSuite := range dbTestRun.SuiteRuns {
+		suiteRuns[i] = r.toDomainSuiteRun(&dbSuite)
+	}
+
+	// TODO: Add debug logging here to track suite loading
+
 	return &domain.TestRun{
 		ID:           dbTestRun.ID,
 		RunID:        dbTestRun.RunID,
@@ -233,6 +241,52 @@ func (r *GormTestRunRepository) toDomainTestRun(dbTestRun *database.TestRun) *do
 		Source:       "", // Not stored in database model
 		SessionID:    "", // Not stored in database model
 		Metadata:     metadata,
+		SuiteRuns:    suiteRuns,
+	}
+}
+
+// Helper method to convert database suite run to domain model
+func (r *GormTestRunRepository) toDomainSuiteRun(dbSuite *database.SuiteRun) domain.SuiteRun {
+	// Convert spec runs
+	specRuns := make([]*domain.SpecRun, len(dbSuite.SpecRuns))
+	for i, dbSpec := range dbSuite.SpecRuns {
+		specRuns[i] = r.toDomainSpecRun(&dbSpec)
+	}
+
+	return domain.SuiteRun{
+		ID:           dbSuite.ID,
+		TestRunID:    dbSuite.TestRunID,
+		Name:         dbSuite.SuiteName,
+		PackageName:  "", // Not in database model
+		ClassName:    "", // Not in database model
+		Status:       dbSuite.Status,
+		StartTime:    dbSuite.StartTime,
+		EndTime:      dbSuite.EndTime,
+		TotalTests:   dbSuite.TotalSpecs,
+		PassedTests:  dbSuite.PassedSpecs,
+		FailedTests:  dbSuite.FailedSpecs,
+		SkippedTests: dbSuite.SkippedSpecs,
+		Duration:     time.Duration(dbSuite.Duration) * time.Millisecond,
+		SpecRuns:     specRuns,
+	}
+}
+
+// Helper method to convert database spec run to domain model
+func (r *GormTestRunRepository) toDomainSpecRun(dbSpec *database.SpecRun) *domain.SpecRun {
+	return &domain.SpecRun{
+		ID:             dbSpec.ID,
+		SuiteRunID:     dbSpec.SuiteRunID,
+		Name:           dbSpec.SpecName,
+		ClassName:      "", // Not in database model
+		Status:         dbSpec.Status,
+		StartTime:      dbSpec.StartTime,
+		EndTime:        dbSpec.EndTime,
+		Duration:       time.Duration(dbSpec.Duration) * time.Millisecond,
+		ErrorMessage:   dbSpec.ErrorMessage,
+		FailureMessage: "", // Not in database model
+		StackTrace:     dbSpec.StackTrace,
+		RetryCount:     dbSpec.RetryCount,
+		IsFlaky:        dbSpec.IsFlaky,
 	}
 }
 
@@ -253,7 +307,7 @@ func (r *GormTestRunRepository) CountByProjectID(ctx context.Context, projectID 
 // GetRecent retrieves recent test runs across all projects
 func (r *GormTestRunRepository) GetRecent(ctx context.Context, limit int) ([]*domain.TestRun, error) {
 	var dbTestRuns []database.TestRun
-	query := r.db.WithContext(ctx).Model(&database.TestRun{}).Order("created_at DESC")
+	query := r.db.WithContext(ctx).Model(&database.TestRun{}).Preload("SuiteRuns.SpecRuns").Order("created_at DESC")
 	
 	if limit > 0 {
 		query = query.Limit(limit)

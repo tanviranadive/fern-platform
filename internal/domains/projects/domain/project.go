@@ -56,6 +56,11 @@ func (p *Project) ID() uint {
 	return p.id
 }
 
+// SetID sets the internal database ID (used when loading from repository)
+func (p *Project) SetID(id uint) {
+	p.id = id
+}
+
 // ProjectID returns the project ID
 func (p *Project) ProjectID() ProjectID {
 	return p.projectID

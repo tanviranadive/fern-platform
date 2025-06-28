@@ -4722,31 +4722,44 @@
             };
 
             const handleUpdateProject = async (projectId, projectData) => {
+                console.log('Update project called with ID:', projectId, 'Data:', projectData);
                 try {
-                    await graphqlClient.mutation(GRAPHQL_QUERIES.UPDATE_PROJECT, {
+                    console.log('Calling UPDATE_PROJECT mutation');
+                    console.log('Full mutation variables:', {
                         id: projectId,
                         input: projectData
                     });
+                    const result = await graphqlClient.mutation(GRAPHQL_QUERIES.UPDATE_PROJECT, {
+                        id: projectId,
+                        input: projectData
+                    });
+                    console.log('Update result:', result);
                     setEditingProject(null);
                     fetchProjects();
                 } catch (err) {
                     console.error('Error updating project:', err);
+                    console.error('Error stack:', err.stack);
                     alert('Failed to update project: ' + err.message);
                 }
             };
 
             const handleDeleteProject = async (projectId) => {
+                console.log('Delete project called with ID:', projectId);
                 if (!confirm('Are you sure you want to delete this project?')) {
                     return;
                 }
                 
                 try {
-                    await graphqlClient.mutation(GRAPHQL_QUERIES.DELETE_PROJECT, {
+                    console.log('Calling DELETE_PROJECT mutation with ID:', projectId);
+                    console.log('Full mutation variables:', { id: projectId });
+                    const result = await graphqlClient.mutation(GRAPHQL_QUERIES.DELETE_PROJECT, {
                         id: projectId
                     });
+                    console.log('Delete result:', result);
                     fetchProjects();
                 } catch (err) {
                     console.error('Error deleting project:', err);
+                    console.error('Error stack:', err.stack);
                     alert('Failed to delete project: ' + err.message);
                 }
             };
@@ -4911,7 +4924,7 @@
                                     </tr>
                                 ) : (
                                     projects.map((project, index) => (
-                                        <tr key={project.id} style={{
+                                        <tr key={`project-${project.id || project.projectId || index}`} style={{
                                             borderBottom: index === projects.length - 1 ? 'none' : '1px solid var(--border-light)',
                                             transition: 'background-color 0.2s ease'
                                         }}
@@ -5010,7 +5023,12 @@
                                                 {project.canManage ? (
                                                     <div style={{display: 'flex', gap: '0.5rem', justifyContent: 'center'}}>
                                                         <button
-                                                            onClick={() => setEditingProject(project)}
+                                                            onClick={(e) => {
+                                                                e.preventDefault();
+                                                                e.stopPropagation();
+                                                                console.log('Edit button clicked for project:', project.id, project.name);
+                                                                setEditingProject(project);
+                                                            }}
                                                             title="Edit Project"
                                                             style={{
                                                                 background: 'var(--bg-secondary)',
@@ -5036,7 +5054,12 @@
                                                             ✏️
                                                         </button>
                                                         <button
-                                                            onClick={() => handleDeleteProject(project.id)}
+                                                            onClick={(e) => {
+                                                                e.preventDefault();
+                                                                e.stopPropagation();
+                                                                console.log('Delete button clicked for project:', project.id, project.name);
+                                                                handleDeleteProject(project.id);
+                                                            }}
                                                             title="Delete Project"
                                                             style={{
                                                                 background: 'var(--bg-secondary)',

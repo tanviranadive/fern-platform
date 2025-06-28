@@ -44,8 +44,8 @@ func (r *GormProjectRepository) Save(ctx context.Context, project *domain.Projec
 		return fmt.Errorf("failed to save project: %w", err)
 	}
 
-	// Note: The domain model's ID cannot be updated directly as it's immutable
-	// This is a limitation of the current design
+	// Update the domain model with the generated ID
+	project.SetID(dbProject.ID)
 
 	return nil
 }
@@ -200,14 +200,8 @@ func (r *GormProjectRepository) toDomainModel(dbProject *database.ProjectDetails
 		project.SetSetting(key, value)
 	}
 
-	// Use reflection to set the ID (since it's private)
-	// In a real implementation, we might add a SetID method or handle this differently
-	snapshot := project.ToSnapshot()
-	snapshot.ID = dbProject.ID
-	// Note: This is a limitation of the current design. In production, we might:
-	// 1. Add a SetID method to the domain model
-	// 2. Use a factory method that accepts an ID
-	// 3. Store the ID separately in the repository
+	// Set the database ID
+	project.SetID(dbProject.ID)
 
 	return project, nil
 }
