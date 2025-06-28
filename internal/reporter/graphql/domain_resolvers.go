@@ -1002,6 +1002,7 @@ func (r *queryResolver) TreemapData_domain(ctx context.Context, projectID *strin
 			PassedTests:   projectPassed,
 			FailedTests:   projectTests - projectPassed,
 			PassRate:      projectPassRate,
+			TotalRuns:     len(runs), // Add the count of test runs for this project within the time range
 		}
 		
 		projectNodes = append(projectNodes, projectNode)
