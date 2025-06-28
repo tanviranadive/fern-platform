@@ -11,10 +11,10 @@ import (
 	"strings"
 	"time"
 
+	authDomain "github.com/guidewire-oss/fern-platform/internal/domains/auth/domain"
 	"github.com/guidewire-oss/fern-platform/internal/reporter/graphql/generated"
 	"github.com/guidewire-oss/fern-platform/internal/reporter/graphql/model"
 	"github.com/guidewire-oss/fern-platform/pkg/database"
-	authDomain "github.com/guidewire-oss/fern-platform/internal/domains/auth/domain"
 )
 
 // CreateTestRun is the resolver for the createTestRun field.
@@ -505,17 +505,3 @@ type queryResolver struct{ *Resolver }
 type subscriptionResolver struct{ *Resolver }
 type suiteRunResolver struct{ *Resolver }
 type testRunResolver struct{ *Resolver }
-
-// !!! WARNING !!!
-// The code below was going to be deleted when updating resolvers. It has been copied here so you have
-// one last chance to move it out of harms way if you want. There are two reasons this happens:
-//  - When renaming or deleting a resolver the old code will be put in here. You can safely delete
-//    it when you're done.
-//  - You have helper methods in this file. Move them out to keep these resolver files clean.
-/*
-	func (r *tagUsageResolver) ID(ctx context.Context, obj interface{}) (string, error) {
-	panic(fmt.Errorf("not implemented: ID - id"))
-}
-func (r *Resolver) TagUsage() generated.TagUsageResolver { return &tagUsageResolver{r} }
-type tagUsageResolver struct{ *Resolver }
-*/

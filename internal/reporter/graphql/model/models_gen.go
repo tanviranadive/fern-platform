@@ -156,6 +156,7 @@ type ProjectTreemapNode struct {
 	PassedTests   int                 `json:"passedTests"`
 	FailedTests   int                 `json:"failedTests"`
 	PassRate      float64             `json:"passRate"`
+	TotalRuns     int                 `json:"totalRuns"`
 }
 
 type Query struct {

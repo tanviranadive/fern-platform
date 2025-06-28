@@ -172,6 +172,7 @@ type ComplexityRoot struct {
 		Project       func(childComplexity int) int
 		Suites        func(childComplexity int) int
 		TotalDuration func(childComplexity int) int
+		TotalRuns     func(childComplexity int) int
 		TotalTests    func(childComplexity int) int
 	}
 
@@ -1094,6 +1095,13 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.ProjectTreemapNode.TotalDuration(childComplexity), true
+
+	case "ProjectTreemapNode.totalRuns":
+		if e.complexity.ProjectTreemapNode.TotalRuns == nil {
+			break
+		}
+
+		return e.complexity.ProjectTreemapNode.TotalRuns(childComplexity), true
 
 	case "ProjectTreemapNode.totalTests":
 		if e.complexity.ProjectTreemapNode.TotalTests == nil {
@@ -2595,6 +2603,7 @@ type ProjectTreemapNode {
   passedTests: Int!
   failedTests: Int!
   passRate: Float!
+  totalRuns: Int!
 }
 
 type SuiteTreemapNode {
@@ -8678,6 +8687,50 @@ func (ec *executionContext) fieldContext_ProjectTreemapNode_passRate(_ context.C
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type Float does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _ProjectTreemapNode_totalRuns(ctx context.Context, field graphql.CollectedField, obj *model.ProjectTreemapNode) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_ProjectTreemapNode_totalRuns(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.TotalRuns, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(int)
+	fc.Result = res
+	return ec.marshalNInt2int(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_ProjectTreemapNode_totalRuns(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ProjectTreemapNode",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
 		},
 	}
 	return fc, nil
@@ -15040,6 +15093,8 @@ func (ec *executionContext) fieldContext_TreemapData_projects(_ context.Context,
 				return ec.fieldContext_ProjectTreemapNode_failedTests(ctx, field)
 			case "passRate":
 				return ec.fieldContext_ProjectTreemapNode_passRate(ctx, field)
+			case "totalRuns":
+				return ec.fieldContext_ProjectTreemapNode_totalRuns(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type ProjectTreemapNode", field.Name)
 		},
@@ -18975,6 +19030,11 @@ func (ec *executionContext) _ProjectTreemapNode(ctx context.Context, sel ast.Sel
 			}
 		case "passRate":
 			out.Values[i] = ec._ProjectTreemapNode_passRate(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "totalRuns":
+			out.Values[i] = ec._ProjectTreemapNode_totalRuns(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
