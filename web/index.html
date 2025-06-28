@@ -2528,7 +2528,7 @@
                     .x(d => xScale(d.data.date))
                     .y0(d => yScale(d[0]))
                     .y1(d => yScale(d[1]))
-                    .curve(d3.curveCardinal);
+                    .curve(d3.curveMonotoneX);
                 
                 // Add areas
                 g.selectAll(".stack-area")
@@ -4680,7 +4680,7 @@
 
         // Project Management Component for Managers
         function ProjectManagement() {
-            const { user, userTeams, isAdmin } = useAuth();
+            const { user, userTeams, isAdmin, isManager } = useAuth();
             const [projects, setProjects] = useState([]);
             const [loading, setLoading] = useState(true);
             const [error, setError] = useState(null);
@@ -4781,9 +4781,10 @@
                             <span style={{marginRight: '0.75rem', color: 'var(--primary)'}}>📁</span>
                             Project Management
                         </h2>
-                        <button 
-                            onClick={() => setShowCreateModal(true)}
-                            style={{
+                        {isManager && (
+                            <button 
+                                onClick={() => setShowCreateModal(true)}
+                                style={{
                                 background: 'var(--primary)',
                                 color: 'white',
                                 border: 'none',
@@ -4811,6 +4812,7 @@
                             <span>➕</span>
                             New Project
                         </button>
+                        )}
                     </div>
 
                     <div style={{
