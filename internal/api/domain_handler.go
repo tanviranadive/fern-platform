@@ -56,6 +56,7 @@ func NewDomainHandler(
 func (h *DomainHandler) RegisterRoutes(router *gin.Engine) {
 	// Static file serving for web interface
 	router.Static("/web", "./web")
+	router.Static("/docs", "./docs")
 	
 	// Root route - redirect to login if not authenticated, otherwise serve app
 	router.GET("/", func(c *gin.Context) {
@@ -199,53 +200,395 @@ func (h *DomainHandler) showLoginPage(c *gin.Context) {
 	// In production, this would use templates or serve a static file
 	loginHTML := `
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Login - Fern Platform</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign In - Fern Platform</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
+        :root {
+            /* Biology-inspired colors */
+            --primary: #22c55e;           /* Fern green */
+            --primary-dark: #16a34a;      /* Deep forest green */
+            --secondary: #84cc16;         /* Moss green */
+            --accent: #fbbf24;            /* Pollen yellow */
+            --tertiary: #7c3aed;          /* Orchid purple */
+            --success: #22d3ee;           /* Water blue */
+            
+            /* Organic backgrounds */
+            --bg-primary: #fefef8;        /* Natural white */
+            --bg-secondary: #f7fee7;      /* Soft moss */
+            --bg-tertiary: #ecfccb;       /* Light fern */
+            --bg-card: #ffffff;           /* Pure white */
+            
+            /* Text colors */
+            --text-primary: #0f172a;      /* Rich soil */
+            --text-secondary: #475569;    /* Tree bark */
+            --text-muted: #64748b;        /* Stone gray */
+            
+            /* Borders and effects */
+            --border: #d9f99d;            /* Leaf vein */
+            --border-light: #e7f5d0;      /* Light stem */
+            --shadow: 0 10px 25px rgba(34, 197, 94, 0.1);
+            --shadow-lg: 0 20px 40px rgba(34, 197, 94, 0.15);
+            --glow: 0 0 30px rgba(34, 197, 94, 0.3);
+            --border-radius: 16px;
+            
+            /* Organic gradients */
+            --gradient-primary: linear-gradient(135deg, #22c55e 0%, #84cc16 100%);
+            --gradient-leaf: linear-gradient(135deg, #bbf7d0 0%, #86efac 100%);
+            --gradient-card: linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            line-height: 1.6;
+            color: var(--text-primary);
+            background: var(--bg-primary);
+            background-image: 
+                radial-gradient(circle at 20% 80%, rgba(34, 197, 94, 0.05) 0%, transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(132, 204, 22, 0.05) 0%, transparent 50%),
+                radial-gradient(circle at 40% 40%, rgba(251, 191, 36, 0.03) 0%, transparent 50%);
+            min-height: 100vh;
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh;
-            margin: 0;
-            background-color: #f5f5f5;
+            position: relative;
+            overflow: hidden;
         }
-        .login-container {
-            background: white;
-            padding: 2rem;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            text-align: center;
-            max-width: 400px;
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: 
+                repeating-linear-gradient(45deg, transparent, transparent 35px, rgba(34, 197, 94, 0.02) 35px, rgba(34, 197, 94, 0.02) 70px),
+                repeating-linear-gradient(-45deg, transparent, transparent 35px, rgba(132, 204, 22, 0.02) 35px, rgba(132, 204, 22, 0.02) 70px);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* Root Network Background Animation */
+        .root-network {
+            position: fixed;
+            top: 0;
+            left: 0;
             width: 100%;
+            height: 100%;
+            pointer-events: none;
+            overflow: hidden;
+            z-index: -1;
+            opacity: 0.3;
         }
-        h1 {
-            color: #333;
+
+        @keyframes root-grow {
+            0% {
+                stroke-dashoffset: 1000;
+                opacity: 0;
+            }
+            50% {
+                opacity: 0.1;
+            }
+            100% {
+                stroke-dashoffset: 0;
+                opacity: 0.08;
+            }
+        }
+
+        .root-path {
+            stroke: var(--primary);
+            stroke-width: 1;
+            fill: none;
+            stroke-dasharray: 1000;
+            stroke-dashoffset: 1000;
+            opacity: 0;
+            animation: root-grow 10s ease-out forwards;
+            animation-delay: var(--root-delay);
+        }
+
+        .login-container {
+            background: var(--gradient-card);
+            padding: 3rem;
+            border-radius: 30px 10px;
+            box-shadow: var(--shadow-lg);
+            text-align: center;
+            max-width: 500px;
+            width: 90%;
+            border: 2px solid var(--border-light);
+            position: relative;
+            z-index: 1;
+            overflow: hidden;
+        }
+
+        .login-container::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, var(--secondary) 0%, transparent 60%);
+            opacity: 0.05;
+            transform: rotate(45deg);
+            transition: all 0.3s;
+        }
+
+        .login-container:hover::before {
+            opacity: 0.1;
+            transform: rotate(90deg);
+        }
+
+        .logo-container {
             margin-bottom: 2rem;
+            position: relative;
+            z-index: 1;
         }
+
+        .logo-container img {
+            width: 240px;
+            height: 100px;
+            object-fit: contain;
+            filter: drop-shadow(0 4px 16px rgba(34, 197, 94, 0.2));
+            transition: all 0.3s;
+        }
+
+        .logo-container img:hover {
+            filter: drop-shadow(0 8px 24px rgba(34, 197, 94, 0.3));
+            transform: scale(1.05);
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 800;
+            margin-bottom: 1rem;
+            background: var(--gradient-primary);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            position: relative;
+            z-index: 1;
+        }
+
+        .subtitle {
+            font-size: 1.2rem;
+            color: var(--text-secondary);
+            margin-bottom: 1.5rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        .features {
+            display: flex;
+            justify-content: center;
+            gap: 0.75rem;
+            margin: 1.5rem 0;
+            position: relative;
+            z-index: 1;
+            flex-wrap: wrap;
+            max-width: 100%;
+        }
+
+        .feature {
+            padding: 0.5rem 0.75rem;
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 12px;
+            border: 1px solid var(--border-light);
+            transition: all 0.3s;
+            text-align: center;
+            flex: 0 0 auto;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .feature:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(34, 197, 94, 0.1);
+            border-color: var(--primary);
+        }
+
+        .feature-icon {
+            font-size: 1.5rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .feature-title {
+            font-weight: 600;
+            color: var(--primary-dark);
+            font-size: 0.9rem;
+        }
+
         .login-button {
-            background-color: #4CAF50;
+            background: var(--gradient-primary);
             color: white;
-            padding: 12px 24px;
+            padding: 16px 32px;
             border: none;
-            border-radius: 4px;
-            font-size: 16px;
+            border-radius: var(--border-radius);
+            font-size: 18px;
+            font-weight: 600;
             cursor: pointer;
             text-decoration: none;
-            display: inline-block;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            transition: all 0.3s;
+            margin-top: 0.5rem;
+            position: relative;
+            z-index: 1;
+            box-shadow: 0 4px 12px rgba(34, 197, 94, 0.2);
         }
+
         .login-button:hover {
-            background-color: #45a049;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(34, 197, 94, 0.3);
+        }
+
+        .login-button i {
+            font-size: 20px;
+        }
+
+        .security-note {
+            margin-top: 2rem;
+            padding: 1rem;
+            background: rgba(34, 197, 94, 0.05);
+            border-radius: 8px;
+            border: 1px solid rgba(34, 197, 94, 0.2);
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            position: relative;
+            z-index: 1;
+        }
+
+        .security-note i {
+            color: var(--primary);
+            margin-right: 0.5rem;
+        }
+
+        .footer-links {
+            margin-top: 2rem;
+            font-size: 0.875rem;
+            color: var(--text-muted);
+            position: relative;
+            z-index: 1;
+        }
+
+        .footer-links a {
+            color: var(--primary);
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+
+        .footer-links a:hover {
+            color: var(--primary-dark);
+            text-decoration: underline;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .fade-in {
+            animation: fadeInUp 0.6s ease-out;
+        }
+
+        /* Responsive */
+        @media (max-width: 600px) {
+            .login-container {
+                padding: 2rem;
+                margin: 1rem;
+            }
+            
+            h1 {
+                font-size: 2rem;
+            }
+            
+            .features {
+                gap: 0.5rem;
+            }
+            
+            .feature {
+                flex: 1 1 100%;
+                max-width: 100%;
+            }
+            
+            .logo-container img {
+                width: 200px;
+                height: 80px;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="login-container">
+    <!-- Root Network Background -->
+    <div class="root-network">
+        <svg viewBox="0 0 100 100" preserveAspectRatio="none">
+            <path class="root-path" d="M 10 0 Q 12 20 15 40 T 18 80" style="--root-delay: 0s;"></path>
+            <path class="root-path" d="M 25 0 Q 24 25 26 50 T 28 90" style="--root-delay: 0.5s;"></path>
+            <path class="root-path" d="M 40 0 Q 38 30 35 60 T 38 100" style="--root-delay: 1s;"></path>
+            <path class="root-path" d="M 55 0 Q 56 28 58 56 T 55 95" style="--root-delay: 1.5s;"></path>
+            <path class="root-path" d="M 70 0 Q 72 32 74 64 T 72 100" style="--root-delay: 2s;"></path>
+            <path class="root-path" d="M 85 0 Q 83 35 80 70 T 82 100" style="--root-delay: 2.5s;"></path>
+        </svg>
+    </div>
+
+    <div class="login-container fade-in">
+        <div class="logo-container">
+            <img src="/docs/images/logo-no-background.png" alt="Fern Platform" onerror="this.style.display='none'">
+        </div>
+        
         <h1>Welcome to Fern Platform</h1>
-        <p>Please sign in to continue</p>
-        <a href="/auth/start" class="login-button">Sign in with OAuth</a>
+        <p class="subtitle">Transform your test chaos into intelligent insights</p>
+        
+        <div class="features">
+            <div class="feature">
+                <div class="feature-icon">🎨</div>
+                <div class="feature-title">Beautiful Visualizations</div>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">🔐</div>
+                <div class="feature-title">Secure Access</div>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">⚡</div>
+                <div class="feature-title">Real-time Analytics</div>
+            </div>
+        </div>
+        
+        <a href="/auth/start" class="login-button">
+            <span style="margin-right: 8px;">→</span>
+            Sign in with OAuth
+        </a>
+        
+        <div class="security-note">
+            <span style="color: var(--primary); margin-right: 0.5rem;">🔒</span>
+            Your data is secure. We use industry-standard OAuth 2.0 authentication.
+        </div>
+        
+        <div class="footer-links">
+            <a href="https://github.com/guidewire-oss/fern-platform" target="_blank">Documentation</a>
+            •
+            <a href="https://github.com/guidewire-oss/fern-platform/issues" target="_blank">Support</a>
+            •
+            <a href="https://github.com/guidewire-oss/fern-platform" target="_blank">Open Source</a>
+        </div>
     </div>
 </body>
 </html>
