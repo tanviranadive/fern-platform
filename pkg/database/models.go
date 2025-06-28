@@ -153,6 +153,13 @@ type ProjectPermission struct {
 	ExpiresAt  *time.Time `json:"expires_at,omitempty"`
 }
 
+// TestRunTag represents the many-to-many relationship between test runs and tags
+type TestRunTag struct {
+	TestRunID uint `gorm:"primaryKey" json:"test_run_id"`
+	TagID     uint `gorm:"primaryKey" json:"tag_id"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
 // FlakyTest represents test flakiness analysis data
 type FlakyTest struct {
 	BaseModel

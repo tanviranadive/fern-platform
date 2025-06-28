@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/guidewire-oss/fern-platform/internal/domains/testing/domain"
 )
@@ -31,45 +32,30 @@ func NewRecordTestRunHandler(testRunRepo domain.TestRunRepository) *RecordTestRu
 }
 
 // Handle executes the use case
-func (h *RecordTestRunHandler) Handle(ctx context.Context, cmd RecordTestRunCommand) (*domain.TestRunSnapshot, error) {
+func (h *RecordTestRunHandler) Handle(ctx context.Context, cmd RecordTestRunCommand) (*domain.TestRun, error) {
 	// Validate command
 	if err := h.validateCommand(cmd); err != nil {
 		return nil, fmt.Errorf("invalid command: %w", err)
 	}
 
-	// Check if test run already exists
-	existing, _ := h.testRunRepo.FindByID(ctx, domain.TestRunID(cmd.RunID))
-	if existing != nil {
-		return nil, errors.New("test run already exists")
-	}
-
 	// Create new test run
-	testRun, err := domain.NewTestRun(
-		domain.TestRunID(cmd.RunID),
-		cmd.ProjectID,
-		cmd.Branch,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create test run: %w", err)
-	}
-
-	// Set additional properties
-	testRun.SetMetadata("commit_sha", cmd.CommitSHA)
-	testRun.SetMetadata("environment", cmd.Environment)
-	
-	// Set any additional metadata
-	for k, v := range cmd.Metadata {
-		testRun.SetMetadata(k, v)
+	testRun := &domain.TestRun{
+		RunID:       cmd.RunID,
+		ProjectID:   cmd.ProjectID,
+		Branch:      cmd.Branch,
+		GitCommit:   cmd.CommitSHA,
+		Environment: cmd.Environment,
+		Metadata:    cmd.Metadata,
+		Status:      "running",
+		StartTime:   time.Now(),
 	}
 
 	// Save to repository
-	if err := h.testRunRepo.Save(ctx, testRun); err != nil {
+	if err := h.testRunRepo.Create(ctx, testRun); err != nil {
 		return nil, fmt.Errorf("failed to save test run: %w", err)
 	}
 
-	// Return snapshot
-	snapshot := testRun.ToSnapshot()
-	return &snapshot, nil
+	return testRun, nil
 }
 
 func (h *RecordTestRunHandler) validateCommand(cmd RecordTestRunCommand) error {

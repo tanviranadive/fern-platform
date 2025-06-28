@@ -3,8 +3,10 @@ package graphql
 
 import (
 	"github.com/guidewire-oss/fern-platform/internal/reporter/graphql/dataloader"
-	svc "github.com/guidewire-oss/fern-platform/internal/service"
-	// "github.com/guidewire-oss/fern-platform/pkg/database"
+	testingApp "github.com/guidewire-oss/fern-platform/internal/domains/testing/application"
+	projectsApp "github.com/guidewire-oss/fern-platform/internal/domains/projects/application"
+	tagsApp "github.com/guidewire-oss/fern-platform/internal/domains/tags/application"
+	analyticsApp "github.com/guidewire-oss/fern-platform/internal/domains/analytics/application"
 	"github.com/guidewire-oss/fern-platform/pkg/logging"
 	"gorm.io/gorm"
 )
@@ -15,28 +17,31 @@ import (
 
 // Resolver is the root GraphQL resolver
 type Resolver struct {
-	testRunService svc.TestRunService
-	projectService svc.ProjectService
-	tagService     svc.TagService
-	loaders        *dataloader.Loaders
-	db             *gorm.DB
-	logger         *logging.Logger
+	testingService        *testingApp.TestRunService
+	projectService        *projectsApp.ProjectService
+	tagService           *tagsApp.TagService
+	flakyDetectionService *analyticsApp.FlakyDetectionService
+	loaders              *dataloader.Loaders
+	db                   *gorm.DB
+	logger               *logging.Logger
 }
 
 // NewResolver creates a new GraphQL resolver
 func NewResolver(
-	testRunService svc.TestRunService,
-	projectService svc.ProjectService,
-	tagService svc.TagService,
+	testingService *testingApp.TestRunService,
+	projectService *projectsApp.ProjectService,
+	tagService *tagsApp.TagService,
+	flakyDetectionService *analyticsApp.FlakyDetectionService,
 	db *gorm.DB,
 	logger *logging.Logger,
 ) *Resolver {
 	return &Resolver{
-		testRunService: testRunService,
-		projectService: projectService,
-		tagService:     tagService,
-		loaders:        dataloader.NewLoaders(db),
-		db:             db,
-		logger:         logger,
+		testingService:        testingService,
+		projectService:        projectService,
+		tagService:           tagService,
+		flakyDetectionService: flakyDetectionService,
+		loaders:              dataloader.NewLoaders(db),
+		db:                   db,
+		logger:               logger,
 	}
 }

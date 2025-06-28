@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/guidewire-oss/fern-platform/internal/domains/testing/domain"
 )
@@ -37,7 +38,7 @@ func (h *CompleteTestRunHandler) Handle(ctx context.Context, cmd CompleteTestRun
 	}
 
 	// Find the test run
-	testRun, err := h.testRunRepo.FindByID(ctx, domain.TestRunID(cmd.RunID))
+	testRun, err := h.testRunRepo.GetByRunID(ctx, cmd.RunID)
 	if err != nil {
 		return fmt.Errorf("failed to find test run: %w", err)
 	}
@@ -46,8 +47,11 @@ func (h *CompleteTestRunHandler) Handle(ctx context.Context, cmd CompleteTestRun
 	}
 
 	// Complete the test run
-	if err := testRun.Complete(); err != nil {
-		return fmt.Errorf("failed to complete test run: %w", err)
+	now := time.Now()
+	testRun.EndTime = &now
+	testRun.Status = "completed"
+	if testRun.StartTime.After(time.Time{}) {
+		testRun.Duration = now.Sub(testRun.StartTime)
 	}
 
 	// Update flaky test statistics

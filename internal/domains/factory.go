@@ -3,51 +3,75 @@ package domains
 import (
 	"gorm.io/gorm"
 
+	// Auth domain
+	authApp "github.com/guidewire-oss/fern-platform/internal/domains/auth/application"
+	authInfra "github.com/guidewire-oss/fern-platform/internal/domains/auth/infrastructure"
+	authInterfaces "github.com/guidewire-oss/fern-platform/internal/domains/auth/interfaces"
+
+	// Analytics domain
+	analyticsApp "github.com/guidewire-oss/fern-platform/internal/domains/analytics/application"
+	analyticsInfra "github.com/guidewire-oss/fern-platform/internal/domains/analytics/infrastructure"
+	analyticsInterfaces "github.com/guidewire-oss/fern-platform/internal/domains/analytics/interfaces"
+	analyticsDomain "github.com/guidewire-oss/fern-platform/internal/domains/analytics/domain"
+
 	// Testing domain
+	testingApp "github.com/guidewire-oss/fern-platform/internal/domains/testing/application"
+	testingInfra "github.com/guidewire-oss/fern-platform/internal/domains/testing/infrastructure"
 	testingInterfaces "github.com/guidewire-oss/fern-platform/internal/domains/testing/interfaces"
 
 	// Projects domain
-	projectsInterfaces "github.com/guidewire-oss/fern-platform/internal/domains/projects/interfaces"
+	projectsApp "github.com/guidewire-oss/fern-platform/internal/domains/projects/application"
+	projectsInfra "github.com/guidewire-oss/fern-platform/internal/domains/projects/infrastructure"
 
 	// Tags domain
-	tagsInterfaces "github.com/guidewire-oss/fern-platform/internal/domains/tags/interfaces"
+	tagsApp "github.com/guidewire-oss/fern-platform/internal/domains/tags/application"
+	tagsInfra "github.com/guidewire-oss/fern-platform/internal/domains/tags/infrastructure"
 
-	// Legacy repositories
-	"github.com/guidewire-oss/fern-platform/internal/reporter/repository"
+	"github.com/guidewire-oss/fern-platform/pkg/config"
 	"github.com/guidewire-oss/fern-platform/pkg/logging"
 )
 
 // DomainFactory creates and wires all domain components
 type DomainFactory struct {
-	db     *gorm.DB
-	logger *logging.Logger
+	db         *gorm.DB
+	logger     *logging.Logger
+	authConfig *config.AuthConfig
+	
+	// Auth domain
+	authService      *authApp.AuthenticationService
+	authzService     *authApp.AuthorizationService
+	authMiddleware   *authInterfaces.AuthMiddlewareAdapter
+	
+	// Analytics domain
+	flakyDetectionService *analyticsApp.FlakyDetectionService
+	flakyDetectionAdapter *analyticsInterfaces.FlakyDetectionAdapter
 	
 	// Testing domain
-	testingAdapter         *testingInterfaces.TestRunServiceAdapter
+	testRunService         *testingApp.TestRunService
+	testingAdapter         *testingInterfaces.TestServiceAdapter
 	
 	// Projects domain
-	projectAdapter         *projectsInterfaces.ProjectServiceAdapter
+	projectService         *projectsApp.ProjectService
 	
 	// Tags domain
-	tagAdapter             *tagsInterfaces.TagServiceAdapter
+	tagService             *tagsApp.TagService
 	
-	// Legacy repositories (for backward compatibility)
-	legacyTestRunRepo    *repository.TestRunRepository
-	legacySuiteRunRepo   *repository.SuiteRunRepository
-	legacySpecRunRepo    *repository.SpecRunRepository
-	legacyProjectRepo    *repository.ProjectRepository
-	legacyTagRepo        *repository.TagRepository
 }
 
 // NewDomainFactory creates a new domain factory
-func NewDomainFactory(db *gorm.DB, logger *logging.Logger) *DomainFactory {
+func NewDomainFactory(db *gorm.DB, logger *logging.Logger, authConfig *config.AuthConfig) *DomainFactory {
 	factory := &DomainFactory{
-		db:     db,
-		logger: logger,
+		db:         db,
+		logger:     logger,
+		authConfig: authConfig,
 	}
 	
-	// Initialize legacy repositories
-	factory.initLegacyRepositories()
+	
+	// Initialize Auth domain (must be first as others may depend on it)
+	factory.initAuthDomain()
+	
+	// Initialize Analytics domain
+	factory.initAnalyticsDomain()
 	
 	// Initialize Testing domain
 	factory.initTestingDomain()
@@ -61,97 +85,126 @@ func NewDomainFactory(db *gorm.DB, logger *logging.Logger) *DomainFactory {
 	return factory
 }
 
-// initLegacyRepositories initializes the legacy repositories for backward compatibility
-func (f *DomainFactory) initLegacyRepositories() {
-	f.legacyTestRunRepo = repository.NewTestRunRepository(f.db)
-	f.legacySuiteRunRepo = repository.NewSuiteRunRepository(f.db)
-	f.legacySpecRunRepo = repository.NewSpecRunRepository(f.db)
-	f.legacyProjectRepo = repository.NewProjectRepository(f.db)
-	f.legacyTagRepo = repository.NewTagRepository(f.db)
-}
-
 // initTestingDomain initializes the testing domain components
 func (f *DomainFactory) initTestingDomain() {
-	// TODO: Implement domain repositories and handlers once we're ready to fully migrate
-	// For now, we're using legacy repositories directly in the adapters
+	// Create repositories
+	testRunRepo := testingInfra.NewGormTestRunRepository(f.db)
+	suiteRunRepo := testingInfra.NewGormSuiteRunRepository(f.db)
+	specRunRepo := testingInfra.NewGormSpecRunRepository(f.db)
 	
-	// Create repositories (commented out until fully implemented)
-	// f.testRunRepo = testingInfra.NewGormTestRunRepository(f.db)
-	// f.flakyTestRepo = testingInfra.NewGormFlakyTestRepository(f.db)
+	// Create application service
+	f.testRunService = testingApp.NewTestRunService(
+		testRunRepo,
+		suiteRunRepo,
+		specRunRepo,
+	)
 	
-	// Create application handlers (commented out until repositories are ready)
-	// f.recordTestRunHandler = testingApp.NewRecordTestRunHandler(f.testRunRepo)
-	// f.completeTestRunHandler = testingApp.NewCompleteTestRunHandler(f.testRunRepo, f.flakyTestRepo)
-	
-	// Create service adapter using legacy repositories
-	f.testingAdapter = testingInterfaces.NewTestRunServiceAdapter(
-		nil, // recordTestRunHandler - not used yet
-		nil, // completeTestRunHandler - not used yet
-		nil, // testRunRepo - not used yet
-		f.legacyTestRunRepo,
-		f.legacySuiteRunRepo,
-		f.legacySpecRunRepo,
+	// Create adapter
+	f.testingAdapter = testingInterfaces.NewTestServiceAdapter(
+		f.testRunService,
 		f.logger,
 	)
 }
 
 // initProjectsDomain initializes the projects domain components
 func (f *DomainFactory) initProjectsDomain() {
-	// TODO: Implement domain repositories and handlers once we're ready to fully migrate
-	// For now, we're using legacy repositories directly in the adapters
+	// Create repositories
+	projectRepo := projectsInfra.NewGormProjectRepository(f.db)
+	permissionRepo := projectsInfra.NewGormProjectPermissionRepository(f.db)
 	
-	// Create repositories (commented out until fully implemented)
-	// f.projectRepo = projectsInfra.NewGormProjectRepository(f.db)
-	// f.projectPermissionRepo = projectsInfra.NewGormProjectPermissionRepository(f.db)
+	// Create application service
+	f.projectService = projectsApp.NewProjectService(projectRepo, permissionRepo)
 	
-	// Create application handlers (commented out until repositories are ready)
-	// f.createProjectHandler = projectsApp.NewCreateProjectHandler(f.projectRepo, f.projectPermissionRepo)
-	// f.updateProjectHandler = projectsApp.NewUpdateProjectHandler(f.projectRepo, f.projectPermissionRepo)
-	
-	// Create service adapter using legacy repositories
-	f.projectAdapter = projectsInterfaces.NewProjectServiceAdapter(
-		nil, // createProjectHandler - not used yet
-		nil, // updateProjectHandler - not used yet
-		nil, // projectRepo - not used yet
-		f.legacyProjectRepo,
-		f.logger,
-	)
 }
 
-// GetTestRunService returns the test run service that maintains backward compatibility
-func (f *DomainFactory) GetTestRunService() *testingInterfaces.TestRunServiceAdapter {
+// GetTestingService returns the new domain test run service
+func (f *DomainFactory) GetTestingService() *testingApp.TestRunService {
+	return f.testRunService
+}
+
+// GetTestingAdapter returns the testing adapter for HTTP/GraphQL
+func (f *DomainFactory) GetTestingAdapter() *testingInterfaces.TestServiceAdapter {
 	return f.testingAdapter
 }
 
-// GetProjectService returns the project service that maintains backward compatibility
-func (f *DomainFactory) GetProjectService() *projectsInterfaces.ProjectServiceAdapter {
-	return f.projectAdapter
+// GetProjectDomainService returns the new domain project service
+func (f *DomainFactory) GetProjectDomainService() *projectsApp.ProjectService {
+	return f.projectService
 }
 
 
 // initTagsDomain initializes the tags domain components
 func (f *DomainFactory) initTagsDomain() {
-	// TODO: Implement domain repositories and handlers once we're ready to fully migrate
-	// For now, we're using legacy repositories directly in the adapters
+	// Create repositories
+	tagRepo := tagsInfra.NewGormTagRepository(f.db)
 	
-	// Create repositories (commented out until fully implemented)
-	// f.tagRepo = tagsInfra.NewGormTagRepository(f.db)
+	// Create application service
+	f.tagService = tagsApp.NewTagService(tagRepo)
 	
-	// Create application handlers (commented out until repositories are ready)
-	// f.createTagHandler = tagsApp.NewCreateTagHandler(f.tagRepo)
-	// f.assignTagsHandler = tagsApp.NewAssignTagsHandler(f.tagRepo)
+}
+
+// GetTagDomainService returns the new domain tag service
+func (f *DomainFactory) GetTagDomainService() *tagsApp.TagService {
+	return f.tagService
+}
+
+// initAuthDomain initializes the auth domain components
+func (f *DomainFactory) initAuthDomain() {
+	// Create repositories
+	userRepo := authInfra.NewGormUserRepository(f.db)
+	sessionRepo := authInfra.NewGormSessionRepository(f.db)
 	
-	// Create service adapter using legacy repositories
-	f.tagAdapter = tagsInterfaces.NewTagServiceAdapter(
-		nil, // createTagHandler - not used yet
-		nil, // assignTagsHandler - not used yet
-		nil, // tagRepo - not used yet
-		f.legacyTagRepo,
+	// Create application services
+	f.authService = authApp.NewAuthenticationService(userRepo, sessionRepo)
+	f.authzService = authApp.NewAuthorizationService(userRepo)
+	
+	// Create OAuth adapter
+	oauthAdapter := authInterfaces.NewOAuthAdapter(f.authConfig, f.logger)
+	
+	// Create middleware adapter
+	f.authMiddleware = authInterfaces.NewAuthMiddlewareAdapter(
+		f.authService,
+		f.authzService,
+		oauthAdapter,
+		f.authConfig,
 		f.logger,
 	)
 }
 
-// GetTagService returns the tag service that maintains backward compatibility
-func (f *DomainFactory) GetTagService() *tagsInterfaces.TagServiceAdapter {
-	return f.tagAdapter
+// GetAuthService returns the authentication service
+func (f *DomainFactory) GetAuthService() *authApp.AuthenticationService {
+	return f.authService
+}
+
+// GetAuthorizationService returns the authorization service
+func (f *DomainFactory) GetAuthorizationService() *authApp.AuthorizationService {
+	return f.authzService
+}
+
+// GetAuthMiddleware returns the auth middleware adapter
+func (f *DomainFactory) GetAuthMiddleware() *authInterfaces.AuthMiddlewareAdapter {
+	return f.authMiddleware
+}
+
+// initAnalyticsDomain initializes the analytics domain components
+func (f *DomainFactory) initAnalyticsDomain() {
+	// Create repository
+	flakyRepo := analyticsInfra.NewGormFlakyDetectionRepository(f.db)
+	
+	// Create service with default config
+	config := analyticsDomain.DefaultFlakyTestDetectionConfig()
+	f.flakyDetectionService = analyticsApp.NewFlakyDetectionService(flakyRepo, config)
+	
+	// Create adapter
+	f.flakyDetectionAdapter = analyticsInterfaces.NewFlakyDetectionAdapter(f.flakyDetectionService, f.logger)
+}
+
+// GetFlakyDetectionService returns the flaky detection service
+func (f *DomainFactory) GetFlakyDetectionService() *analyticsApp.FlakyDetectionService {
+	return f.flakyDetectionService
+}
+
+// GetFlakyDetectionAdapter returns the flaky detection adapter
+func (f *DomainFactory) GetFlakyDetectionAdapter() *analyticsInterfaces.FlakyDetectionAdapter {
+	return f.flakyDetectionAdapter
 }

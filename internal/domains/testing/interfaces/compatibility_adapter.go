@@ -52,17 +52,17 @@ func (a *CompatibilityAdapter) CreateTestRun(input service.CreateTestRunInput) (
 	// Convert back to database model for compatibility
 	return &database.TestRun{
 		ProjectID:    snapshot.ProjectID,
-		RunID:        string(snapshot.ID),
+		RunID:        snapshot.RunID,
 		Branch:       snapshot.Branch,
-		CommitSHA:    snapshot.CommitSHA,
-		Status:       string(snapshot.Status),
+		CommitSHA:    snapshot.GitCommit,
+		Status:       snapshot.Status,
 		StartTime:    snapshot.StartTime,
 		EndTime:      snapshot.EndTime,
 		TotalTests:   snapshot.TotalTests,
 		PassedTests:  snapshot.PassedTests,
 		FailedTests:  snapshot.FailedTests,
 		SkippedTests: snapshot.SkippedTests,
-		Duration:     snapshot.Duration,
+		Duration:     int64(snapshot.Duration / 1000000), // Convert to milliseconds
 		Environment:  snapshot.Environment,
 		Metadata:     database.JSONMap(snapshot.Metadata),
 	}, nil
@@ -79,7 +79,7 @@ func (a *CompatibilityAdapter) CompleteTestRun(runID string) error {
 
 // GetTestRun retrieves a test run by ID
 func (a *CompatibilityAdapter) GetTestRun(runID string) (*database.TestRun, error) {
-	testRun, err := a.testRunRepo.FindByID(context.Background(), domain.TestRunID(runID))
+	testRun, err := a.testRunRepo.GetByRunID(context.Background(), runID)
 	if err != nil {
 		return nil, err
 	}
@@ -88,21 +88,20 @@ func (a *CompatibilityAdapter) GetTestRun(runID string) (*database.TestRun, erro
 	}
 	
 	// Convert to database model
-	snapshot := testRun.ToSnapshot()
 	return &database.TestRun{
-		ProjectID:    snapshot.ProjectID,
-		RunID:        string(snapshot.ID),
-		Branch:       snapshot.Branch,
-		CommitSHA:    snapshot.CommitSHA,
-		Status:       string(snapshot.Status),
-		StartTime:    snapshot.StartTime,
-		EndTime:      snapshot.EndTime,
-		TotalTests:   snapshot.TotalTests,
-		PassedTests:  snapshot.PassedTests,
-		FailedTests:  snapshot.FailedTests,
-		SkippedTests: snapshot.SkippedTests,
-		Duration:     snapshot.Duration,
-		Environment:  snapshot.Environment,
-		Metadata:     database.JSONMap(snapshot.Metadata),
+		ProjectID:    testRun.ProjectID,
+		RunID:        testRun.RunID,
+		Branch:       testRun.Branch,
+		CommitSHA:    testRun.GitCommit,
+		Status:       testRun.Status,
+		StartTime:    testRun.StartTime,
+		EndTime:      testRun.EndTime,
+		TotalTests:   testRun.TotalTests,
+		PassedTests:  testRun.PassedTests,
+		FailedTests:  testRun.FailedTests,
+		SkippedTests: testRun.SkippedTests,
+		Duration:     int64(testRun.Duration / 1000000), // Convert to milliseconds
+		Environment:  testRun.Environment,
+		Metadata:     database.JSONMap(testRun.Metadata),
 	}, nil
 }
