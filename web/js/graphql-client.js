@@ -19,7 +19,9 @@ class GraphQLClient {
             throw new Error('Invalid query format');
         }
         
-        const response = await fetch(this.endpoint, {
+        const endpoint = this.endpoint;
+        
+        const response = await fetch(endpoint, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
