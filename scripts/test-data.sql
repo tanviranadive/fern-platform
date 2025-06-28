@@ -7,11 +7,13 @@
 -- DELETE FROM test_runs WHERE project_id IN ('project-frontend-001', 'project-backend-002', 'project-mobile-003');
 -- DELETE FROM project_details WHERE project_id IN ('project-frontend-001', 'project-backend-002', 'project-mobile-003');
 
--- Insert sample projects
+-- Insert sample projects (skip if they already exist)
 INSERT INTO project_details (project_id, name, description, repository, default_branch, team, is_active, created_at, updated_at) VALUES
 ('project-frontend-001', 'E-Commerce Frontend', 'React-based e-commerce platform frontend with TypeScript', 'https://github.com/example/ecommerce-frontend', 'main', 'frontend', true, NOW() - INTERVAL '30 days', NOW()),
 ('project-backend-002', 'API Gateway Service', 'High-performance API gateway built with Go', 'https://github.com/example/api-gateway', 'main', 'backend', true, NOW() - INTERVAL '45 days', NOW()),
-('project-mobile-003', 'Mobile Banking App', 'Cross-platform mobile banking application using React Native', 'https://github.com/example/mobile-banking', 'develop', 'mobile', true, NOW() - INTERVAL '60 days', NOW());
+('project-mobile-003', 'Mobile Banking App', 'Cross-platform mobile banking application using React Native', 'https://github.com/example/mobile-banking', 'develop', 'mobile', true, NOW() - INTERVAL '60 days', NOW())
+ON CONFLICT (project_id) DO UPDATE 
+SET updated_at = NOW();
 
 -- Function to generate test data
 DO $$
@@ -25,6 +27,10 @@ DECLARE
     passed_tests INTEGER;
     failed_tests INTEGER;
     skipped_tests INTEGER;
+    total_specs INTEGER;
+    passed_specs INTEGER;
+    failed_specs INTEGER;
+    skipped_specs INTEGER;
     test_status VARCHAR;
     run_duration INTEGER;
     spec_duration INTEGER;
@@ -41,6 +47,10 @@ BEGIN
             passed_tests := 0;
             failed_tests := 0;
             skipped_tests := 0;
+            total_specs := 0;
+            passed_specs := 0;
+            failed_specs := 0;
+            skipped_specs := 0;
             run_duration := 0;
             
             -- Insert test run
@@ -81,8 +91,8 @@ BEGIN
                 -- Insert suite run
                 INSERT INTO suite_runs (
                     test_run_id, suite_name, status, start_time, end_time,
-                    duration_ms, total_tests, passed_tests, failed_tests,
-                    skipped_tests, created_at, updated_at
+                    duration_ms, total_specs, passed_specs, failed_specs,
+                    skipped_specs, created_at, updated_at
                 ) VALUES (
                     test_run_id,
                     CASE project_rec.project_id
@@ -132,35 +142,42 @@ BEGIN
                         IF random() < 0.5 THEN
                             test_status := 'passed';
                             passed_tests := passed_tests + 1;
+                            passed_specs := passed_specs + 1;
                         ELSIF random() < 0.8 THEN
                             test_status := 'failed';
                             failed_tests := failed_tests + 1;
+                            failed_specs := failed_specs + 1;
                         ELSE
                             test_status := 'skipped';
                             skipped_tests := skipped_tests + 1;
+                            skipped_specs := skipped_specs + 1;
                         END IF;
                     ELSE
                         -- Other projects have better pass rates
                         IF random() < 0.8 THEN
                             test_status := 'passed';
                             passed_tests := passed_tests + 1;
+                            passed_specs := passed_specs + 1;
                         ELSIF random() < 0.95 THEN
                             test_status := 'failed';
                             failed_tests := failed_tests + 1;
+                            failed_specs := failed_specs + 1;
                         ELSE
                             test_status := 'skipped';
                             skipped_tests := skipped_tests + 1;
+                            skipped_specs := skipped_specs + 1;
                         END IF;
                     END IF;
                     
                     total_tests := total_tests + 1;
+                    total_specs := total_specs + 1;
                     spec_duration := 100 + floor(random() * 5000)::int;
                     run_duration := run_duration + spec_duration;
                     
                     -- Insert spec run
                     INSERT INTO spec_runs (
-                        suite_run_id, spec_name, file_path, line_number,
-                        status, duration_ms, error_message, stack_trace,
+                        suite_run_id, spec_name,
+                        status, start_time, end_time, duration_ms, error_message, stack_trace,
                         created_at, updated_at
                     ) VALUES (
                         suite_run_id,
@@ -208,9 +225,9 @@ BEGIN
                                     ELSE 'handle app lifecycle'
                                 END
                         END || ' - test #' || k,
-                        'src/tests/suite_' || j || '/test_' || k || '.spec.ts',
-                        10 + floor(random() * 200)::int,
                         test_status,
+                        NOW() - INTERVAL '1 day' * (i + floor(random() * 10)::int),
+                        NOW() - INTERVAL '1 day' * (i + floor(random() * 10)::int) + INTERVAL '1 millisecond' * spec_duration,
                         spec_duration,
                         CASE 
                             WHEN test_status = 'failed' THEN 'Expected value to be true but got false'
@@ -226,30 +243,37 @@ BEGIN
                 END LOOP;
                 
                 -- Update suite run with aggregated data
-                UPDATE suite_runs 
+                EXECUTE 'UPDATE suite_runs 
                 SET 
-                    duration_ms = (run_duration / suite_counter),
-                    total_tests = (total_tests / suite_counter),
-                    passed_tests = (passed_tests / suite_counter),
-                    failed_tests = (failed_tests / suite_counter),
-                    skipped_tests = (skipped_tests / suite_counter)
-                WHERE id = suite_run_id;
+                    duration_ms = $1,
+                    total_specs = $2,
+                    passed_specs = $3,
+                    failed_specs = $4,
+                    skipped_specs = $5
+                WHERE id = $6'
+                USING (run_duration / suite_counter), 
+                      (total_specs / suite_counter),
+                      (passed_specs / suite_counter),
+                      (failed_specs / suite_counter),
+                      (skipped_specs / suite_counter),
+                      suite_run_id;
             END LOOP;
             
             -- Update test run with aggregated data
-            UPDATE test_runs 
+            EXECUTE 'UPDATE test_runs 
             SET 
-                duration_ms = run_duration,
-                total_tests = total_tests,
-                passed_tests = passed_tests,
-                failed_tests = failed_tests,
-                skipped_tests = skipped_tests,
+                duration_ms = $1,
+                total_tests = $2,
+                passed_tests = $3,
+                failed_tests = $4,
+                skipped_tests = $5,
                 status = CASE 
-                    WHEN failed_tests > 0 THEN 'failed'
-                    WHEN skipped_tests = total_tests THEN 'skipped'
-                    ELSE 'passed'
+                    WHEN $4 > 0 THEN ''failed''
+                    WHEN $5 = $2 THEN ''skipped''
+                    ELSE ''passed''
                 END
-            WHERE id = test_run_id;
+            WHERE id = $6'
+            USING run_duration, total_tests, passed_tests, failed_tests, skipped_tests, test_run_id;
         END LOOP;
     END LOOP;
 END $$;
@@ -294,8 +318,8 @@ BEGIN
         -- Add one suite that's running
         INSERT INTO suite_runs (
             test_run_id, suite_name, status, start_time, end_time,
-            duration_ms, total_tests, passed_tests, failed_tests,
-            skipped_tests, created_at, updated_at
+            duration_ms, total_specs, passed_specs, failed_specs,
+            skipped_specs, created_at, updated_at
         ) VALUES (
             test_run_id,
             'Integration Tests',

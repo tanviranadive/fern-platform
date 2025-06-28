@@ -854,13 +854,173 @@ func (r *queryResolver) DashboardSummary_domain(ctx context.Context) (*model.Das
 
 // TreemapData implementation using domain service
 func (r *queryResolver) TreemapData_domain(ctx context.Context, projectID *string, days *int) (*model.TreemapData, error) {
-	// TODO: Implement treemap data using domain services
-	// Need to integrate with testing service to get test runs
+	// Default to 7 days if not specified
+	daysToQuery := 7
+	if days != nil && *days > 0 {
+		daysToQuery = *days
+	}
+	
+	// Calculate date range
+	endTime := time.Now()
+	startTime := endTime.AddDate(0, 0, -daysToQuery)
+	
+	// Get all projects that the user has access to
+	projects, _, err := r.projectService.ListProjects(ctx, 1000, 0)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch projects: %w", err)
+	}
+	
+	// For each project, get test runs
+	var allTestRuns []*testingDomain.TestRun
+	for _, project := range projects {
+		// Skip if specific project requested and doesn't match
+		if projectID != nil && *projectID != "" && string(project.ProjectID()) != *projectID {
+			continue
+		}
+		
+		// Get test runs for this project
+		testRuns, _, err := r.testingService.ListTestRuns(ctx, string(project.ProjectID()), 1000, 0)
+		if err != nil {
+			r.logger.WithError(err).Errorf("Failed to get test runs for project %s", project.ProjectID())
+			continue
+		}
+		
+		// Filter by date range
+		for _, run := range testRuns {
+			if run.StartTime.After(startTime) && run.StartTime.Before(endTime) {
+				allTestRuns = append(allTestRuns, run)
+			}
+		}
+	}
+	
+	// Create a map for quick project lookup
+	projectMap := make(map[string]*projectsDomain.Project)
+	for _, p := range projects {
+		projectMap[string(p.ProjectID())] = p
+	}
+	
+	// Group test runs by project
+	projectRuns := make(map[string][]*testingDomain.TestRun)
+	for _, run := range allTestRuns {
+		// Only include runs for projects user has access to
+		if _, ok := projectMap[run.ProjectID]; ok {
+			projectRuns[run.ProjectID] = append(projectRuns[run.ProjectID], run)
+		}
+	}
+	
+	// Build treemap data
+	var projectNodes []*model.ProjectTreemapNode
+	totalDuration := 0
+	totalTests := 0
+	totalPassed := 0
+	
+	for projectID, runs := range projectRuns {
+		project, ok := projectMap[projectID]
+		if !ok {
+			continue
+		}
+		
+		// Convert to GraphQL project model
+		gqlProject := r.convertProjectToGraphQL(project)
+		
+		// Aggregate suite data across all runs for this project
+		suiteMap := make(map[string]*model.SuiteTreemapNode)
+		projectDuration := 0
+		projectTests := 0
+		projectPassed := 0
+		
+		for _, run := range runs {
+			// Get test run with details including suite runs
+			testRunWithDetails, err := r.testingService.GetTestRunWithDetails(ctx, run.ID)
+			if err != nil {
+				r.logger.WithError(err).Errorf("Failed to get test run details for run %d", run.ID)
+				continue
+			}
+			
+			for _, suite := range testRunWithDetails.SuiteRuns {
+				key := suite.Name
+				
+				if node, exists := suiteMap[key]; exists {
+					// Update existing suite node
+					node.TotalDuration += int(suite.Duration.Milliseconds())
+					node.TotalSpecs += suite.TotalTests
+					node.PassedSpecs += suite.PassedTests
+					node.FailedSpecs += suite.FailedTests
+				} else {
+					// Create new suite node
+					gqlSuite := &model.SuiteRun{
+						ID:           strconv.FormatUint(uint64(suite.ID), 10),
+						TestRunID:    strconv.FormatUint(uint64(suite.TestRunID), 10),
+						SuiteName:    suite.Name,
+						Status:       suite.Status,
+						StartTime:    suite.StartTime,
+						EndTime:      suite.EndTime,
+						TotalSpecs:   suite.TotalTests,
+						PassedSpecs:  suite.PassedTests,
+						FailedSpecs:  suite.FailedTests,
+						SkippedSpecs: suite.SkippedTests,
+						Duration:     int(suite.Duration.Milliseconds()),
+					}
+					
+					suiteMap[key] = &model.SuiteTreemapNode{
+						Suite:         gqlSuite,
+						Specs:         []*model.SpecTreemapNode{}, // Not including spec level for performance
+						TotalDuration: int(suite.Duration.Milliseconds()),
+						TotalSpecs:    suite.TotalTests,
+						PassedSpecs:   suite.PassedTests,
+						FailedSpecs:   suite.FailedTests,
+						PassRate:      0,
+					}
+				}
+			}
+			
+			projectDuration += int(run.Duration.Milliseconds())
+			projectTests += run.TotalTests
+			projectPassed += run.PassedTests
+		}
+		
+		// Convert suite map to slice and calculate pass rates
+		var suiteNodes []*model.SuiteTreemapNode
+		for _, node := range suiteMap {
+			if node.TotalSpecs > 0 {
+				node.PassRate = float64(node.PassedSpecs) / float64(node.TotalSpecs)
+			}
+			suiteNodes = append(suiteNodes, node)
+		}
+		
+		// Calculate project pass rate
+		projectPassRate := float64(0)
+		if projectTests > 0 {
+			projectPassRate = float64(projectPassed) / float64(projectTests)
+		}
+		
+		projectNode := &model.ProjectTreemapNode{
+			Project:       gqlProject,
+			Suites:        suiteNodes,
+			TotalDuration: projectDuration,
+			TotalTests:    projectTests,
+			PassedTests:   projectPassed,
+			FailedTests:   projectTests - projectPassed,
+			PassRate:      projectPassRate,
+		}
+		
+		projectNodes = append(projectNodes, projectNode)
+		totalDuration += projectDuration
+		totalTests += projectTests
+		totalPassed += projectPassed
+	}
+	
+	// Calculate overall pass rate
+	overallPassRate := float64(0)
+	if totalTests > 0 {
+		overallPassRate = float64(totalPassed) / float64(totalTests)
+	}
+	
 	return &model.TreemapData{
-		Projects:        []*model.ProjectTreemapNode{},
-		TotalDuration:   0,
-		TotalTests:      0,
-		OverallPassRate: 0,
+		Projects:        projectNodes,
+		TotalDuration:   totalDuration,
+		TotalTests:      totalTests,
+		OverallPassRate: overallPassRate,
 	}, nil
 }
 

@@ -8,11 +8,11 @@ set -e
 echo "🔍 Getting database connection details from Kubernetes secrets..."
 
 # Get database credentials from secret
-DB_HOST=$(kubectl get secret fern-platform-db-secret -o jsonpath='{.data.host}' | base64 -d)
-DB_PORT=$(kubectl get secret fern-platform-db-secret -o jsonpath='{.data.port}' | base64 -d)
-DB_NAME=$(kubectl get secret fern-platform-db-secret -o jsonpath='{.data.database}' | base64 -d)
-DB_USER=$(kubectl get secret fern-platform-db-secret -o jsonpath='{.data.username}' | base64 -d)
-DB_PASSWORD=$(kubectl get secret fern-platform-db-secret -o jsonpath='{.data.password}' | base64 -d)
+DB_HOST=$(kubectl get secret postgres-app -n fern-platform -o jsonpath='{.data.host}' | base64 -d)
+DB_PORT=$(kubectl get secret postgres-app -n fern-platform -o jsonpath='{.data.port}' | base64 -d)
+DB_NAME=$(kubectl get secret postgres-app -n fern-platform -o jsonpath='{.data.dbname}' | base64 -d)
+DB_USER=$(kubectl get secret postgres-app -n fern-platform -o jsonpath='{.data.username}' | base64 -d)
+DB_PASSWORD=$(kubectl get secret postgres-app -n fern-platform -o jsonpath='{.data.password}' | base64 -d)
 
 echo "📊 Database connection details retrieved"
 echo "   Host: $DB_HOST"
@@ -32,7 +32,7 @@ fi
 echo "📝 Applying test data from $SQL_FILE..."
 
 # Find postgres pod
-POSTGRES_POD=$(kubectl get pods -l app=postgres -o jsonpath='{.items[0].metadata.name}')
+POSTGRES_POD=$(kubectl get pods -n fern-platform -l cnpg.io/cluster=postgres -o jsonpath='{.items[0].metadata.name}')
 
 if [ -z "$POSTGRES_POD" ]; then
     echo "❌ No postgres pod found"
@@ -41,13 +41,7 @@ fi
 
 echo "🚀 Using postgres pod: $POSTGRES_POD"
 
-# Copy SQL file to pod
-kubectl cp "$SQL_FILE" "$POSTGRES_POD":/tmp/test-data.sql
-
-# Execute SQL file
-kubectl exec -i "$POSTGRES_POD" -- psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -f /tmp/test-data.sql
-
-# Clean up
-kubectl exec -i "$POSTGRES_POD" -- rm /tmp/test-data.sql
+# Execute SQL file using stdin with password
+kubectl exec -i -n fern-platform "$POSTGRES_POD" -- bash -c "PGPASSWORD='$DB_PASSWORD' psql -h '$DB_HOST' -p '$DB_PORT' -U '$DB_USER' -d '$DB_NAME'" < "$SQL_FILE"
 
 echo "✅ Test data inserted successfully!"
