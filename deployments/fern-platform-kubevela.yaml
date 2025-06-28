@@ -765,7 +765,7 @@ spec:
       - name: wait-for-infrastructure
         type: suspend
         properties:
-          duration: 90s
+          duration: 45s
       
       # Step 6: Deploy fern-platform after all infrastructure is ready
       - name: deploy-application

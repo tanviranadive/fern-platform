@@ -27,14 +27,14 @@ CREATE TABLE IF NOT EXISTS project_permissions (
     user_id VARCHAR(255) NOT NULL,
     permission VARCHAR(50) NOT NULL,
     granted_by VARCHAR(255),
-    expires_at TIMESTAMP WITH TIME ZONE,
-    CONSTRAINT idx_project_user_perm UNIQUE (project_id, user_id, permission)
+    expires_at TIMESTAMP WITH TIME ZONE
 );
 
 -- Create indexes for project_permissions
 CREATE INDEX IF NOT EXISTS idx_project_permissions_user_id ON project_permissions(user_id);
 CREATE INDEX IF NOT EXISTS idx_project_permissions_project_id ON project_permissions(project_id);
 CREATE INDEX IF NOT EXISTS idx_project_permissions_deleted_at ON project_permissions(deleted_at);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_project_user_perm ON project_permissions(project_id, user_id, permission) WHERE deleted_at IS NULL;
 
 -- Add team column to project_details if not exists
 ALTER TABLE project_details ADD COLUMN IF NOT EXISTS team VARCHAR(255);

@@ -39,8 +39,7 @@ models:
         resolver: true
 
 # Autobind models to existing structs where possible
-autobind:
-  - "github.com/guidewire-oss/fern-platform/internal/reporter/repository"
+autobind: []
 
 # Skip generating resolver for introspection
 skip_mod_tidy: false

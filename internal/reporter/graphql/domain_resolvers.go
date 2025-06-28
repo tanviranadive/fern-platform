@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/guidewire-oss/fern-platform/internal/reporter/graphql/model"
 	authDomain "github.com/guidewire-oss/fern-platform/internal/domains/auth/domain"
 	testingDomain "github.com/guidewire-oss/fern-platform/internal/domains/testing/domain"
@@ -201,6 +202,12 @@ func (r *mutationResolver) CreateProject_domain(ctx context.Context, input model
 		return nil, fmt.Errorf("insufficient permissions to create project")
 	}
 
+	// Generate project ID if not provided
+	projectID := input.ProjectID
+	if projectID == "" {
+		projectID = uuid.New().String()
+	}
+
 	// Determine team from user groups
 	team := projectsDomain.Team("default") // Default team
 	if len(user.Groups) > 0 {
@@ -208,7 +215,7 @@ func (r *mutationResolver) CreateProject_domain(ctx context.Context, input model
 	}
 
 	// Create project with creator user ID
-	project, err := r.projectService.CreateProject(ctx, projectsDomain.ProjectID(input.ProjectID), input.Name, team, user.UserID)
+	project, err := r.projectService.CreateProject(ctx, projectsDomain.ProjectID(projectID), input.Name, team, user.UserID)
 	if err != nil {
 		return nil, err
 	}

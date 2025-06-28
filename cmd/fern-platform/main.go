@@ -49,9 +49,11 @@ func main() {
 	defer db.Close()
 
 	// Run migrations
+	logger.WithService("fern-platform").Info("Starting database migrations from path: migrations")
 	if err := db.Migrate("migrations"); err != nil {
 		logger.WithService("fern-platform").WithError(err).Fatal("Failed to run database migrations")
 	}
+	logger.WithService("fern-platform").Info("Database migrations completed successfully")
 
 	// Initialize domain factory for DDD architecture
 	domainFactory := domains.NewDomainFactory(db.DB, logger, &cfg.Auth)

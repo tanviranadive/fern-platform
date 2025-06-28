@@ -3,6 +3,7 @@ package database
 
 import (
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/golang-migrate/migrate/v4"
@@ -14,6 +15,19 @@ import (
 
 	"github.com/guidewire-oss/fern-platform/pkg/config"
 )
+
+// VerboseLogger implements the migrate.Logger interface for verbose logging
+type VerboseLogger struct {
+	verbose bool
+}
+
+func (l *VerboseLogger) Printf(format string, v ...interface{}) {
+	log.Printf("[MIGRATE] "+format, v...)
+}
+
+func (l *VerboseLogger) Verbose() bool {
+	return l.verbose
+}
 
 // DB wraps the GORM database connection with additional functionality
 type DB struct {
@@ -87,8 +101,27 @@ func (db *DB) Migrate(migrationsPath string) error {
 	}
 	defer m.Close()
 
+	// Enable verbose logging
+	m.Log = &VerboseLogger{verbose: true}
+
+	// Log current version before migration
+	version, dirty, err := m.Version()
+	if err != nil && err != migrate.ErrNilVersion {
+		log.Printf("[MIGRATE] Failed to get current version: %v\n", err)
+	} else {
+		log.Printf("[MIGRATE] Current migration version: %d, dirty: %v\n", version, dirty)
+	}
+
+	log.Printf("[MIGRATE] Starting migrations from path: %s\n", migrationsPath)
+	
 	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
 		return fmt.Errorf("failed to run migrations: %w", err)
+	}
+
+	if err == migrate.ErrNoChange {
+		log.Printf("[MIGRATE] No migrations to apply\n")
+	} else {
+		log.Printf("[MIGRATE] Migrations completed successfully\n")
 	}
 
 	return nil
