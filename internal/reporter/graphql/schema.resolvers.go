@@ -6,11 +6,13 @@ package graphql
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
 	"time"
 
+	"gorm.io/gorm"
 	authDomain "github.com/guidewire-oss/fern-platform/internal/domains/auth/domain"
 	"github.com/guidewire-oss/fern-platform/internal/reporter/graphql/generated"
 	"github.com/guidewire-oss/fern-platform/internal/reporter/graphql/model"
@@ -89,6 +91,197 @@ func (r *mutationResolver) MarkFlakyTestResolved(ctx context.Context, id string)
 // MarkSpecAsFlaky is the resolver for the markSpecAsFlaky field.
 func (r *mutationResolver) MarkSpecAsFlaky(ctx context.Context, specRunID string) (*model.SpecRun, error) {
 	panic(fmt.Errorf("not implemented: MarkSpecAsFlaky - markSpecAsFlaky"))
+}
+
+// UpdateUserPreferences is the resolver for the updateUserPreferences field.
+func (r *mutationResolver) UpdateUserPreferences(ctx context.Context, input model.UpdateUserPreferencesInput) (*model.UserPreferences, error) {
+	// Get current user
+	user, err := getCurrentUser(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get existing preferences or create new
+	var prefs database.UserPreferences
+	err = r.db.Where("user_id = ?", user.UserID).First(&prefs).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			// Create new preferences
+			prefs = database.UserPreferences{
+				UserID: user.UserID,
+			}
+		} else {
+			return nil, fmt.Errorf("failed to get user preferences: %w", err)
+		}
+	}
+
+	// Update fields if provided
+	if input.Theme != nil {
+		prefs.Theme = *input.Theme
+	}
+	if input.Timezone != nil {
+		prefs.Timezone = *input.Timezone
+	}
+	if input.Language != nil {
+		prefs.Language = *input.Language
+	}
+	if input.Favorites != nil {
+		favoritesJSON, err := json.Marshal(input.Favorites)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal favorites: %w", err)
+		}
+		prefs.Favorites = favoritesJSON
+	}
+	if input.Preferences != nil {
+		prefsJSON, err := json.Marshal(input.Preferences)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal preferences: %w", err)
+		}
+		prefs.Preferences = prefsJSON
+	}
+
+	// Save to database
+	if err := r.db.Save(&prefs).Error; err != nil {
+		return nil, fmt.Errorf("failed to save user preferences: %w", err)
+	}
+
+	// Convert favorites JSON to string array
+	var favorites []string
+	if prefs.Favorites != nil {
+		if err := json.Unmarshal(prefs.Favorites, &favorites); err != nil {
+			r.logger.WithError(err).Error("Failed to unmarshal favorites")
+			favorites = []string{}
+		}
+	}
+
+	// Convert preferences JSON to map
+	var preferencesMap map[string]any
+	if prefs.Preferences != nil {
+		if err := json.Unmarshal(prefs.Preferences, &preferencesMap); err != nil {
+			r.logger.WithError(err).Error("Failed to unmarshal preferences")
+			preferencesMap = make(map[string]any)
+		}
+	} else {
+		preferencesMap = make(map[string]any)
+	}
+
+	// Return updated preferences
+	return &model.UserPreferences{
+		ID:          fmt.Sprintf("%d", prefs.ID),
+		UserID:      prefs.UserID,
+		Theme:       &prefs.Theme,
+		Timezone:    &prefs.Timezone,
+		Language:    &prefs.Language,
+		Favorites:   favorites,
+		Preferences: preferencesMap,
+		CreatedAt:   prefs.CreatedAt,
+		UpdatedAt:   prefs.UpdatedAt,
+	}, nil
+}
+
+// ToggleProjectFavorite is the resolver for the toggleProjectFavorite field.
+func (r *mutationResolver) ToggleProjectFavorite(ctx context.Context, projectID string) (*model.UserPreferences, error) {
+	// Get current user
+	user, err := getCurrentUser(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get existing preferences or create new
+	var prefs database.UserPreferences
+	err = r.db.Where("user_id = ?", user.UserID).First(&prefs).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			// Create new preferences with this project as favorite
+			prefs = database.UserPreferences{
+				UserID:      user.UserID,
+				Theme:       "light",
+				Timezone:    "UTC",
+				Language:    "en",
+				Favorites:   json.RawMessage(fmt.Sprintf(`["%s"]`, projectID)),
+				Preferences: json.RawMessage("{}"),
+			}
+			if err := r.db.Create(&prefs).Error; err != nil {
+				return nil, fmt.Errorf("failed to create user preferences: %w", err)
+			}
+		} else {
+			return nil, fmt.Errorf("failed to get user preferences: %w", err)
+		}
+	} else {
+		// Parse existing favorites
+		var favorites []string
+		if prefs.Favorites != nil {
+			if err := json.Unmarshal(prefs.Favorites, &favorites); err != nil {
+				r.logger.WithError(err).Error("Failed to unmarshal favorites")
+				favorites = []string{}
+			}
+		}
+
+		// Toggle the favorite
+		found := false
+		newFavorites := make([]string, 0)
+		for _, fav := range favorites {
+			if fav == projectID {
+				found = true
+				// Remove from favorites
+			} else {
+				newFavorites = append(newFavorites, fav)
+			}
+		}
+		
+		if !found {
+			// Add to favorites
+			newFavorites = append(newFavorites, projectID)
+		}
+
+		// Update favorites
+		favoritesJSON, err := json.Marshal(newFavorites)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal favorites: %w", err)
+		}
+		prefs.Favorites = favoritesJSON
+
+		// Save to database
+		if err := r.db.Save(&prefs).Error; err != nil {
+			return nil, fmt.Errorf("failed to save user preferences: %w", err)
+		}
+		
+		// Update favorites for return
+		favorites = newFavorites
+	}
+
+	// Convert favorites JSON to string array for return
+	var returnFavorites []string
+	if prefs.Favorites != nil {
+		if err := json.Unmarshal(prefs.Favorites, &returnFavorites); err != nil {
+			r.logger.WithError(err).Error("Failed to unmarshal favorites for return")
+			returnFavorites = []string{}
+		}
+	}
+
+	// Convert preferences JSON to map
+	var preferencesMap map[string]any
+	if prefs.Preferences != nil {
+		if err := json.Unmarshal(prefs.Preferences, &preferencesMap); err != nil {
+			r.logger.WithError(err).Error("Failed to unmarshal preferences")
+			preferencesMap = make(map[string]any)
+		}
+	} else {
+		preferencesMap = make(map[string]any)
+	}
+
+	// Return updated preferences
+	return &model.UserPreferences{
+		ID:          fmt.Sprintf("%d", prefs.ID),
+		UserID:      prefs.UserID,
+		Theme:       &prefs.Theme,
+		Timezone:    &prefs.Timezone,
+		Language:    &prefs.Language,
+		Favorites:   returnFavorites,
+		Preferences: preferencesMap,
+		CreatedAt:   prefs.CreatedAt,
+		UpdatedAt:   prefs.UpdatedAt,
+	}, nil
 }
 
 // CanManage is the resolver for the canManage field.
@@ -201,6 +394,70 @@ func (r *queryResolver) CurrentUser(ctx context.Context) (*model.User, error) {
 		Groups:      groups,
 		CreatedAt:   user.CreatedAt,
 		LastLoginAt: user.LastLoginAt,
+	}, nil
+}
+
+// UserPreferences is the resolver for the userPreferences field.
+func (r *queryResolver) UserPreferences(ctx context.Context) (*model.UserPreferences, error) {
+	// Get current user
+	user, err := getCurrentUser(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get or create user preferences
+	var prefs database.UserPreferences
+	err = r.db.Where("user_id = ?", user.UserID).First(&prefs).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			// Create default preferences
+			prefs = database.UserPreferences{
+				UserID:      user.UserID,
+				Theme:       "light",
+				Timezone:    "UTC",
+				Language:    "en",
+				Favorites:   json.RawMessage("[]"),
+				Preferences: json.RawMessage("{}"),
+			}
+			if err := r.db.Create(&prefs).Error; err != nil {
+				return nil, fmt.Errorf("failed to create user preferences: %w", err)
+			}
+		} else {
+			return nil, fmt.Errorf("failed to get user preferences: %w", err)
+		}
+	}
+
+	// Convert favorites JSON to string array
+	var favorites []string
+	if prefs.Favorites != nil {
+		if err := json.Unmarshal(prefs.Favorites, &favorites); err != nil {
+			r.logger.WithError(err).Error("Failed to unmarshal favorites")
+			favorites = []string{}
+		}
+	}
+
+	// Convert preferences JSON to map
+	var preferencesMap map[string]any
+	if prefs.Preferences != nil {
+		if err := json.Unmarshal(prefs.Preferences, &preferencesMap); err != nil {
+			r.logger.WithError(err).Error("Failed to unmarshal preferences")
+			preferencesMap = make(map[string]any)
+		}
+	} else {
+		preferencesMap = make(map[string]any)
+	}
+
+	// Convert to GraphQL model
+	return &model.UserPreferences{
+		ID:          fmt.Sprintf("%d", prefs.ID),
+		UserID:      prefs.UserID,
+		Theme:       &prefs.Theme,
+		Timezone:    &prefs.Timezone,
+		Language:    &prefs.Language,
+		Favorites:   favorites,
+		Preferences: preferencesMap,
+		CreatedAt:   prefs.CreatedAt,
+		UpdatedAt:   prefs.UpdatedAt,
 	}, nil
 }
 

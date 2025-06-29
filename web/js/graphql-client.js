@@ -317,6 +317,44 @@ const QUERIES = {
         mutation DeleteProject($id: ID!) {
             deleteProject(id: $id)
         }
+    `,
+    
+    GET_USER_PREFERENCES: `
+        query GetUserPreferences {
+            userPreferences {
+                id
+                userId
+                theme
+                timezone
+                language
+                favorites
+                preferences
+            }
+        }
+    `,
+    
+    UPDATE_USER_PREFERENCES: `
+        mutation UpdateUserPreferences($input: UpdateUserPreferencesInput!) {
+            updateUserPreferences(input: $input) {
+                id
+                userId
+                theme
+                timezone
+                language
+                favorites
+                preferences
+            }
+        }
+    `,
+    
+    TOGGLE_PROJECT_FAVORITE: `
+        mutation ToggleProjectFavorite($projectId: String!) {
+            toggleProjectFavorite(projectId: $projectId) {
+                id
+                userId
+                favorites
+            }
+        }
     `
 };
 

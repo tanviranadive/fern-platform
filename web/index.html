@@ -1490,6 +1490,34 @@
                     return defaultPreferences;
                 }
             });
+            
+            // Track if we've loaded from database
+            const [dbLoaded, setDbLoaded] = useState(false);
+            
+            // Load preferences from database on mount
+            useEffect(() => {
+                const loadFromDatabase = async () => {
+                    try {
+                        const data = await window.graphqlClient.query(window.GRAPHQL_QUERIES.GET_USER_PREFERENCES);
+                        if (data && data.userPreferences) {
+                            const dbPrefs = data.userPreferences;
+                            const mergedPrefs = {
+                                ...defaultPreferences,
+                                theme: dbPrefs.theme || defaultPreferences.theme,
+                                favorites: dbPrefs.favorites || [],
+                                ...(dbPrefs.preferences || {})
+                            };
+                            setPreferences(mergedPrefs);
+                            setDbLoaded(true);
+                        }
+                    } catch (error) {
+                        console.warn('Failed to load preferences from database:', error);
+                        // Continue with localStorage/default preferences
+                    }
+                };
+                
+                loadFromDatabase();
+            }, []);
 
             // Computed theme based on preference and system
             const [effectiveTheme, setEffectiveTheme] = useState('light');
@@ -1522,14 +1550,46 @@
                 return () => mediaQuery.removeEventListener('change', handleSystemThemeChange);
             }, [preferences.theme]);
 
-            // Save preferences to localStorage whenever they change
+            // Save preferences to localStorage and database whenever they change
             useEffect(() => {
+                // Save to localStorage
                 try {
                     localStorage.setItem('fern-platform-preferences', JSON.stringify(preferences));
                 } catch (error) {
-                    console.error('Failed to save preferences:', error);
+                    console.error('Failed to save preferences to localStorage:', error);
                 }
-            }, [preferences]);
+                
+                // Save to database (debounced to avoid too many requests)
+                if (dbLoaded) {
+                    const saveToDatabase = async () => {
+                        try {
+                            await window.graphqlClient.mutation(
+                                window.GRAPHQL_QUERIES.UPDATE_USER_PREFERENCES,
+                                {
+                                    input: {
+                                        theme: preferences.theme,
+                                        favorites: preferences.favorites,
+                                        preferences: {
+                                            showFavoritesOnly: preferences.showFavoritesOnly,
+                                            projectOrder: preferences.projectOrder,
+                                            customProjectOrder: preferences.customProjectOrder,
+                                            defaultTestSummariesView: preferences.defaultTestSummariesView,
+                                            managerDashboard: preferences.managerDashboard,
+                                            version: preferences.version
+                                        }
+                                    }
+                                }
+                            );
+                        } catch (error) {
+                            console.error('Failed to save preferences to database:', error);
+                        }
+                    };
+                    
+                    // Debounce database saves
+                    const timeoutId = setTimeout(saveToDatabase, 1000);
+                    return () => clearTimeout(timeoutId);
+                }
+            }, [preferences, dbLoaded]);
 
             // Preference update functions
             const updatePreferences = (updates) => {
@@ -1547,11 +1607,29 @@
                 setTheme(nextTheme);
             };
 
-            const toggleFavorite = (projectId) => {
+            const toggleFavorite = async (projectId) => {
                 const newFavorites = preferences.favorites.includes(projectId)
                     ? preferences.favorites.filter(id => id !== projectId)
                     : [...preferences.favorites, projectId];
+                
+                // Update local state immediately for responsiveness
                 updatePreferences({ favorites: newFavorites });
+                
+                // Persist to database
+                try {
+                    const data = await window.graphqlClient.mutation(
+                        window.GRAPHQL_QUERIES.TOGGLE_PROJECT_FAVORITE,
+                        { projectId }
+                    );
+                    
+                    // Update with server response if different
+                    if (data && data.toggleProjectFavorite && data.toggleProjectFavorite.favorites) {
+                        updatePreferences({ favorites: data.toggleProjectFavorite.favorites });
+                    }
+                } catch (error) {
+                    console.error('Failed to update favorite in database:', error);
+                    // The local update remains even if database fails
+                }
             };
 
             const isFavorite = (projectId) => {

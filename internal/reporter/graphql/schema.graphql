@@ -269,6 +269,14 @@ input UpdateTagInput {
   color: String
 }
 
+input UpdateUserPreferencesInput {
+  theme: String
+  timezone: String
+  language: String
+  favorites: [String!]
+  preferences: JSON
+}
+
 # User and Authentication Types
 type User {
   id: ID!
@@ -282,6 +290,19 @@ type User {
   groups: [String!]!
   createdAt: Time!
   lastLoginAt: Time
+}
+
+# User Preferences Type
+type UserPreferences {
+  id: ID!
+  userId: String!
+  theme: String
+  timezone: String
+  language: String
+  favorites: [String!]!
+  preferences: JSON
+  createdAt: Time!
+  updatedAt: Time!
 }
 
 # System Configuration Type
@@ -355,6 +376,7 @@ type SpecTreemapNode {
 type Query {
   # User/Auth
   currentUser: User
+  userPreferences: UserPreferences
   systemConfig: SystemConfig!
   
   # Dashboard
@@ -432,6 +454,10 @@ type Mutation {
   # Flaky Tests
   markFlakyTestResolved(id: ID!): FlakyTest!
   markSpecAsFlaky(specRunId: ID!): SpecRun!
+  
+  # User Preferences
+  updateUserPreferences(input: UpdateUserPreferencesInput!): UserPreferences!
+  toggleProjectFavorite(projectId: String!): UserPreferences!
 }
 
 # Subscription Root (for future real-time features)

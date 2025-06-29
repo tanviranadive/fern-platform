@@ -1,0 +1,21 @@
+# Test artifacts
+videos/
+*.webm
+*.png
+*.jpg
+*.jpeg
+*.mp4
+
+# Test binaries
+*.test
+
+# OS files
+.DS_Store
+
+# IDE files
+.idea/
+.vscode/
+
+# Temporary files
+*.tmp
+*.log

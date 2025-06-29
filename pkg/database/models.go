@@ -49,6 +49,25 @@ type BaseModel struct {
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"deleted_at,omitempty"`
 }
 
+// UserPreferences stores user-specific preferences
+type UserPreferences struct {
+	ID          uint            `gorm:"primarykey" json:"id"`
+	UserID      string          `gorm:"uniqueIndex;not null" json:"user_id"`
+	Theme       string          `gorm:"default:'light'" json:"theme"`
+	Timezone    string          `gorm:"default:'UTC'" json:"timezone"`
+	Language    string          `gorm:"default:'en'" json:"language"`
+	Favorites   json.RawMessage `gorm:"type:jsonb" json:"favorites"`
+	Preferences json.RawMessage `gorm:"type:jsonb" json:"preferences"`
+	CreatedAt   time.Time       `json:"created_at"`
+	UpdatedAt   time.Time       `json:"updated_at"`
+	DeletedAt   gorm.DeletedAt  `gorm:"index" json:"deleted_at,omitempty"`
+}
+
+// TableName returns the table name for UserPreferences
+func (UserPreferences) TableName() string {
+	return "user_preferences"
+}
+
 // TestRun represents a test execution instance
 type TestRun struct {
 	BaseModel
