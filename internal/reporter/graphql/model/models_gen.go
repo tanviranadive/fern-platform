@@ -340,6 +340,14 @@ type UpdateTagInput struct {
 	Color       *string `json:"color,omitempty"`
 }
 
+type UpdateUserPreferencesInput struct {
+	Theme       *string        `json:"theme,omitempty"`
+	Timezone    *string        `json:"timezone,omitempty"`
+	Language    *string        `json:"language,omitempty"`
+	Favorites   []string       `json:"favorites,omitempty"`
+	Preferences map[string]any `json:"preferences,omitempty"`
+}
+
 type User struct {
 	ID          string     `json:"id"`
 	UserID      string     `json:"userId"`
@@ -352,6 +360,18 @@ type User struct {
 	Groups      []string   `json:"groups"`
 	CreatedAt   time.Time  `json:"createdAt"`
 	LastLoginAt *time.Time `json:"lastLoginAt,omitempty"`
+}
+
+type UserPreferences struct {
+	ID          string         `json:"id"`
+	UserID      string         `json:"userId"`
+	Theme       *string        `json:"theme,omitempty"`
+	Timezone    *string        `json:"timezone,omitempty"`
+	Language    *string        `json:"language,omitempty"`
+	Favorites   []string       `json:"favorites"`
+	Preferences map[string]any `json:"preferences,omitempty"`
+	CreatedAt   time.Time      `json:"createdAt"`
+	UpdatedAt   time.Time      `json:"updatedAt"`
 }
 
 type OrderDirection string

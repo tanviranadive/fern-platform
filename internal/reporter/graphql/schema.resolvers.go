@@ -12,11 +12,11 @@ import (
 	"strings"
 	"time"
 
-	"gorm.io/gorm"
 	authDomain "github.com/guidewire-oss/fern-platform/internal/domains/auth/domain"
 	"github.com/guidewire-oss/fern-platform/internal/reporter/graphql/generated"
 	"github.com/guidewire-oss/fern-platform/internal/reporter/graphql/model"
 	"github.com/guidewire-oss/fern-platform/pkg/database"
+	"gorm.io/gorm"
 )
 
 // CreateTestRun is the resolver for the createTestRun field.
@@ -228,7 +228,7 @@ func (r *mutationResolver) ToggleProjectFavorite(ctx context.Context, projectID 
 				newFavorites = append(newFavorites, fav)
 			}
 		}
-		
+
 		if !found {
 			// Add to favorites
 			newFavorites = append(newFavorites, projectID)
@@ -245,7 +245,7 @@ func (r *mutationResolver) ToggleProjectFavorite(ctx context.Context, projectID 
 		if err := r.db.Save(&prefs).Error; err != nil {
 			return nil, fmt.Errorf("failed to save user preferences: %w", err)
 		}
-		
+
 		// Update favorites for return
 		favorites = newFavorites
 	}
