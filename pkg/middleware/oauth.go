@@ -253,6 +253,9 @@ func (m *OAuthMiddleware) StartOAuthFlow() gin.HandlerFunc {
 
 		// Store state in session/cookie for validation
 		isSecure := c.Request.TLS != nil || c.GetHeader("X-Forwarded-Proto") == "https"
+		
+		// Set SameSite to Lax for CSRF protection (works with HTTP and HTTPS)
+		c.SetSameSite(http.SameSiteLaxMode)
 		c.SetCookie("oauth_state", state, 600, "/", "", isSecure, true) // 10 minutes
 
 		// Build authorization URL
@@ -272,10 +275,22 @@ func (m *OAuthMiddleware) HandleOAuthCallback() gin.HandlerFunc {
 
 		// Validate state parameter
 		state := c.Query("state")
+		if state == "" {
+			m.logger.Warn("OAuth callback missing state parameter")
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Missing state parameter"})
+			return
+		}
+
 		expectedState, err := c.Cookie("oauth_state")
-		if err != nil || state != expectedState {
-			m.logger.WithField("state", state).Warn("OAuth state validation failed")
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid state parameter"})
+		if err != nil {
+			m.logger.WithError(err).Warn("OAuth state cookie not found")
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Session expired. Please login again."})
+			return
+		}
+
+		if state != expectedState {
+			m.logger.WithField("state", state).WithField("expected", expectedState).Warn("OAuth state mismatch")
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid state parameter. Please login again."})
 			return
 		}
 
@@ -327,6 +342,7 @@ func (m *OAuthMiddleware) HandleOAuthCallback() gin.HandlerFunc {
 
 		// Clear state cookie
 		isSecure := c.Request.TLS != nil || c.GetHeader("X-Forwarded-Proto") == "https"
+		c.SetSameSite(http.SameSiteLaxMode)
 		c.SetCookie("oauth_state", "", -1, "/", "", isSecure, true)
 
 		// Update last login
@@ -362,7 +378,9 @@ func (m *OAuthMiddleware) Logout() gin.HandlerFunc {
 
 		// Clear session cookie
 		isSecure := c.Request.TLS != nil || c.GetHeader("X-Forwarded-Proto") == "https"
+		c.SetSameSite(http.SameSiteLaxMode)
 		c.SetCookie("session_id", "", -1, "/", "", isSecure, true)
+		c.SetCookie("oauth_state", "", -1, "/", "", isSecure, true) // Clear any residual state
 
 		// Build provider logout URL with ID token hint
 		providerLogoutURL := m.buildProviderLogoutURL(idToken)
@@ -864,7 +882,14 @@ func (m *OAuthMiddleware) setSessionCookie(c *gin.Context, sessionID string) {
 	// Set secure cookie for 24 hours
 	// Use Secure flag in production (HTTPS)
 	isSecure := c.Request.TLS != nil || c.GetHeader("X-Forwarded-Proto") == "https"
-	c.SetCookie("session_id", sessionID, 86400, "/", "", isSecure, true)
+	
+	// Set SameSite to Lax for CSRF protection
+	c.SetSameSite(http.SameSiteLaxMode)
+	
+	// Default to 24 hours
+	var maxAge int = 86400
+	
+	c.SetCookie("session_id", sessionID, maxAge, "/", "", isSecure, true)
 }
 
 func (m *OAuthMiddleware) updateUserLastLogin(userID string) {
