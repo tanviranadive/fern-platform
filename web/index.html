@@ -2489,12 +2489,16 @@
             const navItems = [
                 { path: '/', label: 'Dashboard', icon: 'fas fa-chart-line', fallback: '📊' },
                 { path: '/test-summaries', label: 'Test Summaries', icon: 'fas fa-chart-pie', fallback: '📈' },
-                { path: '/test-runs', label: 'Test Runs', icon: 'fas fa-list-alt', fallback: '📋' },
-                { path: '/manager-dashboard', label: 'Manager Dashboard', icon: 'fas fa-tachometer-alt', fallback: '🎛️' }
+                { path: '/test-runs', label: 'Test Runs', icon: 'fas fa-list-alt', fallback: '📋' }
             ];
+            
+            // Add Manager Dashboard for managers AND admins
+            const managerItems = (isManager || isAdmin) ? [
+                { path: '/manager-dashboard', label: 'Manager Dashboard', icon: 'fas fa-tachometer-alt', fallback: '🎛️', managerOnly: true }
+            ] : [];
 
-            // Add project navigation for all authenticated users (except admins who have their own menu)
-            const projectItems = user && !isAdmin ? [
+            // Add project navigation for all authenticated users
+            const projectItems = user ? [
                 { path: '/projects', label: 'Projects', icon: 'fas fa-folder-open', fallback: '📁' }
             ] : [];
 
@@ -2505,7 +2509,7 @@
                 { path: '/admin/system', label: 'System Settings', icon: 'fas fa-cogs', fallback: '⚙️', adminOnly: true }
             ];
 
-            const allItems = [...navItems, ...projectItems, ...(isAdmin ? adminItems : [])];
+            const allItems = [...navItems, ...managerItems, ...projectItems, ...(isAdmin ? adminItems : [])];
 
             return (
                 <div className="navigation">
@@ -6186,7 +6190,7 @@
                     case '/test-runs':
                         return <TestRuns />;
                     case '/manager-dashboard':
-                        return <ManagerDashboard />;
+                        return (isManager || isAdmin) ? <ManagerDashboard /> : <AccessDenied />;
                     case '/projects':
                         return user ? <ProjectManagement /> : <AccessDenied />;
                     
