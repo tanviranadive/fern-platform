@@ -645,6 +645,10 @@ spec:
           - name: OAUTH_LOGOUT_URL
             value: "http://keycloak:8080/realms/fern-platform/protocol/openid-connect/logout"
           
+          # Debug OAuth issues
+          - name: DEBUG_OAUTH
+            value: "true"
+          
           # Admin User and Group Configuration
           - name: OAUTH_ADMIN_USERS
             value: "admin@fern.com"
