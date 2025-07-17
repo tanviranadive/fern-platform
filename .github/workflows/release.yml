@@ -1,0 +1,51 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Extract version from tag
+      id: version
+      run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+    
+    - uses: dagger/dagger-for-github@v6
+      with:
+        verb: call
+        module: ./ci
+        args: |
+          publish 
+          --source . 
+          --registry ${{ secrets.DOCKER_REGISTRY }}
+          --tag ${{ steps.version.outputs.VERSION }}
+          --username env:DOCKER_USERNAME
+          --password env:DOCKER_PASSWORD
+      env:
+        DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+        DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+
+    - name: Create Release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: Release ${{ github.ref }}
+        draft: false
+        prerelease: false
+        body: |
+          ## Docker Images
+          
+          Multi-platform images available:
+          - `${{ secrets.DOCKER_REGISTRY }}:${{ steps.version.outputs.VERSION }}`
+          - `${{ secrets.DOCKER_REGISTRY }}:latest`
+          
+          Supported platforms:
+          - linux/amd64
+          - linux/arm64
