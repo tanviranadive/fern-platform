@@ -265,6 +265,13 @@ func (m *OAuthMiddleware) StartOAuthFlow() gin.HandlerFunc {
 		
 		// Clear any existing oauth_state cookie first to prevent conflicts
 		// This is important when user logs out and tries to login again
+		// We need to clear with both SameSite modes to ensure removal
+		if isSecure {
+			// Clear with SameSiteNone first (in case it was set that way)
+			c.SetSameSite(http.SameSiteNoneMode)
+			c.SetCookie("oauth_state", "", -1, "/", cookieDomain, isSecure, true)
+		}
+		// Always clear with SameSiteLax as well
 		c.SetSameSite(http.SameSiteLaxMode)
 		c.SetCookie("oauth_state", "", -1, "/", cookieDomain, isSecure, true)
 		
@@ -282,13 +289,28 @@ func (m *OAuthMiddleware) StartOAuthFlow() gin.HandlerFunc {
 		// For debugging: also set a backup cookie without HttpOnly to check via JavaScript
 		if os.Getenv("DEBUG_OAUTH") == "true" {
 			c.SetCookie("oauth_state_debug", state, 600, "/", cookieDomain, isSecure, false)
+			
+			// Additional debug logging
+			m.logger.WithFields(map[string]interface{}{
+				"state": state,
+				"cookie_domain": cookieDomain,
+				"cookie_secure": isSecure,
+				"request_url": c.Request.URL.String(),
+				"request_host": c.Request.Host,
+				"user_agent": c.GetHeader("User-Agent"),
+			}).Info("OAuth login initiated with state")
 		}
 
 		// Log cookie settings for debugging
 		m.logger.WithFields(map[string]interface{}{
 			"secure": isSecure,
 			"domain": cookieDomain,
-			"sameSite": "Lax",
+			"sameSite": func() string {
+				if isSecure {
+					return "None"
+				}
+				return "Lax"
+			}(),
 			"x_forwarded_proto": c.GetHeader("X-Forwarded-Proto"),
 			"x_forwarded_host": c.GetHeader("X-Forwarded-Host"),
 			"host": c.Request.Host,
@@ -320,25 +342,49 @@ func (m *OAuthMiddleware) HandleOAuthCallback() gin.HandlerFunc {
 		expectedState, err := c.Cookie("oauth_state")
 		if err != nil {
 			// Log all cookies for debugging
-			m.logger.WithError(err).WithFields(map[string]interface{}{
+			debugInfo := map[string]interface{}{
 				"all_cookies": c.Request.Header.Get("Cookie"),
 				"host": c.Request.Host,
 				"x_forwarded_host": c.GetHeader("X-Forwarded-Host"),
 				"x_forwarded_proto": c.GetHeader("X-Forwarded-Proto"),
 				"referer": c.GetHeader("Referer"),
-			}).Warn("OAuth state cookie not found")
+				"state_param": state,
+				"request_url": c.Request.URL.String(),
+			}
+			
+			// Check if debug cookie exists
+			if os.Getenv("DEBUG_OAUTH") == "true" {
+				if debugState, debugErr := c.Cookie("oauth_state_debug"); debugErr == nil {
+					debugInfo["oauth_state_debug"] = debugState
+				}
+			}
+			
+			m.logger.WithError(err).WithFields(debugInfo).Warn("OAuth state cookie not found")
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Session expired. Please login again."})
 			return
 		}
 
 		if state != expectedState {
-			m.logger.WithFields(map[string]interface{}{
+			debugInfo := map[string]interface{}{
 				"state": state,
 				"expected": expectedState,
-				"state_len": len(state),
-				"expected_len": len(expectedState),
+				"state_length": len(state),
+				"expected_length": len(expectedState),
 				"all_cookies": c.Request.Header.Get("Cookie"),
-			}).Warn("OAuth state mismatch")
+				"host": c.Request.Host,
+				"referer": c.GetHeader("Referer"),
+			}
+			
+			// Check debug cookie in case of mismatch
+			if os.Getenv("DEBUG_OAUTH") == "true" {
+				if debugState, debugErr := c.Cookie("oauth_state_debug"); debugErr == nil {
+					debugInfo["oauth_state_debug"] = debugState
+					debugInfo["debug_matches_expected"] = (debugState == expectedState)
+					debugInfo["debug_matches_state"] = (debugState == state)
+				}
+			}
+			
+			m.logger.WithFields(debugInfo).Warn("OAuth state mismatch")
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid state parameter. Please login again."})
 			return
 		}
@@ -429,7 +475,14 @@ func (m *OAuthMiddleware) Logout() gin.HandlerFunc {
 		// Clear session cookie
 		isSecure := m.shouldUseSecureCookie(c)
 		cookieDomain := m.getCookieDomain()
-		c.SetSameSite(http.SameSiteLaxMode)
+		
+		// Match the SameSite setting used during login
+		if isSecure {
+			c.SetSameSite(http.SameSiteNoneMode)
+		} else {
+			c.SetSameSite(http.SameSiteLaxMode)
+		}
+		
 		c.SetCookie("session_id", "", -1, "/", cookieDomain, isSecure, true)
 		c.SetCookie("oauth_state", "", -1, "/", cookieDomain, isSecure, true) // Clear any residual state
 
