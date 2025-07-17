@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 
@@ -105,6 +106,13 @@ func (m *OAuthMiddleware) RequireOAuth() gin.HandlerFunc {
 		if err != nil {
 			m.logger.WithRequest(c.GetString("request_id"), c.Request.Method, c.Request.URL.Path).
 				WithError(err).Warn("OAuth authentication failed")
+			
+			// Clear expired session and oauth state cookies
+			isSecure := m.shouldUseSecureCookie(c)
+			cookieDomain := m.getCookieDomain()
+			c.SetSameSite(http.SameSiteLaxMode)
+			c.SetCookie("session_id", "", -1, "/", cookieDomain, isSecure, true)
+			c.SetCookie("oauth_state", "", -1, "/", cookieDomain, isSecure, true)
 			
 			// Redirect to login for browser requests, return 401 for API requests
 			if m.isAPIRequest(c) {
@@ -252,11 +260,39 @@ func (m *OAuthMiddleware) StartOAuthFlow() gin.HandlerFunc {
 		}
 
 		// Store state in session/cookie for validation
-		isSecure := c.Request.TLS != nil || c.GetHeader("X-Forwarded-Proto") == "https"
+		isSecure := m.shouldUseSecureCookie(c)
+		cookieDomain := m.getCookieDomain()
 		
-		// Set SameSite to Lax for CSRF protection (works with HTTP and HTTPS)
+		// Clear any existing oauth_state cookie first to prevent conflicts
+		// This is important when user logs out and tries to login again
 		c.SetSameSite(http.SameSiteLaxMode)
-		c.SetCookie("oauth_state", state, 600, "/", "", isSecure, true) // 10 minutes
+		c.SetCookie("oauth_state", "", -1, "/", cookieDomain, isSecure, true)
+		
+		// Set SameSite to None for cross-site requests when using HTTPS
+		// Use Lax for HTTP to maintain CSRF protection
+		if isSecure {
+			c.SetSameSite(http.SameSiteNoneMode)
+		} else {
+			c.SetSameSite(http.SameSiteLaxMode)
+		}
+		
+		// Set the new state cookie with explicit path
+		c.SetCookie("oauth_state", state, 600, "/", cookieDomain, isSecure, true) // 10 minutes
+		
+		// For debugging: also set a backup cookie without HttpOnly to check via JavaScript
+		if os.Getenv("DEBUG_OAUTH") == "true" {
+			c.SetCookie("oauth_state_debug", state, 600, "/", cookieDomain, isSecure, false)
+		}
+
+		// Log cookie settings for debugging
+		m.logger.WithFields(map[string]interface{}{
+			"secure": isSecure,
+			"domain": cookieDomain,
+			"sameSite": "Lax",
+			"x_forwarded_proto": c.GetHeader("X-Forwarded-Proto"),
+			"x_forwarded_host": c.GetHeader("X-Forwarded-Host"),
+			"host": c.Request.Host,
+		}).Debug("Setting OAuth state cookie")
 
 		// Build authorization URL
 		authURL := m.buildAuthURL(state)
@@ -283,13 +319,26 @@ func (m *OAuthMiddleware) HandleOAuthCallback() gin.HandlerFunc {
 
 		expectedState, err := c.Cookie("oauth_state")
 		if err != nil {
-			m.logger.WithError(err).Warn("OAuth state cookie not found")
+			// Log all cookies for debugging
+			m.logger.WithError(err).WithFields(map[string]interface{}{
+				"all_cookies": c.Request.Header.Get("Cookie"),
+				"host": c.Request.Host,
+				"x_forwarded_host": c.GetHeader("X-Forwarded-Host"),
+				"x_forwarded_proto": c.GetHeader("X-Forwarded-Proto"),
+				"referer": c.GetHeader("Referer"),
+			}).Warn("OAuth state cookie not found")
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Session expired. Please login again."})
 			return
 		}
 
 		if state != expectedState {
-			m.logger.WithField("state", state).WithField("expected", expectedState).Warn("OAuth state mismatch")
+			m.logger.WithFields(map[string]interface{}{
+				"state": state,
+				"expected": expectedState,
+				"state_len": len(state),
+				"expected_len": len(expectedState),
+				"all_cookies": c.Request.Header.Get("Cookie"),
+			}).Warn("OAuth state mismatch")
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid state parameter. Please login again."})
 			return
 		}
@@ -341,9 +390,10 @@ func (m *OAuthMiddleware) HandleOAuthCallback() gin.HandlerFunc {
 		m.setSessionCookie(c, session.SessionID)
 
 		// Clear state cookie
-		isSecure := c.Request.TLS != nil || c.GetHeader("X-Forwarded-Proto") == "https"
+		isSecure := m.shouldUseSecureCookie(c)
+		cookieDomain := m.getCookieDomain()
 		c.SetSameSite(http.SameSiteLaxMode)
-		c.SetCookie("oauth_state", "", -1, "/", "", isSecure, true)
+		c.SetCookie("oauth_state", "", -1, "/", cookieDomain, isSecure, true)
 
 		// Update last login
 		m.updateUserLastLogin(user.UserID)
@@ -377,10 +427,11 @@ func (m *OAuthMiddleware) Logout() gin.HandlerFunc {
 		}
 
 		// Clear session cookie
-		isSecure := c.Request.TLS != nil || c.GetHeader("X-Forwarded-Proto") == "https"
+		isSecure := m.shouldUseSecureCookie(c)
+		cookieDomain := m.getCookieDomain()
 		c.SetSameSite(http.SameSiteLaxMode)
-		c.SetCookie("session_id", "", -1, "/", "", isSecure, true)
-		c.SetCookie("oauth_state", "", -1, "/", "", isSecure, true) // Clear any residual state
+		c.SetCookie("session_id", "", -1, "/", cookieDomain, isSecure, true)
+		c.SetCookie("oauth_state", "", -1, "/", cookieDomain, isSecure, true) // Clear any residual state
 
 		// Build provider logout URL with ID token hint
 		providerLogoutURL := m.buildProviderLogoutURL(idToken)
@@ -881,7 +932,8 @@ func (m *OAuthMiddleware) createSession(user *database.User, token *TokenRespons
 func (m *OAuthMiddleware) setSessionCookie(c *gin.Context, sessionID string) {
 	// Set secure cookie for 24 hours
 	// Use Secure flag in production (HTTPS)
-	isSecure := c.Request.TLS != nil || c.GetHeader("X-Forwarded-Proto") == "https"
+	isSecure := m.shouldUseSecureCookie(c)
+	cookieDomain := m.getCookieDomain()
 	
 	// Set SameSite to Lax for CSRF protection
 	c.SetSameSite(http.SameSiteLaxMode)
@@ -889,7 +941,7 @@ func (m *OAuthMiddleware) setSessionCookie(c *gin.Context, sessionID string) {
 	// Default to 24 hours
 	var maxAge int = 86400
 	
-	c.SetCookie("session_id", sessionID, maxAge, "/", "", isSecure, true)
+	c.SetCookie("session_id", sessionID, maxAge, "/", cookieDomain, isSecure, true)
 }
 
 func (m *OAuthMiddleware) updateUserLastLogin(userID string) {
@@ -898,6 +950,33 @@ func (m *OAuthMiddleware) updateUserLastLogin(userID string) {
 
 func (m *OAuthMiddleware) invalidateSession(sessionID string) {
 	m.db.Model(&database.UserSession{}).Where("session_id = ?", sessionID).Update("is_active", false)
+}
+
+// shouldUseSecureCookie determines if secure cookies should be used
+func (m *OAuthMiddleware) shouldUseSecureCookie(c *gin.Context) bool {
+	// Check if explicitly configured
+	if cookieSecure := os.Getenv("COOKIE_SECURE"); cookieSecure != "" {
+		return cookieSecure == "true"
+	}
+	
+	// Check if we trust proxy headers
+	if trustProxy := os.Getenv("TRUST_PROXY"); trustProxy == "true" {
+		// Trust X-Forwarded-Proto header
+		if proto := c.GetHeader("X-Forwarded-Proto"); proto == "https" {
+			return true
+		}
+	}
+	
+	// Fall back to TLS check
+	return c.Request.TLS != nil
+}
+
+// getCookieDomain returns the configured cookie domain
+func (m *OAuthMiddleware) getCookieDomain() string {
+	if domain := os.Getenv("COOKIE_DOMAIN"); domain != "" {
+		return domain
+	}
+	return "" // Empty string means use current domain
 }
 
 // Helper functions for Gin context
