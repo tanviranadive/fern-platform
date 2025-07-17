@@ -22,3 +22,6 @@ deploy.log
 # Binary files
 bin/
 fern-platform
+
+# Environment-specific deployment files
+fern-platform-atmos-dev.yaml
