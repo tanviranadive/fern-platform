@@ -2,8 +2,6 @@ module github.com/guidewire-oss/fern-platform
 
 go 1.23.0
 
-toolchain go1.24.1
-
 require (
 	github.com/99designs/gqlgen v0.17.75
 	github.com/gin-contrib/cors v1.4.0
