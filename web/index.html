@@ -14,7 +14,7 @@
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <script src="/web/js/graphql-client.js?v=2"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="/web/css/font-awesome.min.css" rel="stylesheet">
     
     <!-- Fallback CSS for when FontAwesome doesn't load -->
     <style>
@@ -6230,7 +6230,9 @@
             );
         }
 
-        ReactDOM.render(<FernPlatform />, document.getElementById('root'));
+        // Use React 18's createRoot API
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<FernPlatform />);
     </script>
 </body>
 </html>
