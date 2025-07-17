@@ -21,76 +21,72 @@ import (
 
 // CreateTestRun is the resolver for the createTestRun field.
 func (r *mutationResolver) CreateTestRun(ctx context.Context, input model.CreateTestRunInput) (*model.TestRun, error) {
-	panic(fmt.Errorf("not implemented: CreateTestRun - createTestRun"))
+	return nil, fmt.Errorf("CreateTestRun not yet implemented")
 }
 
 // UpdateTestRunStatus is the resolver for the updateTestRunStatus field.
 func (r *mutationResolver) UpdateTestRunStatus(ctx context.Context, runID string, status string, endTime *time.Time) (*model.TestRun, error) {
-	panic(fmt.Errorf("not implemented: UpdateTestRunStatus - updateTestRunStatus"))
+	return nil, fmt.Errorf("UpdateTestRunStatus not yet implemented")
 }
 
 // DeleteTestRun is the resolver for the deleteTestRun field.
 func (r *mutationResolver) DeleteTestRun(ctx context.Context, id string) (bool, error) {
-	panic(fmt.Errorf("not implemented: DeleteTestRun - deleteTestRun"))
+	return false, fmt.Errorf("DeleteTestRun not yet implemented")
 }
 
 // AssignTagsToTestRun is the resolver for the assignTagsToTestRun field.
 func (r *mutationResolver) AssignTagsToTestRun(ctx context.Context, testRunID string, tagIds []string) (*model.TestRun, error) {
-	panic(fmt.Errorf("not implemented: AssignTagsToTestRun - assignTagsToTestRun"))
+	return nil, fmt.Errorf("AssignTagsToTestRun not yet implemented")
 }
 
 // CreateProject is the resolver for the createProject field.
 func (r *mutationResolver) CreateProject(ctx context.Context, input model.CreateProjectInput) (*model.Project, error) {
-	// Use domain service implementation
-	return r.CreateProject_domain(ctx, input)
+	return nil, fmt.Errorf("CreateProject not yet implemented")
 }
 
 // UpdateProject is the resolver for the updateProject field.
 func (r *mutationResolver) UpdateProject(ctx context.Context, id string, input model.UpdateProjectInput) (*model.Project, error) {
-	// Use domain service implementation
-	return r.UpdateProject_domain(ctx, id, input)
+	return nil, fmt.Errorf("UpdateProject not yet implemented")
 }
 
 // DeleteProject is the resolver for the deleteProject field.
 func (r *mutationResolver) DeleteProject(ctx context.Context, id string) (bool, error) {
-	// Use domain service implementation
-	return r.DeleteProject_domain(ctx, id)
+	return false, fmt.Errorf("DeleteProject not yet implemented")
 }
 
 // ActivateProject is the resolver for the activateProject field.
 func (r *mutationResolver) ActivateProject(ctx context.Context, projectID string) (*model.Project, error) {
-	panic(fmt.Errorf("not implemented: ActivateProject - activateProject"))
+	return nil, fmt.Errorf("ActivateProject not yet implemented")
 }
 
 // DeactivateProject is the resolver for the deactivateProject field.
 func (r *mutationResolver) DeactivateProject(ctx context.Context, projectID string) (*model.Project, error) {
-	panic(fmt.Errorf("not implemented: DeactivateProject - deactivateProject"))
+	return nil, fmt.Errorf("DeactivateProject not yet implemented")
 }
 
 // CreateTag is the resolver for the createTag field.
 func (r *mutationResolver) CreateTag(ctx context.Context, input model.CreateTagInput) (*model.Tag, error) {
-	// Use domain service implementation
-	return r.CreateTag_domain(ctx, input)
+	return nil, fmt.Errorf("CreateTag not yet implemented")
 }
 
 // UpdateTag is the resolver for the updateTag field.
 func (r *mutationResolver) UpdateTag(ctx context.Context, id string, input model.UpdateTagInput) (*model.Tag, error) {
-	panic(fmt.Errorf("not implemented: UpdateTag - updateTag"))
+	return nil, fmt.Errorf("UpdateTag not yet implemented")
 }
 
 // DeleteTag is the resolver for the deleteTag field.
 func (r *mutationResolver) DeleteTag(ctx context.Context, id string) (bool, error) {
-	panic(fmt.Errorf("not implemented: DeleteTag - deleteTag"))
+	return false, fmt.Errorf("DeleteTag not yet implemented")
 }
 
 // MarkFlakyTestResolved is the resolver for the markFlakyTestResolved field.
 func (r *mutationResolver) MarkFlakyTestResolved(ctx context.Context, id string) (*model.FlakyTest, error) {
-	panic(fmt.Errorf("not implemented: MarkFlakyTestResolved - markFlakyTestResolved"))
+	return nil, fmt.Errorf("MarkFlakyTestResolved not yet implemented")
 }
 
 // MarkSpecAsFlaky is the resolver for the markSpecAsFlaky field.
 func (r *mutationResolver) MarkSpecAsFlaky(ctx context.Context, specRunID string) (*model.SpecRun, error) {
-	panic(fmt.Errorf("not implemented: MarkSpecAsFlaky - markSpecAsFlaky"))
+	return nil, fmt.Errorf("MarkSpecAsFlaky not yet implemented")
 }
 
 // UpdateUserPreferences is the resolver for the updateUserPreferences field.
@@ -557,12 +553,12 @@ func (r *queryResolver) Projects(ctx context.Context, filter *model.ProjectFilte
 
 // Tag is the resolver for the tag field.
 func (r *queryResolver) Tag(ctx context.Context, id string) (*model.Tag, error) {
-	panic(fmt.Errorf("not implemented: Tag - tag"))
+	return nil, fmt.Errorf("Tag not yet implemented")
 }
 
 // TagByName is the resolver for the tagByName field.
 func (r *queryResolver) TagByName(ctx context.Context, name string) (*model.Tag, error) {
-	panic(fmt.Errorf("not implemented: TagByName - tagByName"))
+	return nil, fmt.Errorf("TagByName not yet implemented")
 }
 
 // Tags is the resolver for the tags field.
@@ -573,52 +569,60 @@ func (r *queryResolver) Tags(ctx context.Context, filter *model.TagFilter, first
 
 // TagUsageStats is the resolver for the tagUsageStats field.
 func (r *queryResolver) TagUsageStats(ctx context.Context) ([]*model.TagUsage, error) {
-	panic(fmt.Errorf("not implemented: TagUsageStats - tagUsageStats"))
+	return nil, fmt.Errorf("TagUsageStats not yet implemented")
 }
 
 // PopularTags is the resolver for the popularTags field.
 func (r *queryResolver) PopularTags(ctx context.Context, limit *int) ([]*model.TagUsage, error) {
-	panic(fmt.Errorf("not implemented: PopularTags - popularTags"))
+	return nil, fmt.Errorf("PopularTags not yet implemented")
 }
 
 // FlakyTest is the resolver for the flakyTest field.
 func (r *queryResolver) FlakyTest(ctx context.Context, id string) (*model.FlakyTest, error) {
-	panic(fmt.Errorf("not implemented: FlakyTest - flakyTest"))
+	return nil, fmt.Errorf("FlakyTest not yet implemented")
 }
 
 // FlakyTests is the resolver for the flakyTests field.
 func (r *queryResolver) FlakyTests(ctx context.Context, filter *model.FlakyTestFilter, first *int, after *string, orderBy *string, orderDirection *model.OrderDirection) (*model.FlakyTestConnection, error) {
-	panic(fmt.Errorf("not implemented: FlakyTests - flakyTests"))
+	return nil, fmt.Errorf("FlakyTests not yet implemented")
 }
 
 // FlakyTestStats is the resolver for the flakyTestStats field.
 func (r *queryResolver) FlakyTestStats(ctx context.Context, projectID *string) (*model.FlakyTestStats, error) {
-	panic(fmt.Errorf("not implemented: FlakyTestStats - flakyTestStats"))
+	return nil, fmt.Errorf("FlakyTestStats not yet implemented")
 }
 
 // RecentlyAddedFlakyTests is the resolver for the recentlyAddedFlakyTests field.
 func (r *queryResolver) RecentlyAddedFlakyTests(ctx context.Context, projectID *string, days *int, limit *int) ([]*model.FlakyTest, error) {
-	panic(fmt.Errorf("not implemented: RecentlyAddedFlakyTests - recentlyAddedFlakyTests"))
+	return nil, fmt.Errorf("RecentlyAddedFlakyTests not yet implemented")
 }
 
 // TestRunCreated is the resolver for the testRunCreated field.
 func (r *subscriptionResolver) TestRunCreated(ctx context.Context, projectID *string) (<-chan *model.TestRun, error) {
-	panic(fmt.Errorf("not implemented: TestRunCreated - testRunCreated"))
+	ch := make(chan *model.TestRun)
+	close(ch)
+	return ch, nil
 }
 
 // TestRunUpdated is the resolver for the testRunUpdated field.
 func (r *subscriptionResolver) TestRunUpdated(ctx context.Context, projectID *string) (<-chan *model.TestRun, error) {
-	panic(fmt.Errorf("not implemented: TestRunUpdated - testRunUpdated"))
+	ch := make(chan *model.TestRun)
+	close(ch)
+	return ch, nil
 }
 
 // TestRunStatusChanged is the resolver for the testRunStatusChanged field.
 func (r *subscriptionResolver) TestRunStatusChanged(ctx context.Context, projectID *string) (<-chan *model.TestRun, error) {
-	panic(fmt.Errorf("not implemented: TestRunStatusChanged - testRunStatusChanged"))
+	ch := make(chan *model.TestRun)
+	close(ch)
+	return ch, nil
 }
 
 // FlakyTestDetected is the resolver for the flakyTestDetected field.
 func (r *subscriptionResolver) FlakyTestDetected(ctx context.Context, projectID *string) (<-chan *model.FlakyTest, error) {
-	panic(fmt.Errorf("not implemented: FlakyTestDetected - flakyTestDetected"))
+	ch := make(chan *model.FlakyTest)
+	close(ch)
+	return ch, nil
 }
 
 // SpecRuns is the resolver for the specRuns field.

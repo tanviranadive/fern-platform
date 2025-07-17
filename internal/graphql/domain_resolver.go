@@ -16,7 +16,6 @@ import (
 	tagsDomain "github.com/guidewire-oss/fern-platform/internal/domains/tags/domain"
 	authInterfaces "github.com/guidewire-oss/fern-platform/internal/domains/auth/interfaces"
 	analyticsApp "github.com/guidewire-oss/fern-platform/internal/domains/analytics/application"
-	analyticsDomain "github.com/guidewire-oss/fern-platform/internal/domains/analytics/domain"
 	"github.com/guidewire-oss/fern-platform/internal/reporter/graphql/dataloader"
 	"github.com/guidewire-oss/fern-platform/internal/reporter/graphql/generated"
 	"github.com/guidewire-oss/fern-platform/internal/reporter/graphql/model"
@@ -433,7 +432,7 @@ func (r *queryDomainResolver) Tag(ctx context.Context, id string) (*model.Tag, e
 }
 
 // Tags retrieves all tags
-func (r *queryDomainResolver) Tags(ctx context.Context, search *string, limit *int, offset *int) (*model.TagConnection, error) {
+func (r *queryDomainResolver) Tags(ctx context.Context, filter *model.TagFilter, first *int, after *string) (*model.TagConnection, error) {
 	tags, err := r.tagService.ListTags(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get tags: %w", err)
@@ -441,8 +440,8 @@ func (r *queryDomainResolver) Tags(ctx context.Context, search *string, limit *i
 
 	// Filter by search if provided
 	filteredTags := tags
-	if search != nil && *search != "" {
-		searchLower := strings.ToLower(*search)
+	if filter != nil && filter.Search != nil && *filter.Search != "" {
+		searchLower := strings.ToLower(*filter.Search)
 		filteredTags = make([]*tagsDomain.Tag, 0)
 		for _, tag := range tags {
 			if strings.Contains(strings.ToLower(tag.Name()), searchLower) {
@@ -453,13 +452,10 @@ func (r *queryDomainResolver) Tags(ctx context.Context, search *string, limit *i
 
 	// Apply pagination
 	start := 0
-	if offset != nil {
-		start = *offset
-	}
 	
 	end := len(filteredTags)
-	if limit != nil && start+*limit < end {
-		end = start + *limit
+	if first != nil && *first < end {
+		end = *first
 	}
 	
 	paginatedTags := filteredTags[start:end]
@@ -484,9 +480,16 @@ func (r *queryDomainResolver) Tags(ctx context.Context, search *string, limit *i
 }
 
 // FlakyTests retrieves flaky tests
-func (r *queryDomainResolver) FlakyTests(ctx context.Context, projectID *string, status *string, limit *int) ([]*model.FlakyTest, error) {
+func (r *queryDomainResolver) FlakyTests(ctx context.Context, filter *model.FlakyTestFilter, first *int, after *string, orderBy *string, orderDirection *model.OrderDirection) (*model.FlakyTestConnection, error) {
 	// TODO: Implement flaky tests when analytics service is ready
-	return []*model.FlakyTest{}, nil
+	return &model.FlakyTestConnection{
+		Edges:      []*model.FlakyTestEdge{},
+		PageInfo:   &model.PageInfo{
+			HasNextPage:     false,
+			HasPreviousPage: false,
+		},
+		TotalCount: 0,
+	}, nil
 }
 
 type projectDomainResolver struct{ *DomainResolver }
@@ -607,7 +610,6 @@ func (r *DomainResolver) convertProjectToGraphQL(p *projectsDomain.Project) *mod
 	snapshot := p.ToSnapshot()
 	desc := &snapshot.Description
 	repo := &snapshot.Repository
-	defaultBranch := &snapshot.DefaultBranch
 	team := string(snapshot.Team)
 	
 	return &model.Project{
@@ -616,10 +618,12 @@ func (r *DomainResolver) convertProjectToGraphQL(p *projectsDomain.Project) *mod
 		Name:          snapshot.Name,
 		Description:   desc,
 		Repository:    repo,
-		DefaultBranch: defaultBranch,
+		DefaultBranch: snapshot.DefaultBranch,
 		Team:          &team,
 		IsActive:      snapshot.IsActive,
 		Settings:      snapshot.Settings,
+		CanManage:     false, // TODO: Implement permission check
+		Stats:         nil,   // TODO: Implement stats calculation
 		CreatedAt:     snapshot.CreatedAt,
 		UpdatedAt:     snapshot.UpdatedAt,
 	}
@@ -654,6 +658,32 @@ func (r *mutationDomainResolver) MarkFlakyTestResolved(ctx context.Context, id s
 func (r *mutationDomainResolver) MarkSpecAsFlaky(ctx context.Context, specRunID string) (*model.SpecRun, error) {
 	// TODO: Implement mark spec as flaky
 	return nil, fmt.Errorf("not implemented")
+}
+
+func (r *mutationDomainResolver) UpdateUserPreferences(ctx context.Context, input model.UpdateUserPreferencesInput) (*model.UserPreferences, error) {
+	// TODO: Implement update user preferences
+	return &model.UserPreferences{
+		ID:          "1",
+		UserID:      "user-1",
+		Theme:       input.Theme,
+		Timezone:    input.Timezone,
+		Language:    input.Language,
+		Favorites:   input.Favorites,
+		Preferences: input.Preferences,
+		CreatedAt:   time.Now(),
+		UpdatedAt:   time.Now(),
+	}, nil
+}
+
+func (r *mutationDomainResolver) ToggleProjectFavorite(ctx context.Context, projectID string) (*model.UserPreferences, error) {
+	// TODO: Implement toggle project favorite
+	return &model.UserPreferences{
+		ID:          "1",
+		UserID:      "user-1",
+		Favorites:   []string{projectID},
+		CreatedAt:   time.Now(),
+		UpdatedAt:   time.Now(),
+	}, nil
 }
 
 // Missing methods for QueryResolver interface
@@ -723,11 +753,13 @@ func (r *queryDomainResolver) DashboardSummary(ctx context.Context) (*model.Dash
 		}
 	}
 	
+	version := "1.0.0"
 	return &model.DashboardSummary{
 		Health: &model.HealthStatus{
 			Status:    "healthy",
 			Service:   "fern-platform",
 			Timestamp: time.Now(),
+			Version:   &version,
 		},
 		ProjectCount:        int(totalProjects),
 		ActiveProjectCount:  activeProjectCount,
@@ -747,28 +779,31 @@ func (r *queryDomainResolver) FlakyTest(ctx context.Context, id string) (*model.
 func (r *queryDomainResolver) FlakyTestStats(ctx context.Context, projectID *string) (*model.FlakyTestStats, error) {
 	// TODO: Implement flaky test stats
 	return &model.FlakyTestStats{
-		TotalFlakyTests:    0,
-		ActiveFlakyTests:   0,
-		ResolvedFlakyTests: 0,
-		AverageFlakeRate:   0,
-		TopFlakyTests:      []*model.FlakyTest{},
+		TotalFlakyTests:  0,
+		SeverityCounts:   []*model.SeverityCount{},
+		AverageFlakeRate: 0,
+		MostFlakyTest:    nil,
 	}, nil
 }
 
 func (r *queryDomainResolver) Health(ctx context.Context) (*model.HealthStatus, error) {
+	version := "1.0.0"
 	return &model.HealthStatus{
 		Status:    "healthy",
 		Service:   "fern-platform",
 		Timestamp: time.Now(),
+		Version:   &version,
 	}, nil
 }
 
 func (r *queryDomainResolver) SystemConfig(ctx context.Context) (*model.SystemConfig, error) {
 	// TODO: Implement system config
 	return &model.SystemConfig{
-		AuthEnabled: true,
-		Version:     "1.0.0",
-		Environment: "production",
+		RoleGroups: &model.RoleGroupConfig{
+			AdminGroup:   "admin",
+			ManagerGroup: "manager",
+			UserGroup:    "user",
+		},
 	}, nil
 }
 
@@ -782,20 +817,48 @@ func (r *queryDomainResolver) TreemapData(ctx context.Context, projectID *string
 	}, nil
 }
 
+func (r *queryDomainResolver) TagByName(ctx context.Context, name string) (*model.Tag, error) {
+	// TODO: Implement get tag by name
+	return nil, fmt.Errorf("not implemented")
+}
+
+func (r *queryDomainResolver) TagUsageStats(ctx context.Context) ([]*model.TagUsage, error) {
+	// TODO: Implement tag usage stats
+	return []*model.TagUsage{}, nil
+}
+
+func (r *queryDomainResolver) PopularTags(ctx context.Context, limit *int) ([]*model.TagUsage, error) {
+	// TODO: Implement popular tags
+	return []*model.TagUsage{}, nil
+}
+
+func (r *queryDomainResolver) RecentlyAddedFlakyTests(ctx context.Context, projectID *string, days *int, limit *int) ([]*model.FlakyTest, error) {
+	// TODO: Implement recently added flaky tests
+	return []*model.FlakyTest{}, nil
+}
+
+func (r *queryDomainResolver) UserPreferences(ctx context.Context) (*model.UserPreferences, error) {
+	// TODO: Implement user preferences retrieval
+	return &model.UserPreferences{
+		ID:          "1",
+		UserID:      "user-1",
+		Theme:       nil,
+		Timezone:    nil,
+		Language:    nil,
+		Favorites:   []string{},
+		Preferences: nil,
+		CreatedAt:   time.Now(),
+		UpdatedAt:   time.Now(),
+	}, nil
+}
+
 func (r *queryDomainResolver) TestRunStats(ctx context.Context, projectID *string, days *int) (*model.TestRunStats, error) {
 	// TODO: Implement test run stats
 	return &model.TestRunStats{
 		TotalRuns:       0,
-		PassedRuns:      0,
-		FailedRuns:      0,
-		AverageRunTime:  0,
+		StatusCounts:    []*model.StatusCount{},
+		AverageDuration: 0,
 		SuccessRate:     0,
-		TotalTests:      0,
-		PassedTests:     0,
-		FailedTests:     0,
-		SkippedTests:    0,
-		FlakyTests:      0,
-		TestSuccessRate: 0,
 	}, nil
 }
 
@@ -868,6 +931,33 @@ func (r *DomainResolver) Subscription() generated.SubscriptionResolver {
 type subscriptionDomainResolver struct{ *DomainResolver }
 
 // Add empty subscription methods as needed by the interface
+func (r *subscriptionDomainResolver) TestRunCreated(ctx context.Context, projectID *string) (<-chan *model.TestRun, error) {
+	// TODO: Implement real-time subscriptions
+	ch := make(chan *model.TestRun)
+	close(ch)
+	return ch, nil
+}
+
+func (r *subscriptionDomainResolver) TestRunUpdated(ctx context.Context, projectID *string) (<-chan *model.TestRun, error) {
+	// TODO: Implement real-time subscriptions
+	ch := make(chan *model.TestRun)
+	close(ch)
+	return ch, nil
+}
+
+func (r *subscriptionDomainResolver) TestRunStatusChanged(ctx context.Context, projectID *string) (<-chan *model.TestRun, error) {
+	// TODO: Implement real-time subscriptions
+	ch := make(chan *model.TestRun)
+	close(ch)
+	return ch, nil
+}
+
+func (r *subscriptionDomainResolver) FlakyTestDetected(ctx context.Context, projectID *string) (<-chan *model.FlakyTest, error) {
+	// TODO: Implement real-time subscriptions
+	ch := make(chan *model.FlakyTest)
+	close(ch)
+	return ch, nil
+}
 
 // Ensure DomainResolver implements the GraphQL resolver interface
 var _ generated.ResolverRoot = (*DomainResolver)(nil)
