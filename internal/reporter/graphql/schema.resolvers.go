@@ -41,17 +41,20 @@ func (r *mutationResolver) AssignTagsToTestRun(ctx context.Context, testRunID st
 
 // CreateProject is the resolver for the createProject field.
 func (r *mutationResolver) CreateProject(ctx context.Context, input model.CreateProjectInput) (*model.Project, error) {
-	return nil, fmt.Errorf("CreateProject not yet implemented")
+	// Use domain service implementation
+	return r.CreateProject_domain(ctx, input)
 }
 
 // UpdateProject is the resolver for the updateProject field.
 func (r *mutationResolver) UpdateProject(ctx context.Context, id string, input model.UpdateProjectInput) (*model.Project, error) {
-	return nil, fmt.Errorf("UpdateProject not yet implemented")
+	// Use domain service implementation
+	return r.UpdateProject_domain(ctx, id, input)
 }
 
 // DeleteProject is the resolver for the deleteProject field.
 func (r *mutationResolver) DeleteProject(ctx context.Context, id string) (bool, error) {
-	return false, fmt.Errorf("DeleteProject not yet implemented")
+	// Use domain service implementation
+	return r.DeleteProject_domain(ctx, id)
 }
 
 // ActivateProject is the resolver for the activateProject field.
@@ -66,7 +69,8 @@ func (r *mutationResolver) DeactivateProject(ctx context.Context, projectID stri
 
 // CreateTag is the resolver for the createTag field.
 func (r *mutationResolver) CreateTag(ctx context.Context, input model.CreateTagInput) (*model.Tag, error) {
-	return nil, fmt.Errorf("CreateTag not yet implemented")
+	// Use domain service implementation
+	return r.CreateTag_domain(ctx, input)
 }
 
 // UpdateTag is the resolver for the updateTag field.
