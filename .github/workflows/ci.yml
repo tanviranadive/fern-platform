@@ -17,8 +17,8 @@ jobs:
       with:
         go-version: '1.23'
     
-    - name: Generate GraphQL code
-      run: go generate ./...
+    - name: Download dependencies
+      run: go mod download
     
     - uses: dagger/dagger-for-github@v6
       with:
@@ -36,8 +36,8 @@ jobs:
       with:
         go-version: '1.23'
     
-    - name: Generate GraphQL code
-      run: go generate ./...
+    - name: Download dependencies
+      run: go mod download
     
     - uses: dagger/dagger-for-github@v6
       with:

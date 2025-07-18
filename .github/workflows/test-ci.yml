@@ -20,8 +20,12 @@ jobs:
     - name: Download dependencies
       run: go mod download
     
-    - name: Generate code
-      run: go generate ./...
+    - name: Verify generated files exist
+      run: |
+        echo "Checking for generated files:"
+        ls -la internal/reporter/graphql/generated/
+        echo "GraphQL model files:"
+        ls -la internal/reporter/graphql/model/
     
     - name: Build
       run: go build ./...
