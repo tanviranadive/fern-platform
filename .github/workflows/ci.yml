@@ -22,6 +22,7 @@ jobs:
     
     - uses: dagger/dagger-for-github@v6
       with:
+        version: "0.16.3"
         verb: call
         module: ./ci
         args: lint --source .
@@ -41,6 +42,7 @@ jobs:
     
     - uses: dagger/dagger-for-github@v6
       with:
+        version: "0.16.3"
         verb: call
         module: ./ci
         args: test --source .
@@ -52,6 +54,7 @@ jobs:
     
     - uses: dagger/dagger-for-github@v6
       with:
+        version: "0.16.3"
         verb: call
         module: ./ci
         args: security-scan --source .
@@ -66,6 +69,7 @@ jobs:
     
     - uses: dagger/dagger-for-github@v6
       with:
+        version: "0.16.3"
         verb: call
         module: ./ci
         args: build --source . --platforms ${{ matrix.platform }}
@@ -79,6 +83,7 @@ jobs:
     
     - uses: dagger/dagger-for-github@v6
       with:
+        version: "0.16.3"
         verb: call
         module: ./ci
         args: acceptance-test --source .
@@ -91,6 +96,7 @@ jobs:
     
     - uses: dagger/dagger-for-github@v6
       with:
+        version: "0.16.3"
         verb: call
         module: ./ci
         args: all --source .
