@@ -1,0 +1,40 @@
+name: Test CI
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test-build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.23'
+    
+    - name: Check Go version
+      run: go version
+    
+    - name: Download dependencies
+      run: go mod download
+    
+    - name: Generate code
+      run: go generate ./...
+    
+    - name: Build
+      run: go build ./...
+    
+    - name: Test Dagger module
+      run: |
+        cd ci
+        go mod download
+        cd ..
+        
+    - name: Run Dagger lint
+      uses: dagger/dagger-for-github@v6
+      with:
+        verb: call
+        module: ./ci
+        args: lint --source .

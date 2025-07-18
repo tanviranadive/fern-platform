@@ -12,6 +12,14 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.23'
+    
+    - name: Generate GraphQL code
+      run: go generate ./...
+    
     - uses: dagger/dagger-for-github@v6
       with:
         verb: call
@@ -22,6 +30,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
+    
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.23'
+    
+    - name: Generate GraphQL code
+      run: go generate ./...
     
     - uses: dagger/dagger-for-github@v6
       with:
