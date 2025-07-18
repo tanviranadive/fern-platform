@@ -24,7 +24,7 @@ func (n *NavigationHelper) GoToTestSummaries() {
 	// Try clicking nav button first (if already logged in)
 	navButton := n.Page.Locator("button.nav-button:has-text('Test Summaries')")
 	count, _ := navButton.Count()
-	
+
 	if count > 0 {
 		err := navButton.Click()
 		Expect(err).NotTo(HaveOccurred())
@@ -33,7 +33,7 @@ func (n *NavigationHelper) GoToTestSummaries() {
 		_, err := n.Page.Goto(n.BaseURL + "/test-summaries")
 		Expect(err).NotTo(HaveOccurred())
 	}
-	
+
 	// Wait for page to load
 	err := n.Page.WaitForLoadState(playwright.PageWaitForLoadStateOptions{
 		State: playwright.LoadStateNetworkidle,
@@ -45,7 +45,7 @@ func (n *NavigationHelper) GoToTestSummaries() {
 func (n *NavigationHelper) GoToTestRuns() {
 	_, err := n.Page.Goto(n.BaseURL + "/test-runs")
 	Expect(err).NotTo(HaveOccurred())
-	
+
 	// Wait for page to load
 	err = n.Page.WaitForLoadState(playwright.PageWaitForLoadStateOptions{
 		State: playwright.LoadStateNetworkidle,
@@ -57,7 +57,7 @@ func (n *NavigationHelper) GoToTestRuns() {
 func (n *NavigationHelper) GoToProjects() {
 	_, err := n.Page.Goto(n.BaseURL + "/projects")
 	Expect(err).NotTo(HaveOccurred())
-	
+
 	// Wait for page to load
 	err = n.Page.WaitForLoadState(playwright.PageWaitForLoadStateOptions{
 		State: playwright.LoadStateNetworkidle,
@@ -70,7 +70,7 @@ func (n *NavigationHelper) ClickBreadcrumb(text string) {
 	breadcrumbs := n.Page.Locator("nav[aria-label='breadcrumb'], .breadcrumbs")
 	err := breadcrumbs.Locator("text=" + text).Click()
 	Expect(err).NotTo(HaveOccurred())
-	
+
 	// Wait for navigation
 	err = n.Page.WaitForLoadState(playwright.PageWaitForLoadStateOptions{
 		State: playwright.LoadStateNetworkidle,
@@ -83,13 +83,13 @@ func (n *NavigationHelper) GetCurrentBreadcrumbs() []string {
 	breadcrumbs := n.Page.Locator("nav[aria-label='breadcrumb'], .breadcrumbs").Locator("a, span")
 	count, err := breadcrumbs.Count()
 	Expect(err).NotTo(HaveOccurred())
-	
+
 	var path []string
 	for i := 0; i < count; i++ {
 		text, err := breadcrumbs.Nth(i).TextContent()
 		Expect(err).NotTo(HaveOccurred())
 		path = append(path, text)
 	}
-	
+
 	return path
 }

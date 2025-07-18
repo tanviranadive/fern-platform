@@ -16,7 +16,7 @@ func RequestIDMiddleware() gin.HandlerFunc {
 		if requestID == "" {
 			requestID = uuid.New().String()
 		}
-		
+
 		c.Set("request_id", requestID)
 		c.Header("X-Request-ID", requestID)
 		c.Next()
@@ -33,14 +33,14 @@ func LoggingMiddleware(logger *logging.Logger) gin.HandlerFunc {
 			}
 
 			entry := logger.WithFields(map[string]interface{}{
-				"timestamp":    param.TimeStamp.Format(time.RFC3339),
-				"status":       param.StatusCode,
-				"latency":      param.Latency.String(),
-				"client_ip":    param.ClientIP,
-				"method":       param.Method,
-				"path":         param.Path,
-				"user_agent":   param.Request.UserAgent(),
-				"request_id":   param.Keys["request_id"],
+				"timestamp":     param.TimeStamp.Format(time.RFC3339),
+				"status":        param.StatusCode,
+				"latency":       param.Latency.String(),
+				"client_ip":     param.ClientIP,
+				"method":        param.Method,
+				"path":          param.Path,
+				"user_agent":    param.Request.UserAgent(),
+				"request_id":    param.Keys["request_id"],
 				"response_size": param.BodySize,
 			})
 

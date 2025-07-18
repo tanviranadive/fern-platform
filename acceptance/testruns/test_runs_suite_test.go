@@ -8,24 +8,24 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/playwright-community/playwright-go"
-	
+
 	"github.com/guidewire-oss/fern-platform/acceptance/helpers"
 )
 
 var (
 	// Configuration flags
-	baseURL      string
-	headless     bool
-	slowMo       float64
-	teamName     string
-	username     string
-	password     string
-	recordVideo  bool
-	
+	baseURL     string
+	headless    bool
+	slowMo      float64
+	teamName    string
+	username    string
+	password    string
+	recordVideo bool
+
 	// Playwright objects
-	pw       *playwright.Playwright
-	browser  playwright.Browser
-	
+	pw      *playwright.Playwright
+	browser playwright.Browser
+
 	// Shared helpers
 	authHelper *helpers.LoginHelper
 )
@@ -47,32 +47,32 @@ func TestTestRuns(t *testing.T) {
 
 var _ = BeforeSuite(func() {
 	var err error
-	
+
 	// Install playwright browsers if needed
 	err = playwright.Install()
 	Expect(err).NotTo(HaveOccurred())
-	
+
 	// Initialize playwright
 	pw, err = playwright.Run()
 	Expect(err).NotTo(HaveOccurred())
-	
+
 	// Launch browser
 	browser, err = pw.Chromium.Launch(playwright.BrowserTypeLaunchOptions{
 		Headless: playwright.Bool(headless),
 		SlowMo:   playwright.Float(slowMo),
 	})
 	Expect(err).NotTo(HaveOccurred())
-	
+
 	// Login once for the entire suite
 	ctx, page := createContextAndPage()
 	authHelper = helpers.NewLoginHelper(page, baseURL, username, password)
 	authHelper.Login()
-	
+
 	// Save cookies for reuse
 	cookies, err := ctx.Cookies()
 	Expect(err).NotTo(HaveOccurred())
 	saveCookies(cookies)
-	
+
 	ctx.Close()
 })
 
@@ -81,7 +81,7 @@ var _ = AfterSuite(func() {
 		err := browser.Close()
 		Expect(err).NotTo(HaveOccurred())
 	}
-	
+
 	if pw != nil {
 		err := pw.Stop()
 		Expect(err).NotTo(HaveOccurred())
@@ -101,33 +101,33 @@ func createContextAndPage() (playwright.BrowserContext, playwright.Page) {
 	options := playwright.BrowserNewContextOptions{
 		BaseURL: playwright.String(baseURL),
 	}
-	
+
 	if recordVideo {
 		options.RecordVideo = &playwright.RecordVideo{
 			Dir:  "./videos",
 			Size: &playwright.Size{Width: 1280, Height: 720},
 		}
 	}
-	
+
 	ctx, err := browser.NewContext(options)
 	Expect(err).NotTo(HaveOccurred())
-	
+
 	p, err := ctx.NewPage()
 	Expect(err).NotTo(HaveOccurred())
-	
+
 	return ctx, p
 }
 
 // Helper function to create authenticated context
 func createAuthenticatedContext() (playwright.BrowserContext, playwright.Page) {
 	ctx, page := createContextAndPage()
-	
+
 	// Add saved cookies
 	if cookies := getSavedCookies(); cookies != nil {
 		err := ctx.AddCookies(cookies)
 		Expect(err).NotTo(HaveOccurred())
 	}
-	
+
 	return ctx, page
 }
 

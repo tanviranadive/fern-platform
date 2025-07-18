@@ -17,19 +17,19 @@ type MockGraphQLServer struct {
 }
 
 type PMConnector struct {
-	ID               string    `json:"id"`
-	Name             string    `json:"name"`
-	Type             string    `json:"type"`
-	BaseURL          string    `json:"baseURL"`
-	Status           string    `json:"status"`
-	HealthStatus     string    `json:"healthStatus"`
+	ID               string     `json:"id"`
+	Name             string     `json:"name"`
+	Type             string     `json:"type"`
+	BaseURL          string     `json:"baseURL"`
+	Status           string     `json:"status"`
+	HealthStatus     string     `json:"healthStatus"`
 	LastHealthCheck  *time.Time `json:"lastHealthCheck"`
-	SyncInterval     string    `json:"syncInterval"`
+	SyncInterval     string     `json:"syncInterval"`
 	LastSyncAt       *time.Time `json:"lastSyncAt"`
 	NextSyncAt       *time.Time `json:"nextSyncAt"`
-	RequirementCount int       `json:"requirementCount"`
-	HasCredentials   bool      `json:"hasCredentials"`
-	CanManage        bool      `json:"canManage"`
+	RequirementCount int        `json:"requirementCount"`
+	HasCredentials   bool       `json:"hasCredentials"`
+	CanManage        bool       `json:"canManage"`
 }
 
 type FieldMapping struct {
@@ -48,7 +48,7 @@ func NewMockGraphQLServer() *MockGraphQLServer {
 		connectors: make([]PMConnector, 0),
 		mappings:   make(map[string][]FieldMapping),
 	}
-	
+
 	m.server = httptest.NewServer(http.HandlerFunc(m.handler))
 	return m
 }
@@ -69,7 +69,7 @@ func (m *MockGraphQLServer) handler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
-	
+
 	var req GraphQLRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
@@ -80,7 +80,7 @@ func (m *MockGraphQLServer) handler(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	
+
 	// Route based on operation
 	if strings.Contains(req.Query, "GetPMConnectors") {
 		m.handleGetConnectors(w, req)
@@ -115,7 +115,7 @@ func (m *MockGraphQLServer) handleGetConnectors(w http.ResponseWriter, req Graph
 			"cursor": fmt.Sprintf("cursor_%d", i),
 		}
 	}
-	
+
 	response := map[string]interface{}{
 		"data": map[string]interface{}{
 			"pmConnectors": map[string]interface{}{
@@ -128,7 +128,7 @@ func (m *MockGraphQLServer) handleGetConnectors(w http.ResponseWriter, req Graph
 			},
 		},
 	}
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
 }
@@ -136,7 +136,7 @@ func (m *MockGraphQLServer) handleGetConnectors(w http.ResponseWriter, req Graph
 // handleCreateConnector creates a new mock connector
 func (m *MockGraphQLServer) handleCreateConnector(w http.ResponseWriter, req GraphQLRequest) {
 	input := req.Variables["input"].(map[string]interface{})
-	
+
 	connector := PMConnector{
 		ID:               fmt.Sprintf("conn_%d", len(m.connectors)+1),
 		Name:             input["name"].(string),
@@ -149,15 +149,15 @@ func (m *MockGraphQLServer) handleCreateConnector(w http.ResponseWriter, req Gra
 		HasCredentials:   false,
 		CanManage:        true,
 	}
-	
+
 	m.connectors = append(m.connectors, connector)
-	
+
 	response := map[string]interface{}{
 		"data": map[string]interface{}{
 			"createPMConnector": connector,
 		},
 	}
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
 }
@@ -165,24 +165,24 @@ func (m *MockGraphQLServer) handleCreateConnector(w http.ResponseWriter, req Gra
 // handleSetCredentials sets credentials for a connector
 func (m *MockGraphQLServer) handleSetCredentials(w http.ResponseWriter, req GraphQLRequest) {
 	connectorID := req.Variables["connectorID"].(string)
-	
+
 	// Find and update connector
 	for i, conn := range m.connectors {
 		if conn.ID == connectorID {
 			m.connectors[i].HasCredentials = true
-			
+
 			response := map[string]interface{}{
 				"data": map[string]interface{}{
 					"setPMConnectorCredentials": m.connectors[i],
 				},
 			}
-			
+
 			w.Header().Set("Content-Type", "application/json")
 			json.NewEncoder(w).Encode(response)
 			return
 		}
 	}
-	
+
 	// Connector not found
 	w.WriteHeader(http.StatusNotFound)
 	json.NewEncoder(w).Encode(map[string]interface{}{
@@ -195,7 +195,7 @@ func (m *MockGraphQLServer) handleSetCredentials(w http.ResponseWriter, req Grap
 // handleTestConnection tests a connector connection
 func (m *MockGraphQLServer) handleTestConnection(w http.ResponseWriter, req GraphQLRequest) {
 	connectorID := req.Variables["id"].(string)
-	
+
 	// Find connector
 	for i, conn := range m.connectors {
 		if conn.ID == connectorID {
@@ -203,19 +203,19 @@ func (m *MockGraphQLServer) handleTestConnection(w http.ResponseWriter, req Grap
 			now := time.Now()
 			m.connectors[i].HealthStatus = "HEALTHY"
 			m.connectors[i].LastHealthCheck = &now
-			
+
 			response := map[string]interface{}{
 				"data": map[string]interface{}{
 					"testPMConnection": "HEALTHY",
 				},
 			}
-			
+
 			w.Header().Set("Content-Type", "application/json")
 			json.NewEncoder(w).Encode(response)
 			return
 		}
 	}
-	
+
 	// Connector not found
 	w.WriteHeader(http.StatusNotFound)
 	json.NewEncoder(w).Encode(map[string]interface{}{
@@ -228,7 +228,7 @@ func (m *MockGraphQLServer) handleTestConnection(w http.ResponseWriter, req Grap
 // handleSyncConnector syncs a connector
 func (m *MockGraphQLServer) handleSyncConnector(w http.ResponseWriter, req GraphQLRequest) {
 	connectorID := req.Variables["id"].(string)
-	
+
 	// Find connector
 	for i, conn := range m.connectors {
 		if conn.ID == connectorID {
@@ -237,7 +237,7 @@ func (m *MockGraphQLServer) handleSyncConnector(w http.ResponseWriter, req Graph
 			m.connectors[i].LastSyncAt = &now
 			m.connectors[i].RequirementCount = 42 // Mock requirement count
 			m.connectors[i].Status = "ACTIVE"
-			
+
 			response := map[string]interface{}{
 				"data": map[string]interface{}{
 					"syncPMConnector": map[string]interface{}{
@@ -248,13 +248,13 @@ func (m *MockGraphQLServer) handleSyncConnector(w http.ResponseWriter, req Graph
 					},
 				},
 			}
-			
+
 			w.Header().Set("Content-Type", "application/json")
 			json.NewEncoder(w).Encode(response)
 			return
 		}
 	}
-	
+
 	// Connector not found
 	w.WriteHeader(http.StatusNotFound)
 	json.NewEncoder(w).Encode(map[string]interface{}{
@@ -267,12 +267,12 @@ func (m *MockGraphQLServer) handleSyncConnector(w http.ResponseWriter, req Graph
 // handleGetMappings returns field mappings for a connector
 func (m *MockGraphQLServer) handleGetMappings(w http.ResponseWriter, req GraphQLRequest) {
 	connectorID := req.Variables["id"].(string)
-	
+
 	mappings, exists := m.mappings[connectorID]
 	if !exists {
 		mappings = []FieldMapping{}
 	}
-	
+
 	response := map[string]interface{}{
 		"data": map[string]interface{}{
 			"pmConnector": map[string]interface{}{
@@ -281,7 +281,7 @@ func (m *MockGraphQLServer) handleGetMappings(w http.ResponseWriter, req GraphQL
 			},
 		},
 	}
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
 }
@@ -290,7 +290,7 @@ func (m *MockGraphQLServer) handleGetMappings(w http.ResponseWriter, req GraphQL
 func (m *MockGraphQLServer) handleUpdateMappings(w http.ResponseWriter, req GraphQLRequest) {
 	connectorID := req.Variables["connectorID"].(string)
 	mappingsInput := req.Variables["mappings"].([]interface{})
-	
+
 	// Convert input to field mappings
 	mappings := make([]FieldMapping, len(mappingsInput))
 	for i, input := range mappingsInput {
@@ -304,9 +304,9 @@ func (m *MockGraphQLServer) handleUpdateMappings(w http.ResponseWriter, req Grap
 			Order:         getIntOrDefault(mapping, "order", i),
 		}
 	}
-	
+
 	m.mappings[connectorID] = mappings
-	
+
 	// Find and update connector to activate it if it has mappings and credentials
 	for i, conn := range m.connectors {
 		if conn.ID == connectorID && conn.HasCredentials && len(mappings) > 0 {
@@ -314,7 +314,7 @@ func (m *MockGraphQLServer) handleUpdateMappings(w http.ResponseWriter, req Grap
 			break
 		}
 	}
-	
+
 	response := map[string]interface{}{
 		"data": map[string]interface{}{
 			"updateFieldMappings": map[string]interface{}{
@@ -323,7 +323,7 @@ func (m *MockGraphQLServer) handleUpdateMappings(w http.ResponseWriter, req Grap
 			},
 		},
 	}
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
 }

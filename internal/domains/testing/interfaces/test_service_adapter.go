@@ -254,7 +254,7 @@ func (a *TestServiceAdapter) RegisterRoutes(router *gin.RouterGroup) {
 	router.GET("/test-runs/:id/details", a.GetTestRunDetails())
 	router.PUT("/test-runs/:id/complete", a.CompleteTestRun())
 	router.POST("/test-runs/with-suites", a.CreateTestRunWithSuites())
-	
+
 	// Project test run endpoints
 	router.GET("/projects/:projectId/test-runs", a.GetProjectTestRuns())
 	router.GET("/projects/:projectId/test-runs/summary", a.GetProjectTestRunSummary())
@@ -278,15 +278,15 @@ type CompleteTestRunRequest struct {
 }
 
 type CreateTestRunWithSuitesRequest struct {
-	ProjectID   string      `json:"project_id" binding:"required"`
-	Name        string      `json:"name"`
-	Branch      string      `json:"branch"`
-	GitBranch   string      `json:"git_branch"`
-	GitCommit   string      `json:"git_commit"`
-	Environment string      `json:"environment"`
-	Source      string      `json:"source"`
-	SessionID   string      `json:"session_id"`
-	Suites      []SuiteReq  `json:"suites"`
+	ProjectID   string     `json:"project_id" binding:"required"`
+	Name        string     `json:"name"`
+	Branch      string     `json:"branch"`
+	GitBranch   string     `json:"git_branch"`
+	GitCommit   string     `json:"git_commit"`
+	Environment string     `json:"environment"`
+	Source      string     `json:"source"`
+	SessionID   string     `json:"session_id"`
+	Suites      []SuiteReq `json:"suites"`
 }
 
 type SuiteReq struct {

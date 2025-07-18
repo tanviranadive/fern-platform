@@ -39,13 +39,13 @@ func NewMockPMServer() *MockPMServer {
 		RequestLog: make([]MockRequest, 0),
 		Responses:  make(map[string]MockResponse),
 	}
-	
+
 	// Set up default JIRA-like responses
 	m.setupDefaultResponses()
-	
+
 	// Create test server
 	m.server = httptest.NewServer(http.HandlerFunc(m.handler))
-	
+
 	return m
 }
 
@@ -67,7 +67,7 @@ func (m *MockPMServer) handler(w http.ResponseWriter, r *http.Request) {
 		body, _ = io.ReadAll(r.Body)
 		r.Body.Close()
 	}
-	
+
 	m.RequestLog = append(m.RequestLog, MockRequest{
 		Method:  r.Method,
 		Path:    r.URL.Path,
@@ -75,7 +75,7 @@ func (m *MockPMServer) handler(w http.ResponseWriter, r *http.Request) {
 		Body:    body,
 		Time:    time.Now(),
 	})
-	
+
 	// Route to appropriate handler based on path
 	switch {
 	case r.URL.Path == "/rest/api/2/myself" && r.Method == "GET":
@@ -93,7 +93,7 @@ func (m *MockPMServer) handler(w http.ResponseWriter, r *http.Request) {
 			m.sendResponse(w, resp)
 			return
 		}
-		
+
 		// Default 404
 		w.WriteHeader(http.StatusNotFound)
 		json.NewEncoder(w).Encode(map[string]string{
@@ -113,15 +113,15 @@ func (m *MockPMServer) handleAuthTest(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	
+
 	// Return user info
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"key":         "test-user",
-		"name":        "Test User",
+		"key":          "test-user",
+		"name":         "Test User",
 		"emailAddress": "test@example.com",
-		"displayName": "Test User",
-		"active":      true,
+		"displayName":  "Test User",
+		"active":       true,
 	})
 }
 
@@ -131,10 +131,10 @@ func (m *MockPMServer) handleJiraSearch(w http.ResponseWriter, r *http.Request) 
 	jql := r.URL.Query().Get("jql")
 	startAt := r.URL.Query().Get("startAt")
 	maxResults := r.URL.Query().Get("maxResults")
-	
+
 	// Generate mock issues
 	issues := m.generateMockJiraIssues(jql, startAt, maxResults)
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(issues)
 }
@@ -145,18 +145,18 @@ func (m *MockPMServer) generateMockJiraIssues(jql, startAt, maxResults string) m
 	if startAt != "" {
 		fmt.Sscanf(startAt, "%d", &start)
 	}
-	
+
 	max := 50
 	if maxResults != "" {
 		fmt.Sscanf(maxResults, "%d", &max)
 	}
-	
+
 	// Generate issues
 	issues := make([]map[string]interface{}, 0)
 	for i := start; i < start+max && i < 100; i++ {
 		issues = append(issues, map[string]interface{}{
-			"id":   fmt.Sprintf("1000%d", i),
-			"key":  fmt.Sprintf("TEST-%d", i+1),
+			"id":  fmt.Sprintf("1000%d", i),
+			"key": fmt.Sprintf("TEST-%d", i+1),
 			"fields": map[string]interface{}{
 				"summary":     fmt.Sprintf("Test Issue %d", i+1),
 				"description": fmt.Sprintf("This is test issue number %d", i+1),
@@ -183,7 +183,7 @@ func (m *MockPMServer) generateMockJiraIssues(jql, startAt, maxResults string) m
 			},
 		})
 	}
-	
+
 	return map[string]interface{}{
 		"startAt":    start,
 		"maxResults": max,
@@ -203,7 +203,7 @@ func (m *MockPMServer) handleJiraCreateIssue(w http.ResponseWriter, r *http.Requ
 		})
 		return
 	}
-	
+
 	// Parse the request body
 	var createReq map[string]interface{}
 	if err := json.NewDecoder(r.Body).Decode(&createReq); err != nil {
@@ -213,7 +213,7 @@ func (m *MockPMServer) handleJiraCreateIssue(w http.ResponseWriter, r *http.Requ
 		})
 		return
 	}
-	
+
 	// Create a mock response
 	issueID := fmt.Sprintf("TEST-%d", time.Now().Unix()%10000)
 	response := map[string]interface{}{
@@ -221,7 +221,7 @@ func (m *MockPMServer) handleJiraCreateIssue(w http.ResponseWriter, r *http.Requ
 		"key":  issueID,
 		"self": fmt.Sprintf("http://mock-jira:8080/rest/api/2/issue/%s", issueID),
 	}
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
 }
@@ -237,10 +237,10 @@ func (m *MockPMServer) handleAhaFeatures(w http.ResponseWriter, r *http.Request)
 		})
 		return
 	}
-	
+
 	// Generate mock features
 	features := m.generateMockAhaFeatures()
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(features)
 }
@@ -248,7 +248,7 @@ func (m *MockPMServer) handleAhaFeatures(w http.ResponseWriter, r *http.Request)
 // generateMockAhaFeatures creates mock Aha! features
 func (m *MockPMServer) generateMockAhaFeatures() map[string]interface{} {
 	features := make([]map[string]interface{}, 0)
-	
+
 	for i := 0; i < 20; i++ {
 		features = append(features, map[string]interface{}{
 			"id":            fmt.Sprintf("FEAT-%d", i+1),
@@ -274,7 +274,7 @@ func (m *MockPMServer) generateMockAhaFeatures() map[string]interface{} {
 			"updated_at": time.Now().Add(-time.Duration(i*2) * time.Hour).Format(time.RFC3339),
 		})
 	}
-	
+
 	return map[string]interface{}{
 		"features": features,
 		"pagination": map[string]interface{}{
@@ -294,15 +294,15 @@ func (m *MockPMServer) setupDefaultResponses() {
 			"status": "healthy",
 		},
 	}
-	
+
 	// JIRA version endpoint
 	m.Responses["GET /rest/api/2/serverInfo"] = MockResponse{
 		StatusCode: http.StatusOK,
 		Body: map[string]interface{}{
-			"version":     "8.20.0",
+			"version":        "8.20.0",
 			"versionNumbers": []int{8, 20, 0},
 			"deploymentType": "Cloud",
-			"buildNumber": 820000,
+			"buildNumber":    820000,
 		},
 	}
 }
@@ -319,12 +319,12 @@ func (m *MockPMServer) sendResponse(w http.ResponseWriter, resp MockResponse) {
 	for k, v := range resp.Headers {
 		w.Header().Set(k, v)
 	}
-	
+
 	// Set status code
 	if resp.StatusCode != 0 {
 		w.WriteHeader(resp.StatusCode)
 	}
-	
+
 	// Write body
 	if resp.Body != nil {
 		w.Header().Set("Content-Type", "application/json")
@@ -368,7 +368,7 @@ func (m *MockPMServer) SimulateTimeout(method, path string, delay time.Duration)
 	key := fmt.Sprintf("%s %s", method, path)
 	// Store original response
 	original := m.Responses[key]
-	
+
 	// Create delayed handler
 	m.Responses[key] = MockResponse{
 		StatusCode: http.StatusOK,

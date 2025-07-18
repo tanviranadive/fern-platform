@@ -23,7 +23,7 @@ func DefaultCORSConfig() CORSConfig {
 	return CORSConfig{
 		AllowOrigins: []string{
 			"http://localhost:3000",
-			"http://localhost:3001", 
+			"http://localhost:3001",
 			"http://localhost:8080",
 			"https://localhost:3000",
 			"https://localhost:3001",
@@ -31,7 +31,7 @@ func DefaultCORSConfig() CORSConfig {
 		},
 		AllowMethods: []string{
 			"GET",
-			"POST", 
+			"POST",
 			"PUT",
 			"PATCH",
 			"DELETE",

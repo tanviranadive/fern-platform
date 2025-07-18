@@ -56,7 +56,7 @@ func (m *AuthMiddleware) RequireAuth() gin.HandlerFunc {
 		// Set user context
 		c.Set("user_id", claims["sub"])
 		c.Set("user_claims", claims)
-		
+
 		entry := m.logger.WithRequest(c.GetString("request_id"), c.Request.Method, c.Request.URL.Path)
 		logging.WithUser(entry, claims["sub"].(string)).Debug("User authenticated")
 
@@ -157,7 +157,7 @@ func GetUserID(c *gin.Context) (string, bool) {
 	if !exists {
 		return "", false
 	}
-	
+
 	userIDStr, ok := userID.(string)
 	return userIDStr, ok
 }
@@ -168,7 +168,7 @@ func GetUserClaims(c *gin.Context) (jwt.MapClaims, bool) {
 	if !exists {
 		return nil, false
 	}
-	
+
 	userClaims, ok := claims.(jwt.MapClaims)
 	return userClaims, ok
 }

@@ -58,7 +58,7 @@ func (r *GormSessionRepository) FindByID(ctx context.Context, sessionID string) 
 // FindActiveByID finds an active session by ID
 func (r *GormSessionRepository) FindActiveByID(ctx context.Context, sessionID string) (*domain.Session, error) {
 	var dbSession database.UserSession
-	if err := r.db.WithContext(ctx).Where("session_id = ? AND is_active = ? AND expires_at > ?", 
+	if err := r.db.WithContext(ctx).Where("session_id = ? AND is_active = ? AND expires_at > ?",
 		sessionID, true, time.Now()).First(&dbSession).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, fmt.Errorf("active session not found")
@@ -74,7 +74,7 @@ func (r *GormSessionRepository) UpdateActivity(ctx context.Context, sessionID st
 	result := r.db.WithContext(ctx).Model(&database.UserSession{}).
 		Where("session_id = ?", sessionID).
 		Update("last_activity", time.Now())
-	
+
 	if result.Error != nil {
 		return fmt.Errorf("failed to update session activity: %w", result.Error)
 	}
@@ -91,7 +91,7 @@ func (r *GormSessionRepository) Invalidate(ctx context.Context, sessionID string
 	result := r.db.WithContext(ctx).Model(&database.UserSession{}).
 		Where("session_id = ?", sessionID).
 		Update("is_active", false)
-	
+
 	if result.Error != nil {
 		return fmt.Errorf("failed to invalidate session: %w", result.Error)
 	}

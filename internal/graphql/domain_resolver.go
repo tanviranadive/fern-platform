@@ -8,20 +8,20 @@ import (
 	"strings"
 	"time"
 
-	"github.com/guidewire-oss/fern-platform/internal/domains/testing/application"
-	testingDomain "github.com/guidewire-oss/fern-platform/internal/domains/testing/domain"
+	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
+	analyticsApp "github.com/guidewire-oss/fern-platform/internal/domains/analytics/application"
+	authInterfaces "github.com/guidewire-oss/fern-platform/internal/domains/auth/interfaces"
 	projectsApp "github.com/guidewire-oss/fern-platform/internal/domains/projects/application"
 	projectsDomain "github.com/guidewire-oss/fern-platform/internal/domains/projects/domain"
 	tagsApp "github.com/guidewire-oss/fern-platform/internal/domains/tags/application"
 	tagsDomain "github.com/guidewire-oss/fern-platform/internal/domains/tags/domain"
-	authInterfaces "github.com/guidewire-oss/fern-platform/internal/domains/auth/interfaces"
-	analyticsApp "github.com/guidewire-oss/fern-platform/internal/domains/analytics/application"
+	"github.com/guidewire-oss/fern-platform/internal/domains/testing/application"
+	testingDomain "github.com/guidewire-oss/fern-platform/internal/domains/testing/domain"
 	"github.com/guidewire-oss/fern-platform/internal/reporter/graphql/dataloader"
 	"github.com/guidewire-oss/fern-platform/internal/reporter/graphql/generated"
 	"github.com/guidewire-oss/fern-platform/internal/reporter/graphql/model"
 	"github.com/guidewire-oss/fern-platform/pkg/logging"
-	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -29,11 +29,11 @@ import (
 type DomainResolver struct {
 	testingService        *application.TestRunService
 	projectService        *projectsApp.ProjectService
-	tagService           *tagsApp.TagService
+	tagService            *tagsApp.TagService
 	flakyDetectionService *analyticsApp.FlakyDetectionService
-	loaders              *dataloader.Loaders
-	db                   *gorm.DB
-	logger               *logging.Logger
+	loaders               *dataloader.Loaders
+	db                    *gorm.DB
+	logger                *logging.Logger
 }
 
 // NewDomainResolver creates a new GraphQL resolver using domain services
@@ -48,37 +48,37 @@ func NewDomainResolver(
 	return &DomainResolver{
 		testingService:        testingService,
 		projectService:        projectService,
-		tagService:           tagService,
+		tagService:            tagService,
 		flakyDetectionService: flakyDetectionService,
-		loaders:              dataloader.NewLoaders(db),
-		db:                   db,
-		logger:               logger,
+		loaders:               dataloader.NewLoaders(db),
+		db:                    db,
+		logger:                logger,
 	}
 }
 
 // Mutation returns generated.MutationResolver implementation.
-func (r *DomainResolver) Mutation() generated.MutationResolver { 
-	return &mutationDomainResolver{r} 
+func (r *DomainResolver) Mutation() generated.MutationResolver {
+	return &mutationDomainResolver{r}
 }
 
 // Query returns generated.QueryResolver implementation.
-func (r *DomainResolver) Query() generated.QueryResolver { 
-	return &queryDomainResolver{r} 
+func (r *DomainResolver) Query() generated.QueryResolver {
+	return &queryDomainResolver{r}
 }
 
 // Project returns generated.ProjectResolver implementation.
-func (r *DomainResolver) Project() generated.ProjectResolver { 
-	return &projectDomainResolver{r} 
+func (r *DomainResolver) Project() generated.ProjectResolver {
+	return &projectDomainResolver{r}
 }
 
 // TestRun returns generated.TestRunResolver implementation.
-func (r *DomainResolver) TestRun() generated.TestRunResolver { 
-	return &testRunDomainResolver{r} 
+func (r *DomainResolver) TestRun() generated.TestRunResolver {
+	return &testRunDomainResolver{r}
 }
 
 // SuiteRun returns generated.SuiteRunResolver implementation.
-func (r *DomainResolver) SuiteRun() generated.SuiteRunResolver { 
-	return &suiteRunDomainResolver{r} 
+func (r *DomainResolver) SuiteRun() generated.SuiteRunResolver {
+	return &suiteRunDomainResolver{r}
 }
 
 type mutationDomainResolver struct{ *DomainResolver }
@@ -192,7 +192,7 @@ func (r *mutationDomainResolver) UpdateProject(ctx context.Context, id string, i
 		Repository:    input.Repository,
 		DefaultBranch: input.DefaultBranch,
 	}
-	
+
 	if input.Team != nil {
 		team := projectsDomain.Team(*input.Team)
 		updates.Team = &team
@@ -305,7 +305,7 @@ func (r *queryDomainResolver) TestRuns(ctx context.Context, filter *model.TestRu
 	// Get test runs from domain service
 	var testRuns []*testingDomain.TestRun
 	var err error
-	
+
 	if filter != nil && filter.ProjectID != nil {
 		testRuns, err = r.testingService.GetProjectTestRuns(ctx, *filter.ProjectID, limitVal)
 	} else {
@@ -366,7 +366,7 @@ func (r *queryDomainResolver) Projects(ctx context.Context, filter *model.Projec
 	// Default values
 	limitVal := 20
 	offsetVal := 0
-	
+
 	if first != nil {
 		limitVal = *first
 	}
@@ -383,7 +383,7 @@ func (r *queryDomainResolver) Projects(ctx context.Context, filter *model.Projec
 		filteredProjects = make([]*projectsDomain.Project, 0)
 		for _, p := range projects {
 			snapshot := p.ToSnapshot()
-			
+
 			// Filter by search term
 			if filter.Search != nil && *filter.Search != "" {
 				searchLower := strings.ToLower(*filter.Search)
@@ -392,12 +392,12 @@ func (r *queryDomainResolver) Projects(ctx context.Context, filter *model.Projec
 					continue
 				}
 			}
-			
+
 			// Filter by active status
 			if filter.ActiveOnly != nil && *filter.ActiveOnly && !snapshot.IsActive {
 				continue
 			}
-			
+
 			filteredProjects = append(filteredProjects, p)
 		}
 	}
@@ -452,12 +452,12 @@ func (r *queryDomainResolver) Tags(ctx context.Context, filter *model.TagFilter,
 
 	// Apply pagination
 	start := 0
-	
+
 	end := len(filteredTags)
 	if first != nil && *first < end {
 		end = *first
 	}
-	
+
 	paginatedTags := filteredTags[start:end]
 
 	// Convert to GraphQL models
@@ -483,8 +483,8 @@ func (r *queryDomainResolver) Tags(ctx context.Context, filter *model.TagFilter,
 func (r *queryDomainResolver) FlakyTests(ctx context.Context, filter *model.FlakyTestFilter, first *int, after *string, orderBy *string, orderDirection *model.OrderDirection) (*model.FlakyTestConnection, error) {
 	// TODO: Implement flaky tests when analytics service is ready
 	return &model.FlakyTestConnection{
-		Edges:      []*model.FlakyTestEdge{},
-		PageInfo:   &model.PageInfo{
+		Edges: []*model.FlakyTestEdge{},
+		PageInfo: &model.PageInfo{
 			HasNextPage:     false,
 			HasPreviousPage: false,
 		},
@@ -570,7 +570,7 @@ func (r *DomainResolver) convertTestRunToGraphQL(tr *testingDomain.TestRun) *mod
 	if tr.EndTime != nil && !tr.EndTime.IsZero() {
 		endTime = tr.EndTime
 	}
-	
+
 	// Handle optional fields
 	var branch, commitSha, environment *string
 	if tr.GitBranch != "" {
@@ -582,7 +582,7 @@ func (r *DomainResolver) convertTestRunToGraphQL(tr *testingDomain.TestRun) *mod
 	if tr.Environment != "" {
 		environment = &tr.Environment
 	}
-	
+
 	return &model.TestRun{
 		ID:           strconv.FormatUint(uint64(tr.ID), 10),
 		ProjectID:    tr.ProjectID,
@@ -599,7 +599,7 @@ func (r *DomainResolver) convertTestRunToGraphQL(tr *testingDomain.TestRun) *mod
 		Duration:     int(tr.Duration.Milliseconds()),
 		Environment:  environment,
 		Metadata:     tr.Metadata,
-		Tags:         []*model.Tag{}, // TODO: Load tags
+		Tags:         []*model.Tag{},      // TODO: Load tags
 		SuiteRuns:    []*model.SuiteRun{}, // TODO: Load suite runs
 		CreatedAt:    tr.StartTime,
 		UpdatedAt:    tr.StartTime,
@@ -611,7 +611,7 @@ func (r *DomainResolver) convertProjectToGraphQL(p *projectsDomain.Project) *mod
 	desc := &snapshot.Description
 	repo := &snapshot.Repository
 	team := string(snapshot.Team)
-	
+
 	return &model.Project{
 		ID:            strconv.FormatUint(uint64(snapshot.ID), 10),
 		ProjectID:     string(snapshot.ProjectID),
@@ -678,11 +678,11 @@ func (r *mutationDomainResolver) UpdateUserPreferences(ctx context.Context, inpu
 func (r *mutationDomainResolver) ToggleProjectFavorite(ctx context.Context, projectID string) (*model.UserPreferences, error) {
 	// TODO: Implement toggle project favorite
 	return &model.UserPreferences{
-		ID:          "1",
-		UserID:      "user-1",
-		Favorites:   []string{projectID},
-		CreatedAt:   time.Now(),
-		UpdatedAt:   time.Now(),
+		ID:        "1",
+		UserID:    "user-1",
+		Favorites: []string{projectID},
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
 	}, nil
 }
 
@@ -710,21 +710,21 @@ func (r *queryDomainResolver) DashboardSummary(ctx context.Context) (*model.Dash
 	if err != nil {
 		r.logger.WithError(err).Error("Failed to get projects for dashboard")
 	}
-	
+
 	activeProjectCount := 0
 	for _, p := range projects {
 		if p.ToSnapshot().IsActive {
 			activeProjectCount++
 		}
 	}
-	
+
 	// Get test run statistics
 	totalTestRuns := 0
 	recentTestRuns := 0
 	overallPassRate := 0.0
 	totalTestsExecuted := 0
 	averageTestDuration := 0
-	
+
 	// Get recent test runs across all projects to calculate stats
 	recentRuns, err := r.testingService.GetRecentTestRuns(ctx, 100)
 	if err != nil {
@@ -733,26 +733,26 @@ func (r *queryDomainResolver) DashboardSummary(ctx context.Context) (*model.Dash
 		r.logger.Info("Got recent test runs for dashboard", "count", len(recentRuns))
 		totalTestRuns = len(recentRuns)
 		recentTestRuns = len(recentRuns)
-		
+
 		var totalTests, passedTests int
 		var totalDuration int64
-		
+
 		for _, tr := range recentRuns {
 			totalTests += tr.TotalTests
 			passedTests += tr.PassedTests
 			totalTestsExecuted += tr.TotalTests
 			totalDuration += tr.Duration.Milliseconds()
 		}
-		
+
 		if totalTests > 0 {
 			overallPassRate = float64(passedTests) / float64(totalTests) * 100
 		}
-		
+
 		if len(recentRuns) > 0 {
 			averageTestDuration = int(totalDuration / int64(len(recentRuns)))
 		}
 	}
-	
+
 	version := "1.0.0"
 	return &model.DashboardSummary{
 		Health: &model.HealthStatus{
@@ -872,7 +872,7 @@ func (r *queryDomainResolver) RecentTestRuns(ctx context.Context, projectID *str
 
 	var testRuns []*testingDomain.TestRun
 	var err error
-	
+
 	if projectID != nil {
 		r.logger.Info("Getting test runs for specific project", "projectID", *projectID)
 		testRuns, err = r.testingService.GetProjectTestRuns(ctx, *projectID, limitVal)
@@ -913,7 +913,6 @@ func (r *queryDomainResolver) ProjectByProjectID(ctx context.Context, projectID 
 	}
 	return r.convertProjectToGraphQL(project), nil
 }
-
 
 // Missing methods for ProjectResolver interface
 

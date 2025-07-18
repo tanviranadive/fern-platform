@@ -9,7 +9,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/playwright-community/playwright-go"
-	
+
 	"github.com/guidewire-oss/fern-platform/acceptance/helpers"
 )
 
@@ -23,15 +23,15 @@ var _ = Describe("UC-00: Authentication", func() {
 
 	BeforeEach(func() {
 		var err error
-		
+
 		// Create a new browser for each test
 		browser = CreateBrowser()
-		
+
 		// Create browser context options
 		contextOptions := playwright.BrowserNewContextOptions{
 			BaseURL: playwright.String(baseURL),
 		}
-		
+
 		// Add video recording if enabled
 		if recordVideo {
 			contextOptions.RecordVideo = &playwright.RecordVideo{
@@ -39,13 +39,13 @@ var _ = Describe("UC-00: Authentication", func() {
 				Size: &playwright.Size{Width: 1280, Height: 720},
 			}
 		}
-		
+
 		ctx, err = browser.NewContext(contextOptions)
 		Expect(err).NotTo(HaveOccurred())
-		
+
 		page, err = ctx.NewPage()
 		Expect(err).NotTo(HaveOccurred())
-		
+
 		auth = helpers.NewLoginHelper(page, baseURL, username, password)
 	})
 
@@ -55,14 +55,14 @@ var _ = Describe("UC-00: Authentication", func() {
 			if r := recover(); r != nil {
 				fmt.Printf("Recovered from panic in AfterEach: %v\n", r)
 			}
-			
+
 			// Ensure browser is closed
 			if browser != nil {
 				browser.Close()
 				browser = nil
 			}
 		}()
-		
+
 		// Save video if recording is enabled
 		if recordVideo && page != nil {
 			video := page.Video()
@@ -71,26 +71,26 @@ var _ = Describe("UC-00: Authentication", func() {
 				testName := CurrentSpecReport().LeafNodeText
 				testName = strings.ReplaceAll(testName, " ", "_")
 				testName = strings.ReplaceAll(testName, "/", "-")
-				
+
 				// Save the video with a descriptive name
 				timestamp := time.Now().Format("20060102_150405")
 				newPath := fmt.Sprintf("../videos/auth/%s_%s.webm", testName, timestamp)
-				
+
 				// Get the original video path before closing
 				originalPath, _ := video.Path()
-				
+
 				// Close the page first (not the context) to finalize video
 				if page != nil {
 					page.Close()
 					page = nil
 				}
-				
+
 				// Now close the context
 				if ctx != nil {
 					ctx.Close()
 					ctx = nil
 				}
-				
+
 				// Save the video with the new name
 				err := video.SaveAs(newPath)
 				if err == nil {
@@ -121,12 +121,12 @@ var _ = Describe("UC-00: Authentication", func() {
 			It("should redirect unauthenticated users to login page", func() {
 				_, err := page.Goto(baseURL)
 				Expect(err).NotTo(HaveOccurred())
-				
+
 				// Should redirect to login page
 				Eventually(func() string {
 					return page.URL()
 				}, 5*time.Second).Should(Equal(baseURL + "/auth/login"))
-				
+
 				// Verify sign in element is present
 				signInElement := page.Locator("button:has-text('Sign in'), a:has-text('Sign in')")
 				count, _ := signInElement.Count()
@@ -137,10 +137,10 @@ var _ = Describe("UC-00: Authentication", func() {
 		Context("Successful login with valid credentials", func() {
 			It("should log in and redirect to dashboard", func() {
 				auth.Login()
-				
+
 				// Verify we're on the main dashboard
 				Expect(page.URL()).To(Equal(baseURL + "/"))
-				
+
 				// Verify user menu appears (shows "FFern User")
 				userMenu := page.Locator("div.user-menu")
 				count, _ := userMenu.Count()
@@ -152,37 +152,37 @@ var _ = Describe("UC-00: Authentication", func() {
 			It("should show error for invalid credentials", func() {
 				_, err := page.Goto(baseURL + "/auth/login")
 				Expect(err).NotTo(HaveOccurred())
-				
+
 				// Click sign in element
 				signInElement := page.Locator("button:has-text('Sign in'), a:has-text('Sign in')")
 				err = signInElement.Click()
 				Expect(err).NotTo(HaveOccurred())
-				
+
 				// Wait for Keycloak redirect
 				Eventually(func() bool {
 					url := page.URL()
 					return strings.Contains(url, "keycloak") && strings.Contains(url, "/realms/fern-platform")
 				}, 10*time.Second).Should(BeTrue())
-				
+
 				// Fill invalid credentials in Keycloak
 				err = page.Locator("input#username, input[name='username']").Fill("invalid@example.com")
 				Expect(err).NotTo(HaveOccurred())
-				
+
 				err = page.Locator("input#password, input[name='password']").Fill("wrongpassword")
 				Expect(err).NotTo(HaveOccurred())
-				
+
 				// Try to sign in
 				signInButton := page.Locator("input[type='submit'], button[type='submit']")
 				err = signInButton.Click()
 				Expect(err).NotTo(HaveOccurred())
-				
+
 				// Should see error message on Keycloak
 				Eventually(func() bool {
 					errorMsg := page.Locator("text=/Invalid username or password|Invalid user credentials/")
 					count, _ := errorMsg.Count()
 					return count > 0
 				}, 10*time.Second).Should(BeTrue())
-				
+
 				// Should remain on Keycloak login page
 				Expect(page.URL()).To(ContainSubstring("keycloak"))
 			})
@@ -192,12 +192,12 @@ var _ = Describe("UC-00: Authentication", func() {
 			It("should maintain session cookies during navigation", func() {
 				// First login
 				auth.Login()
-				
+
 				// Get cookies after login
 				cookies, err := ctx.Cookies()
 				Expect(err).NotTo(HaveOccurred())
 				Expect(cookies).NotTo(BeEmpty())
-				
+
 				// Verify we have session cookie
 				var hasSessionCookie bool
 				for _, cookie := range cookies {
@@ -211,23 +211,23 @@ var _ = Describe("UC-00: Authentication", func() {
 					}
 				}
 				Expect(hasSessionCookie).To(BeTrue(), "Should have session cookie")
-				
+
 				// Navigate to another page
 				_, err = page.Goto(baseURL + "/test-summaries")
 				Expect(err).NotTo(HaveOccurred())
-				
+
 				// Navigate back to home
 				_, err = page.Goto(baseURL)
 				Expect(err).NotTo(HaveOccurred())
-				
+
 				// Wait for page to stabilize
 				time.Sleep(2 * time.Second)
-				
+
 				// Verify still logged in
 				Eventually(func() bool {
 					return auth.IsLoggedIn()
 				}, 5*time.Second).Should(BeTrue(), "Should still be logged in after navigation")
-				
+
 				// Cookies should still exist
 				cookiesAfter, err := ctx.Cookies()
 				Expect(err).NotTo(HaveOccurred())
@@ -240,16 +240,16 @@ var _ = Describe("UC-00: Authentication", func() {
 				// Access login page with return URL parameter
 				targetPath := "/test-summaries"
 				loginURL := baseURL + "/auth/login?return=" + targetPath
-				
+
 				_, err := page.Goto(loginURL)
 				Expect(err).NotTo(HaveOccurred())
-				
+
 				// Should be on login page
 				Expect(page.URL()).To(ContainSubstring("/auth/login"))
-				
+
 				// Login
 				auth.Login()
-				
+
 				// After login, should be on the dashboard (OAuth doesn't preserve deep links)
 				Eventually(func() string {
 					return page.URL()
@@ -270,7 +270,7 @@ var _ = Describe("UC-00: Authentication", func() {
 				userMenuTrigger := page.Locator("button.user-menu-trigger")
 				err := userMenuTrigger.Click()
 				Expect(err).NotTo(HaveOccurred())
-				
+
 				// Should see logout option ("Sign Out")
 				logoutOption := page.Locator("text=Sign Out")
 				Eventually(func() bool {
@@ -283,10 +283,10 @@ var _ = Describe("UC-00: Authentication", func() {
 		Context("Confirm logout", func() {
 			It("should logout and redirect to login page", func() {
 				auth.Logout()
-				
+
 				// Verify we're back on login page
 				Expect(page.URL()).To(ContainSubstring("/auth/login"))
-				
+
 				// Verify user is no longer logged in
 				Expect(auth.IsLoggedIn()).To(BeFalse())
 			})
@@ -295,16 +295,16 @@ var _ = Describe("UC-00: Authentication", func() {
 		Context("Accessing protected resources after logout", func() {
 			It("should not show user-specific content after logout", func() {
 				auth.Logout()
-				
+
 				// Try to access dashboard
 				_, err := page.Goto(baseURL + "/")
 				Expect(err).NotTo(HaveOccurred())
-				
+
 				// Should be redirected to login since we're not authenticated
 				Eventually(func() string {
 					return page.URL()
 				}, 5*time.Second).Should(ContainSubstring("/auth/login"))
-				
+
 				// Verify no user menu is visible
 				userMenu := page.Locator("div.user-menu")
 				count, _ := userMenu.Count()
@@ -322,27 +322,27 @@ var _ = Describe("UC-00: Authentication", func() {
 			It("should keep session active during use", func() {
 				// Verify initial login state
 				Expect(auth.IsLoggedIn()).To(BeTrue(), "Should be logged in initially")
-				
+
 				// Perform some actions to simulate activity
 				for i := 0; i < 3; i++ {
 					// Click on navigation elements instead of direct navigation
 					navButtons := page.Locator("button.nav-button")
 					count, _ := navButtons.Count()
-					
+
 					if count > 1 {
 						// Click a nav button (skip first which is usually active)
 						err := navButtons.Nth(1).Click()
 						Expect(err).NotTo(HaveOccurred())
-						
+
 						time.Sleep(2 * time.Second)
-						
+
 						// Click back to first button
 						err = navButtons.Nth(0).Click()
 						Expect(err).NotTo(HaveOccurred())
 					}
-					
+
 					time.Sleep(1 * time.Second)
-					
+
 					// Check we're still logged in by looking for user menu
 					userMenu := page.Locator("div.user-menu")
 					count, _ = userMenu.Count()

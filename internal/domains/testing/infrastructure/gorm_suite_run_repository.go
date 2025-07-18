@@ -23,16 +23,16 @@ func NewGormSuiteRunRepository(db *gorm.DB) *GormSuiteRunRepository {
 // Create creates a new suite run
 func (r *GormSuiteRunRepository) Create(ctx context.Context, suiteRun *domain.SuiteRun) error {
 	dbSuiteRun := &database.SuiteRun{
-		TestRunID:     suiteRun.TestRunID,
-		SuiteName:     suiteRun.Name,
-		Status:        suiteRun.Status,
-		StartTime:     suiteRun.StartTime,
-		EndTime:       suiteRun.EndTime,
-		TotalSpecs:    suiteRun.TotalTests,
-		PassedSpecs:   suiteRun.PassedTests,
-		FailedSpecs:   suiteRun.FailedTests,
-		SkippedSpecs:  suiteRun.SkippedTests,
-		Duration:      int64(suiteRun.Duration / time.Millisecond),
+		TestRunID:    suiteRun.TestRunID,
+		SuiteName:    suiteRun.Name,
+		Status:       suiteRun.Status,
+		StartTime:    suiteRun.StartTime,
+		EndTime:      suiteRun.EndTime,
+		TotalSpecs:   suiteRun.TotalTests,
+		PassedSpecs:  suiteRun.PassedTests,
+		FailedSpecs:  suiteRun.FailedTests,
+		SkippedSpecs: suiteRun.SkippedTests,
+		Duration:     int64(suiteRun.Duration / time.Millisecond),
 	}
 
 	if err := r.db.WithContext(ctx).Create(dbSuiteRun).Error; err != nil {
@@ -52,16 +52,16 @@ func (r *GormSuiteRunRepository) CreateBatch(ctx context.Context, suiteRuns []*d
 	dbSuiteRuns := make([]*database.SuiteRun, len(suiteRuns))
 	for i, suiteRun := range suiteRuns {
 		dbSuiteRuns[i] = &database.SuiteRun{
-			TestRunID:     suiteRun.TestRunID,
-			SuiteName:     suiteRun.Name,
-			Status:        suiteRun.Status,
-			StartTime:     suiteRun.StartTime,
-			EndTime:       suiteRun.EndTime,
-			TotalSpecs:    suiteRun.TotalTests,
-			PassedSpecs:   suiteRun.PassedTests,
-			FailedSpecs:   suiteRun.FailedTests,
-			SkippedSpecs:  suiteRun.SkippedTests,
-			Duration:      int64(suiteRun.Duration / time.Millisecond),
+			TestRunID:    suiteRun.TestRunID,
+			SuiteName:    suiteRun.Name,
+			Status:       suiteRun.Status,
+			StartTime:    suiteRun.StartTime,
+			EndTime:      suiteRun.EndTime,
+			TotalSpecs:   suiteRun.TotalTests,
+			PassedSpecs:  suiteRun.PassedTests,
+			FailedSpecs:  suiteRun.FailedTests,
+			SkippedSpecs: suiteRun.SkippedTests,
+			Duration:     int64(suiteRun.Duration / time.Millisecond),
 		}
 	}
 
@@ -141,7 +141,7 @@ func (r *GormSuiteRunRepository) GetWithSpecRuns(ctx context.Context, id uint) (
 	}
 
 	suiteRun := r.toDomainSuiteRun(&dbSuiteRun)
-	
+
 	// Convert spec runs if preloaded
 	if len(dbSuiteRun.SpecRuns) > 0 {
 		suiteRun.SpecRuns = make([]*domain.SpecRun, len(dbSuiteRun.SpecRuns))

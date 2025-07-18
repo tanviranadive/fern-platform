@@ -12,13 +12,13 @@ import (
 	"syscall"
 
 	"github.com/gin-gonic/gin"
+	api "github.com/guidewire-oss/fern-platform/internal/api"
+	"github.com/guidewire-oss/fern-platform/internal/domains"
+	"github.com/guidewire-oss/fern-platform/internal/reporter/graphql"
 	"github.com/guidewire-oss/fern-platform/pkg/config"
 	"github.com/guidewire-oss/fern-platform/pkg/database"
 	"github.com/guidewire-oss/fern-platform/pkg/logging"
 	"github.com/guidewire-oss/fern-platform/pkg/middleware"
-	"github.com/guidewire-oss/fern-platform/internal/domains"
-	api "github.com/guidewire-oss/fern-platform/internal/api"
-	"github.com/guidewire-oss/fern-platform/internal/reporter/graphql"
 )
 
 func main() {
@@ -57,7 +57,7 @@ func main() {
 
 	// Initialize domain factory for DDD architecture
 	domainFactory := domains.NewDomainFactory(db.DB, logger, &cfg.Auth)
-	
+
 	// Get domain services directly
 	testingService := domainFactory.GetTestingService()
 	projectService := domainFactory.GetProjectDomainService()
@@ -103,13 +103,13 @@ func main() {
 	// GraphQL routes with role group names from config
 	// Initialize GraphQL resolver with domain services
 	resolver := graphql.NewResolver(testingService, projectService, tagService, flakyDetectionService, db.DB, logger)
-	
+
 	roleGroupNames := &graphql.RoleGroupNames{
 		AdminGroup:   cfg.Auth.OAuth.AdminGroupName,
 		ManagerGroup: cfg.Auth.OAuth.ManagerGroupName,
 		UserGroup:    cfg.Auth.OAuth.UserGroupName,
 	}
-	
+
 	gqlHandler := graphql.NewHandler(resolver, roleGroupNames)
 	gqlHandler.RegisterRoutes(router, authMiddleware)
 

@@ -12,16 +12,16 @@ import (
 
 var (
 	// Configuration flags
-	baseURL      string
-	headless     bool
-	slowMo       float64
-	teamName     string
-	username     string
-	password     string
-	recordVideo  bool
-	
+	baseURL     string
+	headless    bool
+	slowMo      float64
+	teamName    string
+	username    string
+	password    string
+	recordVideo bool
+
 	// Playwright objects
-	pw       *playwright.Playwright
+	pw *playwright.Playwright
 )
 
 func init() {
@@ -41,11 +41,11 @@ func TestTestSummaries(t *testing.T) {
 
 var _ = BeforeSuite(func() {
 	var err error
-	
+
 	// Install playwright browsers if needed
 	err = playwright.Install()
 	Expect(err).NotTo(HaveOccurred())
-	
+
 	// Initialize playwright
 	pw, err = playwright.Run()
 	Expect(err).NotTo(HaveOccurred())
@@ -101,4 +101,3 @@ func CreateBrowser() playwright.Browser {
 	Expect(err).NotTo(HaveOccurred())
 	return browser
 }
-

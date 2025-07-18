@@ -11,13 +11,13 @@ import (
 )
 
 var (
-	pw           *playwright.Playwright
-	browserType  playwright.BrowserType
-	baseURL      string
-	username     string
-	password     string
-	recordVideo  bool
-	headless     bool
+	pw          *playwright.Playwright
+	browserType playwright.BrowserType
+	baseURL     string
+	username    string
+	password    string
+	recordVideo bool
+	headless    bool
 )
 
 func TestPMConnectors(t *testing.T) {
@@ -27,39 +27,39 @@ func TestPMConnectors(t *testing.T) {
 
 var _ = BeforeSuite(func() {
 	var err error
-	
+
 	// Get environment variables
 	baseURL = os.Getenv("FERN_BASE_URL")
 	if baseURL == "" {
 		baseURL = "http://localhost:8080"
 	}
-	
+
 	username = os.Getenv("FERN_USERNAME")
 	if username == "" {
 		username = "admin@fern.com"
 	}
-	
+
 	password = os.Getenv("FERN_PASSWORD")
 	if password == "" {
 		password = "test123"
 	}
-	
+
 	recordVideo = os.Getenv("FERN_RECORD_VIDEO") == "true"
 	headless = os.Getenv("FERN_HEADLESS") != "false"
-	
+
 	fmt.Printf("Running PM Connectors tests against: %s\n", baseURL)
 	fmt.Printf("Using username: %s\n", username)
 	fmt.Printf("Record video: %v\n", recordVideo)
 	fmt.Printf("Headless: %v\n", headless)
-	
+
 	// Install playwright
 	err = playwright.Install()
 	Expect(err).NotTo(HaveOccurred())
-	
+
 	// Start playwright
 	pw, err = playwright.Run()
 	Expect(err).NotTo(HaveOccurred())
-	
+
 	// Get browser type
 	browserName := os.Getenv("BROWSER")
 	switch browserName {
@@ -70,7 +70,7 @@ var _ = BeforeSuite(func() {
 	default:
 		browserType = pw.Chromium
 	}
-	
+
 	// Create video directory if needed
 	if recordVideo {
 		os.MkdirAll("../videos/pmconnectors", 0755)
@@ -100,8 +100,8 @@ func CreateBrowser() playwright.Browser {
 		},
 	})
 	Expect(err).NotTo(HaveOccurred())
-	
+
 	// Default timeout will be set at context level
-	
+
 	return browser
 }

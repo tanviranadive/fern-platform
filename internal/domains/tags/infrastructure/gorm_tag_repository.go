@@ -6,9 +6,9 @@ import (
 	"strconv"
 	"strings"
 
-	"gorm.io/gorm"
 	"github.com/guidewire-oss/fern-platform/internal/domains/tags/domain"
 	"github.com/guidewire-oss/fern-platform/pkg/database"
+	"gorm.io/gorm"
 )
 
 // GormTagRepository is a GORM implementation of TagRepository
@@ -62,7 +62,7 @@ func (r *GormTagRepository) FindByID(ctx context.Context, id domain.TagID) (*dom
 func (r *GormTagRepository) FindByName(ctx context.Context, name string) (*domain.Tag, error) {
 	// Normalize the name for search
 	normalizedName := strings.TrimSpace(strings.ToLower(name))
-	
+
 	var dbTag database.Tag
 	if err := r.db.WithContext(ctx).Where("LOWER(name) = ?", normalizedName).First(&dbTag).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {

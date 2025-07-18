@@ -15,7 +15,7 @@ import (
 type CompatibilityAdapter struct {
 	recordTestRunHandler   *application.RecordTestRunHandler
 	completeTestRunHandler *application.CompleteTestRunHandler
-	testRunRepo           domain.TestRunRepository
+	testRunRepo            domain.TestRunRepository
 }
 
 // NewCompatibilityAdapter creates a new adapter
@@ -27,7 +27,7 @@ func NewCompatibilityAdapter(
 	return &CompatibilityAdapter{
 		recordTestRunHandler:   recordHandler,
 		completeTestRunHandler: completeHandler,
-		testRunRepo:           repo,
+		testRunRepo:            repo,
 	}
 }
 
@@ -42,13 +42,13 @@ func (a *CompatibilityAdapter) CreateTestRun(input service.CreateTestRunInput) (
 		Environment: input.Environment,
 		Metadata:    input.Metadata,
 	}
-	
+
 	// Execute use case
 	snapshot, err := a.recordTestRunHandler.Handle(context.Background(), cmd)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create test run: %w", err)
 	}
-	
+
 	// Convert back to database model for compatibility
 	return &database.TestRun{
 		ProjectID:    snapshot.ProjectID,
@@ -73,7 +73,7 @@ func (a *CompatibilityAdapter) CompleteTestRun(runID string) error {
 	cmd := application.CompleteTestRunCommand{
 		RunID: runID,
 	}
-	
+
 	return a.completeTestRunHandler.Handle(context.Background(), cmd)
 }
 
@@ -86,7 +86,7 @@ func (a *CompatibilityAdapter) GetTestRun(runID string) (*database.TestRun, erro
 	if testRun == nil {
 		return nil, nil
 	}
-	
+
 	// Convert to database model
 	return &database.TestRun{
 		ProjectID:    testRun.ProjectID,

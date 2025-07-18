@@ -155,7 +155,7 @@ func (m *Ci) buildContainer(ctx context.Context, source *dagger.Directory, platf
 
 	// Final stage
 	return dag.Container().
-		From("alpine:latest").
+		From("alpine:3.19").
 		WithExec([]string{"apk", "add", "--no-cache", "ca-certificates", "tzdata"}).
 		WithExec([]string{"addgroup", "-g", "1001", "-S", "fern"}).
 		WithExec([]string{"adduser", "-u", "1001", "-S", "fern", "-G", "fern"}).
@@ -223,13 +223,18 @@ func (m *Ci) runSecurityScan(ctx context.Context, source *dagger.Directory) (str
 	tarball := container.AsTarball()
 	
 	// Run Trivy scan
+	// Override entrypoint to avoid command duplication
 	output, err := dag.Container().
-		From("aquasec/trivy:latest").
+		From("aquasec/trivy:0.48.1").
 		WithMountedFile("/image.tar", tarball).
+		WithEntrypoint([]string{"trivy"}).
 		WithExec([]string{
-			"trivy", "image", "--input", "/image.tar",
+			"image",
+			"--input", "/image.tar",
 			"--exit-code", "0",
-			"--no-progress", "--format", "table",
+			"--no-progress",
+			"--format", "table",
+			"--severity", "HIGH,CRITICAL",
 		}).
 		Stdout(ctx)
 	

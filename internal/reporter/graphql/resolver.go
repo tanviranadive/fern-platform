@@ -2,11 +2,11 @@
 package graphql
 
 import (
-	"github.com/guidewire-oss/fern-platform/internal/reporter/graphql/dataloader"
-	testingApp "github.com/guidewire-oss/fern-platform/internal/domains/testing/application"
+	analyticsApp "github.com/guidewire-oss/fern-platform/internal/domains/analytics/application"
 	projectsApp "github.com/guidewire-oss/fern-platform/internal/domains/projects/application"
 	tagsApp "github.com/guidewire-oss/fern-platform/internal/domains/tags/application"
-	analyticsApp "github.com/guidewire-oss/fern-platform/internal/domains/analytics/application"
+	testingApp "github.com/guidewire-oss/fern-platform/internal/domains/testing/application"
+	"github.com/guidewire-oss/fern-platform/internal/reporter/graphql/dataloader"
 	"github.com/guidewire-oss/fern-platform/pkg/logging"
 	"gorm.io/gorm"
 )
@@ -19,11 +19,11 @@ import (
 type Resolver struct {
 	testingService        *testingApp.TestRunService
 	projectService        *projectsApp.ProjectService
-	tagService           *tagsApp.TagService
+	tagService            *tagsApp.TagService
 	flakyDetectionService *analyticsApp.FlakyDetectionService
-	loaders              *dataloader.Loaders
-	db                   *gorm.DB
-	logger               *logging.Logger
+	loaders               *dataloader.Loaders
+	db                    *gorm.DB
+	logger                *logging.Logger
 }
 
 // NewResolver creates a new GraphQL resolver
@@ -38,10 +38,10 @@ func NewResolver(
 	return &Resolver{
 		testingService:        testingService,
 		projectService:        projectService,
-		tagService:           tagService,
+		tagService:            tagService,
 		flakyDetectionService: flakyDetectionService,
-		loaders:              dataloader.NewLoaders(db),
-		db:                   db,
-		logger:               logger,
+		loaders:               dataloader.NewLoaders(db),
+		db:                    db,
+		logger:                logger,
 	}
 }
