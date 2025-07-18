@@ -7,8 +7,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/sirupsen/logrus"
 	"github.com/guidewire-oss/fern-platform/pkg/config"
+	"github.com/sirupsen/logrus"
 )
 
 // Logger wraps logrus.Logger with additional context and functionality

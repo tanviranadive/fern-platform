@@ -17,23 +17,23 @@ import (
 type contextKey string
 
 const (
-	projectLoaderKey   contextKey = "projectLoader"
-	testRunLoaderKey   contextKey = "testRunLoader"
-	suiteRunLoaderKey  contextKey = "suiteRunLoader"
-	specRunLoaderKey   contextKey = "specRunLoader"
-	tagLoaderKey       contextKey = "tagLoader"
-	userLoaderKey      contextKey = "userLoader"
+	projectLoaderKey  contextKey = "projectLoader"
+	testRunLoaderKey  contextKey = "testRunLoader"
+	suiteRunLoaderKey contextKey = "suiteRunLoader"
+	specRunLoaderKey  contextKey = "specRunLoader"
+	tagLoaderKey      contextKey = "tagLoader"
+	userLoaderKey     contextKey = "userLoader"
 )
 
 // Loaders holds all the dataloaders
 type Loaders struct {
-	ProjectByID   *dataloader.Loader[string, *database.ProjectDetails]
-	TestRunByID   *dataloader.Loader[string, *database.TestRun]
-	SuiteRunByID  *dataloader.Loader[string, *database.SuiteRun]
-	SpecRunByID   *dataloader.Loader[string, *database.SpecRun]
-	TagByID       *dataloader.Loader[string, *database.Tag]
-	UserByID      *dataloader.Loader[string, *database.User]
-	
+	ProjectByID  *dataloader.Loader[string, *database.ProjectDetails]
+	TestRunByID  *dataloader.Loader[string, *database.TestRun]
+	SuiteRunByID *dataloader.Loader[string, *database.SuiteRun]
+	SpecRunByID  *dataloader.Loader[string, *database.SpecRun]
+	TagByID      *dataloader.Loader[string, *database.Tag]
+	UserByID     *dataloader.Loader[string, *database.User]
+
 	// Batch loaders for relationships
 	SuiteRunsByTestRunID *dataloader.Loader[string, []*database.SuiteRun]
 	SpecRunsBySuiteRunID *dataloader.Loader[string, []*database.SpecRun]
@@ -43,13 +43,13 @@ type Loaders struct {
 // NewLoaders creates a new set of dataloaders
 func NewLoaders(db *gorm.DB) *Loaders {
 	return &Loaders{
-		ProjectByID:   createProjectLoader(db),
-		TestRunByID:   createTestRunLoader(db),
-		SuiteRunByID:  createSuiteRunLoader(db),
-		SpecRunByID:   createSpecRunLoader(db),
-		TagByID:       createTagLoader(db),
-		UserByID:      createUserLoader(db),
-		
+		ProjectByID:  createProjectLoader(db),
+		TestRunByID:  createTestRunLoader(db),
+		SuiteRunByID: createSuiteRunLoader(db),
+		SpecRunByID:  createSpecRunLoader(db),
+		TagByID:      createTagLoader(db),
+		UserByID:     createUserLoader(db),
+
 		SuiteRunsByTestRunID: createSuiteRunsByTestRunLoader(db),
 		SpecRunsBySuiteRunID: createSpecRunsBySuiteRunLoader(db),
 		TagsByTestRunID:      createTagsByTestRunLoader(db),
@@ -67,7 +67,7 @@ func Middleware(loaders *Loaders) func(http.Handler) http.Handler {
 			ctx = context.WithValue(ctx, specRunLoaderKey, loaders.SpecRunByID)
 			ctx = context.WithValue(ctx, tagLoaderKey, loaders.TagByID)
 			ctx = context.WithValue(ctx, userLoaderKey, loaders.UserByID)
-			
+
 			r = r.WithContext(ctx)
 			next.ServeHTTP(w, r)
 		})
@@ -90,7 +90,7 @@ func createProjectLoader(db *gorm.DB) *dataloader.Loader[string, *database.Proje
 	batchFn := func(ctx context.Context, keys []string) []*dataloader.Result[*database.ProjectDetails] {
 		// Create a map for quick lookup
 		projectMap := make(map[string]*database.ProjectDetails)
-		
+
 		// Batch query
 		var projects []database.ProjectDetails
 		if err := db.Where("id IN ?", keys).Find(&projects).Error; err != nil {
@@ -101,12 +101,12 @@ func createProjectLoader(db *gorm.DB) *dataloader.Loader[string, *database.Proje
 			}
 			return results
 		}
-		
+
 		// Build map
 		for i := range projects {
 			projectMap[fmt.Sprintf("%d", projects[i].ID)] = &projects[i]
 		}
-		
+
 		// Build results in the same order as keys
 		results := make([]*dataloader.Result[*database.ProjectDetails], len(keys))
 		for i, key := range keys {
@@ -116,17 +116,17 @@ func createProjectLoader(db *gorm.DB) *dataloader.Loader[string, *database.Proje
 				results[i] = &dataloader.Result[*database.ProjectDetails]{Error: fmt.Errorf("project not found: %s", key)}
 			}
 		}
-		
+
 		return results
 	}
-	
+
 	return dataloader.NewBatchedLoader(batchFn, dataloader.WithCache(&dataloader.InMemoryCache[string, *database.ProjectDetails]{}))
 }
 
 func createTestRunLoader(db *gorm.DB) *dataloader.Loader[string, *database.TestRun] {
 	batchFn := func(ctx context.Context, keys []string) []*dataloader.Result[*database.TestRun] {
 		testRunMap := make(map[string]*database.TestRun)
-		
+
 		var testRuns []database.TestRun
 		if err := db.Where("id IN ?", keys).Find(&testRuns).Error; err != nil {
 			results := make([]*dataloader.Result[*database.TestRun], len(keys))
@@ -135,11 +135,11 @@ func createTestRunLoader(db *gorm.DB) *dataloader.Loader[string, *database.TestR
 			}
 			return results
 		}
-		
+
 		for i := range testRuns {
 			testRunMap[fmt.Sprintf("%d", testRuns[i].ID)] = &testRuns[i]
 		}
-		
+
 		results := make([]*dataloader.Result[*database.TestRun], len(keys))
 		for i, key := range keys {
 			if testRun, ok := testRunMap[key]; ok {
@@ -148,17 +148,17 @@ func createTestRunLoader(db *gorm.DB) *dataloader.Loader[string, *database.TestR
 				results[i] = &dataloader.Result[*database.TestRun]{Error: fmt.Errorf("test run not found: %s", key)}
 			}
 		}
-		
+
 		return results
 	}
-	
+
 	return dataloader.NewBatchedLoader(batchFn, dataloader.WithCache(&dataloader.InMemoryCache[string, *database.TestRun]{}))
 }
 
 func createSuiteRunLoader(db *gorm.DB) *dataloader.Loader[string, *database.SuiteRun] {
 	batchFn := func(ctx context.Context, keys []string) []*dataloader.Result[*database.SuiteRun] {
 		suiteRunMap := make(map[string]*database.SuiteRun)
-		
+
 		var suiteRuns []database.SuiteRun
 		if err := db.Where("id IN ?", keys).Find(&suiteRuns).Error; err != nil {
 			results := make([]*dataloader.Result[*database.SuiteRun], len(keys))
@@ -167,11 +167,11 @@ func createSuiteRunLoader(db *gorm.DB) *dataloader.Loader[string, *database.Suit
 			}
 			return results
 		}
-		
+
 		for i := range suiteRuns {
 			suiteRunMap[fmt.Sprintf("%d", suiteRuns[i].ID)] = &suiteRuns[i]
 		}
-		
+
 		results := make([]*dataloader.Result[*database.SuiteRun], len(keys))
 		for i, key := range keys {
 			if suiteRun, ok := suiteRunMap[key]; ok {
@@ -180,17 +180,17 @@ func createSuiteRunLoader(db *gorm.DB) *dataloader.Loader[string, *database.Suit
 				results[i] = &dataloader.Result[*database.SuiteRun]{Error: fmt.Errorf("suite run not found: %s", key)}
 			}
 		}
-		
+
 		return results
 	}
-	
+
 	return dataloader.NewBatchedLoader(batchFn, dataloader.WithCache(&dataloader.InMemoryCache[string, *database.SuiteRun]{}))
 }
 
 func createSpecRunLoader(db *gorm.DB) *dataloader.Loader[string, *database.SpecRun] {
 	batchFn := func(ctx context.Context, keys []string) []*dataloader.Result[*database.SpecRun] {
 		specRunMap := make(map[string]*database.SpecRun)
-		
+
 		var specRuns []database.SpecRun
 		if err := db.Where("id IN ?", keys).Find(&specRuns).Error; err != nil {
 			results := make([]*dataloader.Result[*database.SpecRun], len(keys))
@@ -199,11 +199,11 @@ func createSpecRunLoader(db *gorm.DB) *dataloader.Loader[string, *database.SpecR
 			}
 			return results
 		}
-		
+
 		for i := range specRuns {
 			specRunMap[fmt.Sprintf("%d", specRuns[i].ID)] = &specRuns[i]
 		}
-		
+
 		results := make([]*dataloader.Result[*database.SpecRun], len(keys))
 		for i, key := range keys {
 			if specRun, ok := specRunMap[key]; ok {
@@ -212,17 +212,17 @@ func createSpecRunLoader(db *gorm.DB) *dataloader.Loader[string, *database.SpecR
 				results[i] = &dataloader.Result[*database.SpecRun]{Error: fmt.Errorf("spec run not found: %s", key)}
 			}
 		}
-		
+
 		return results
 	}
-	
+
 	return dataloader.NewBatchedLoader(batchFn, dataloader.WithCache(&dataloader.InMemoryCache[string, *database.SpecRun]{}))
 }
 
 func createTagLoader(db *gorm.DB) *dataloader.Loader[string, *database.Tag] {
 	batchFn := func(ctx context.Context, keys []string) []*dataloader.Result[*database.Tag] {
 		tagMap := make(map[string]*database.Tag)
-		
+
 		var tags []database.Tag
 		if err := db.Where("id IN ?", keys).Find(&tags).Error; err != nil {
 			results := make([]*dataloader.Result[*database.Tag], len(keys))
@@ -231,11 +231,11 @@ func createTagLoader(db *gorm.DB) *dataloader.Loader[string, *database.Tag] {
 			}
 			return results
 		}
-		
+
 		for i := range tags {
 			tagMap[fmt.Sprintf("%d", tags[i].ID)] = &tags[i]
 		}
-		
+
 		results := make([]*dataloader.Result[*database.Tag], len(keys))
 		for i, key := range keys {
 			if tag, ok := tagMap[key]; ok {
@@ -244,17 +244,17 @@ func createTagLoader(db *gorm.DB) *dataloader.Loader[string, *database.Tag] {
 				results[i] = &dataloader.Result[*database.Tag]{Error: fmt.Errorf("tag not found: %s", key)}
 			}
 		}
-		
+
 		return results
 	}
-	
+
 	return dataloader.NewBatchedLoader(batchFn, dataloader.WithCache(&dataloader.InMemoryCache[string, *database.Tag]{}))
 }
 
 func createUserLoader(db *gorm.DB) *dataloader.Loader[string, *database.User] {
 	batchFn := func(ctx context.Context, keys []string) []*dataloader.Result[*database.User] {
 		userMap := make(map[string]*database.User)
-		
+
 		var users []database.User
 		if err := db.Where("user_id IN ?", keys).Find(&users).Error; err != nil {
 			results := make([]*dataloader.Result[*database.User], len(keys))
@@ -263,11 +263,11 @@ func createUserLoader(db *gorm.DB) *dataloader.Loader[string, *database.User] {
 			}
 			return results
 		}
-		
+
 		for i := range users {
 			userMap[users[i].UserID] = &users[i]
 		}
-		
+
 		results := make([]*dataloader.Result[*database.User], len(keys))
 		for i, key := range keys {
 			if user, ok := userMap[key]; ok {
@@ -276,10 +276,10 @@ func createUserLoader(db *gorm.DB) *dataloader.Loader[string, *database.User] {
 				results[i] = &dataloader.Result[*database.User]{Error: fmt.Errorf("user not found: %s", key)}
 			}
 		}
-		
+
 		return results
 	}
-	
+
 	return dataloader.NewBatchedLoader(batchFn, dataloader.WithCache(&dataloader.InMemoryCache[string, *database.User]{}))
 }
 
@@ -300,7 +300,7 @@ func createSuiteRunsByTestRunLoader(db *gorm.DB) *dataloader.Loader[string, []*d
 			}
 			intIDs[i] = parsedID
 		}
-		
+
 		// Query all suite runs for all test run IDs at once
 		var suiteRuns []database.SuiteRun
 		if err := db.Where("test_run_id IN ?", intIDs).
@@ -312,14 +312,14 @@ func createSuiteRunsByTestRunLoader(db *gorm.DB) *dataloader.Loader[string, []*d
 			}
 			return results
 		}
-		
+
 		// Group by test run ID
 		suiteRunsByTestRun := make(map[string][]*database.SuiteRun)
 		for i := range suiteRuns {
 			testRunID := fmt.Sprintf("%d", suiteRuns[i].TestRunID)
 			suiteRunsByTestRun[testRunID] = append(suiteRunsByTestRun[testRunID], &suiteRuns[i])
 		}
-		
+
 		// Build results
 		results := make([]*dataloader.Result[[]*database.SuiteRun], len(testRunIDs))
 		for i, testRunID := range testRunIDs {
@@ -329,11 +329,11 @@ func createSuiteRunsByTestRunLoader(db *gorm.DB) *dataloader.Loader[string, []*d
 			}
 			results[i] = &dataloader.Result[[]*database.SuiteRun]{Data: suites}
 		}
-		
+
 		return results
 	}
-	
-	return dataloader.NewBatchedLoader(batchFn, 
+
+	return dataloader.NewBatchedLoader(batchFn,
 		dataloader.WithCache(&dataloader.InMemoryCache[string, []*database.SuiteRun]{}),
 		dataloader.WithBatchCapacity[string, []*database.SuiteRun](100),
 		dataloader.WithWait[string, []*database.SuiteRun](2*time.Millisecond))
@@ -354,7 +354,7 @@ func createSpecRunsBySuiteRunLoader(db *gorm.DB) *dataloader.Loader[string, []*d
 			}
 			intIDs[i] = parsedID
 		}
-		
+
 		var specRuns []database.SpecRun
 		if err := db.Where("suite_run_id IN ?", intIDs).
 			Order("start_time ASC").
@@ -365,13 +365,13 @@ func createSpecRunsBySuiteRunLoader(db *gorm.DB) *dataloader.Loader[string, []*d
 			}
 			return results
 		}
-		
+
 		specRunsBySuite := make(map[string][]*database.SpecRun)
 		for i := range specRuns {
 			suiteRunID := fmt.Sprintf("%d", specRuns[i].SuiteRunID)
 			specRunsBySuite[suiteRunID] = append(specRunsBySuite[suiteRunID], &specRuns[i])
 		}
-		
+
 		results := make([]*dataloader.Result[[]*database.SpecRun], len(suiteRunIDs))
 		for i, suiteRunID := range suiteRunIDs {
 			specs := specRunsBySuite[suiteRunID]
@@ -380,11 +380,11 @@ func createSpecRunsBySuiteRunLoader(db *gorm.DB) *dataloader.Loader[string, []*d
 			}
 			results[i] = &dataloader.Result[[]*database.SpecRun]{Data: specs}
 		}
-		
+
 		return results
 	}
-	
-	return dataloader.NewBatchedLoader(batchFn, 
+
+	return dataloader.NewBatchedLoader(batchFn,
 		dataloader.WithCache(&dataloader.InMemoryCache[string, []*database.SpecRun]{}),
 		dataloader.WithBatchCapacity[string, []*database.SpecRun](100),
 		dataloader.WithWait[string, []*database.SpecRun](2*time.Millisecond))
@@ -397,7 +397,7 @@ func createTagsByTestRunLoader(db *gorm.DB) *dataloader.Loader[string, []*databa
 			TestRunID uint
 			TagID     uint
 		}
-		
+
 		var associations []tagAssoc
 		if err := db.Table("test_run_tags").
 			Select("test_run_id, tag_id").
@@ -409,18 +409,18 @@ func createTagsByTestRunLoader(db *gorm.DB) *dataloader.Loader[string, []*databa
 			}
 			return results
 		}
-		
+
 		// Get unique tag IDs
 		tagIDMap := make(map[uint]bool)
 		for _, assoc := range associations {
 			tagIDMap[assoc.TagID] = true
 		}
-		
+
 		tagIDs := make([]uint, 0, len(tagIDMap))
 		for id := range tagIDMap {
 			tagIDs = append(tagIDs, id)
 		}
-		
+
 		// Fetch all tags
 		var tags []database.Tag
 		if len(tagIDs) > 0 {
@@ -432,13 +432,13 @@ func createTagsByTestRunLoader(db *gorm.DB) *dataloader.Loader[string, []*databa
 				return results
 			}
 		}
-		
+
 		// Build tag map
 		tagMap := make(map[uint]*database.Tag)
 		for i := range tags {
 			tagMap[tags[i].ID] = &tags[i]
 		}
-		
+
 		// Group tags by test run
 		tagsByTestRun := make(map[string][]*database.Tag)
 		for _, assoc := range associations {
@@ -446,7 +446,7 @@ func createTagsByTestRunLoader(db *gorm.DB) *dataloader.Loader[string, []*databa
 				tagsByTestRun[fmt.Sprintf("%d", assoc.TestRunID)] = append(tagsByTestRun[fmt.Sprintf("%d", assoc.TestRunID)], tag)
 			}
 		}
-		
+
 		// Build results
 		results := make([]*dataloader.Result[[]*database.Tag], len(testRunIDs))
 		for i, testRunID := range testRunIDs {
@@ -456,11 +456,11 @@ func createTagsByTestRunLoader(db *gorm.DB) *dataloader.Loader[string, []*databa
 			}
 			results[i] = &dataloader.Result[[]*database.Tag]{Data: tags}
 		}
-		
+
 		return results
 	}
-	
-	return dataloader.NewBatchedLoader(batchFn, 
+
+	return dataloader.NewBatchedLoader(batchFn,
 		dataloader.WithCache(&dataloader.InMemoryCache[string, []*database.Tag]{}),
 		dataloader.WithBatchCapacity[string, []*database.Tag](100),
 		dataloader.WithWait[string, []*database.Tag](2*time.Millisecond),

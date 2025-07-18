@@ -6,8 +6,8 @@ import (
 
 // TestRun represents a test execution instance
 type TestRun struct {
-	ID           uint                   `json:"id"`           // Database ID
-	RunID        string                 `json:"run_id"`       // Unique run identifier
+	ID           uint                   `json:"id"`     // Database ID
+	RunID        string                 `json:"run_id"` // Unique run identifier
 	ProjectID    string                 `json:"project_id"`
 	Name         string                 `json:"name"`
 	Branch       string                 `json:"branch"`

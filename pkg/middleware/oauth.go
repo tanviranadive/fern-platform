@@ -106,14 +106,14 @@ func (m *OAuthMiddleware) RequireOAuth() gin.HandlerFunc {
 		if err != nil {
 			m.logger.WithRequest(c.GetString("request_id"), c.Request.Method, c.Request.URL.Path).
 				WithError(err).Warn("OAuth authentication failed")
-			
+
 			// Clear expired session and oauth state cookies
 			isSecure := m.shouldUseSecureCookie(c)
 			cookieDomain := m.getCookieDomain()
 			c.SetSameSite(http.SameSiteLaxMode)
 			c.SetCookie("session_id", "", -1, "/", cookieDomain, isSecure, true)
 			c.SetCookie("oauth_state", "", -1, "/", cookieDomain, isSecure, true)
-			
+
 			// Redirect to login for browser requests, return 401 for API requests
 			if m.isAPIRequest(c) {
 				c.JSON(http.StatusUnauthorized, gin.H{"error": "Authentication required"})
@@ -145,7 +145,7 @@ func (m *OAuthMiddleware) RequireAdmin() gin.HandlerFunc {
 				WithField("user_id", user.UserID).
 				WithField("user_role", user.Role).
 				Warn("Admin access denied - insufficient privileges")
-			
+
 			if m.isAPIRequest(c) {
 				c.JSON(http.StatusForbidden, gin.H{"error": "Admin privileges required"})
 			} else {
@@ -171,7 +171,7 @@ func (m *OAuthMiddleware) RequireManager() gin.HandlerFunc {
 		if !IsTeamManager(c) {
 			m.logger.WithRequest(c.GetString("request_id"), c.Request.Method, c.Request.URL.Path).
 				Warn("Manager access denied - insufficient privileges")
-			
+
 			if m.isAPIRequest(c) {
 				c.JSON(http.StatusForbidden, gin.H{"error": "Manager privileges required"})
 			} else {
@@ -233,7 +233,7 @@ func (m *OAuthMiddleware) RequireProjectAccess(minRole database.ProjectRole) gin
 				WithField("project_id", projectID).
 				WithField("required_role", minRole).
 				Warn("Project access denied")
-			
+
 			c.JSON(http.StatusForbidden, gin.H{"error": "Insufficient project access"})
 			c.Abort()
 			return
@@ -262,7 +262,7 @@ func (m *OAuthMiddleware) StartOAuthFlow() gin.HandlerFunc {
 		// Store state in session/cookie for validation
 		isSecure := m.shouldUseSecureCookie(c)
 		cookieDomain := m.getCookieDomain()
-		
+
 		// Clear any existing oauth_state cookie first to prevent conflicts
 		// This is important when user logs out and tries to login again
 		// We need to clear with both SameSite modes to ensure removal
@@ -274,7 +274,7 @@ func (m *OAuthMiddleware) StartOAuthFlow() gin.HandlerFunc {
 		// Always clear with SameSiteLax as well
 		c.SetSameSite(http.SameSiteLaxMode)
 		c.SetCookie("oauth_state", "", -1, "/", cookieDomain, isSecure, true)
-		
+
 		// Set SameSite to None for cross-site requests when using HTTPS
 		// Use Lax for HTTP to maintain CSRF protection
 		if isSecure {
@@ -282,22 +282,22 @@ func (m *OAuthMiddleware) StartOAuthFlow() gin.HandlerFunc {
 		} else {
 			c.SetSameSite(http.SameSiteLaxMode)
 		}
-		
+
 		// Set the new state cookie with explicit path
 		c.SetCookie("oauth_state", state, 600, "/", cookieDomain, isSecure, true) // 10 minutes
-		
+
 		// For debugging: also set a backup cookie without HttpOnly to check via JavaScript
 		if os.Getenv("DEBUG_OAUTH") == "true" {
 			c.SetCookie("oauth_state_debug", state, 600, "/", cookieDomain, isSecure, false)
-			
+
 			// Additional debug logging
 			m.logger.WithFields(map[string]interface{}{
-				"state": state,
+				"state":         state,
 				"cookie_domain": cookieDomain,
 				"cookie_secure": isSecure,
-				"request_url": c.Request.URL.String(),
-				"request_host": c.Request.Host,
-				"user_agent": c.GetHeader("User-Agent"),
+				"request_url":   c.Request.URL.String(),
+				"request_host":  c.Request.Host,
+				"user_agent":    c.GetHeader("User-Agent"),
 			}).Info("OAuth login initiated with state")
 		}
 
@@ -312,13 +312,13 @@ func (m *OAuthMiddleware) StartOAuthFlow() gin.HandlerFunc {
 				return "Lax"
 			}(),
 			"x_forwarded_proto": c.GetHeader("X-Forwarded-Proto"),
-			"x_forwarded_host": c.GetHeader("X-Forwarded-Host"),
-			"host": c.Request.Host,
+			"x_forwarded_host":  c.GetHeader("X-Forwarded-Host"),
+			"host":              c.Request.Host,
 		}).Debug("Setting OAuth state cookie")
 
 		// Build authorization URL
 		authURL := m.buildAuthURL(state)
-		
+
 		c.Redirect(http.StatusFound, authURL)
 	}
 }
@@ -343,22 +343,22 @@ func (m *OAuthMiddleware) HandleOAuthCallback() gin.HandlerFunc {
 		if err != nil {
 			// Log all cookies for debugging
 			debugInfo := map[string]interface{}{
-				"all_cookies": c.Request.Header.Get("Cookie"),
-				"host": c.Request.Host,
-				"x_forwarded_host": c.GetHeader("X-Forwarded-Host"),
+				"all_cookies":       c.Request.Header.Get("Cookie"),
+				"host":              c.Request.Host,
+				"x_forwarded_host":  c.GetHeader("X-Forwarded-Host"),
 				"x_forwarded_proto": c.GetHeader("X-Forwarded-Proto"),
-				"referer": c.GetHeader("Referer"),
-				"state_param": state,
-				"request_url": c.Request.URL.String(),
+				"referer":           c.GetHeader("Referer"),
+				"state_param":       state,
+				"request_url":       c.Request.URL.String(),
 			}
-			
+
 			// Check if debug cookie exists
 			if os.Getenv("DEBUG_OAUTH") == "true" {
 				if debugState, debugErr := c.Cookie("oauth_state_debug"); debugErr == nil {
 					debugInfo["oauth_state_debug"] = debugState
 				}
 			}
-			
+
 			m.logger.WithError(err).WithFields(debugInfo).Warn("OAuth state cookie not found")
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Session expired. Please login again."})
 			return
@@ -366,15 +366,15 @@ func (m *OAuthMiddleware) HandleOAuthCallback() gin.HandlerFunc {
 
 		if state != expectedState {
 			debugInfo := map[string]interface{}{
-				"state": state,
-				"expected": expectedState,
-				"state_length": len(state),
+				"state":           state,
+				"expected":        expectedState,
+				"state_length":    len(state),
 				"expected_length": len(expectedState),
-				"all_cookies": c.Request.Header.Get("Cookie"),
-				"host": c.Request.Host,
-				"referer": c.GetHeader("Referer"),
+				"all_cookies":     c.Request.Header.Get("Cookie"),
+				"host":            c.Request.Host,
+				"referer":         c.GetHeader("Referer"),
 			}
-			
+
 			// Check debug cookie in case of mismatch
 			if os.Getenv("DEBUG_OAUTH") == "true" {
 				if debugState, debugErr := c.Cookie("oauth_state_debug"); debugErr == nil {
@@ -383,7 +383,7 @@ func (m *OAuthMiddleware) HandleOAuthCallback() gin.HandlerFunc {
 					debugInfo["debug_matches_state"] = (debugState == state)
 				}
 			}
-			
+
 			m.logger.WithFields(debugInfo).Warn("OAuth state mismatch")
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid state parameter. Please login again."})
 			return
@@ -416,8 +416,8 @@ func (m *OAuthMiddleware) HandleOAuthCallback() gin.HandlerFunc {
 		user, err := m.createOrUpdateUser(userInfo)
 		if err != nil {
 			m.logger.WithError(err).WithFields(map[string]interface{}{
-				"email": userInfo.Email,
-				"sub": userInfo.Sub,
+				"email":  userInfo.Email,
+				"sub":    userInfo.Sub,
 				"groups": userInfo.Groups,
 			}).Error("Failed to create/update user")
 			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("User creation failed: %v", err)})
@@ -446,10 +446,10 @@ func (m *OAuthMiddleware) HandleOAuthCallback() gin.HandlerFunc {
 
 		// Log successful authentication
 		m.logger.WithFields(map[string]interface{}{
-			"user_id": user.UserID,
-			"email": user.Email,
+			"user_id":    user.UserID,
+			"email":      user.Email,
 			"session_id": session.SessionID,
-			"groups": userInfo.Groups,
+			"groups":     userInfo.Groups,
 		}).Info("OAuth authentication successful")
 
 		// Redirect to dashboard or intended page
@@ -462,12 +462,12 @@ func (m *OAuthMiddleware) HandleOAuthCallback() gin.HandlerFunc {
 func (m *OAuthMiddleware) Logout() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var idToken string
-		
+
 		sessionID, err := c.Cookie("session_id")
 		if err == nil && sessionID != "" {
 			// Get ID token from session before invalidating
 			idToken = m.getIDTokenFromSession(sessionID)
-			
+
 			// Invalidate session in database
 			m.invalidateSession(sessionID)
 		}
@@ -475,29 +475,29 @@ func (m *OAuthMiddleware) Logout() gin.HandlerFunc {
 		// Clear session cookie
 		isSecure := m.shouldUseSecureCookie(c)
 		cookieDomain := m.getCookieDomain()
-		
+
 		// Match the SameSite setting used during login
 		if isSecure {
 			c.SetSameSite(http.SameSiteNoneMode)
 		} else {
 			c.SetSameSite(http.SameSiteLaxMode)
 		}
-		
+
 		c.SetCookie("session_id", "", -1, "/", cookieDomain, isSecure, true)
 		c.SetCookie("oauth_state", "", -1, "/", cookieDomain, isSecure, true) // Clear any residual state
 
 		// Build provider logout URL with ID token hint
 		providerLogoutURL := m.buildProviderLogoutURL(idToken)
-		
+
 		// For AJAX requests, return JSON response with provider logout URL
 		if c.GetHeader("Content-Type") == "application/json" || c.GetHeader("X-Requested-With") == "XMLHttpRequest" {
 			c.JSON(http.StatusOK, gin.H{
-				"message": "Logged out successfully",
+				"message":    "Logged out successfully",
 				"logout_url": providerLogoutURL,
 			})
 			return
 		}
-		
+
 		// For direct requests, redirect to provider logout
 		c.Redirect(http.StatusFound, providerLogoutURL)
 	}
@@ -508,23 +508,23 @@ func (m *OAuthMiddleware) buildProviderLogoutURL(idToken string) string {
 	if !m.config.OAuth.Enabled {
 		return "/auth/login"
 	}
-	
+
 	// If no ID token, just redirect to local login to avoid the error
 	if idToken == "" {
 		return "/auth/login"
 	}
-	
+
 	// If a specific logout URL is configured, use it
 	if m.config.OAuth.LogoutURL != "" {
 		logoutURL := m.config.OAuth.LogoutURL
-		
+
 		// Add ID token hint parameter
 		separator := "?"
 		if strings.Contains(logoutURL, "?") {
 			separator = "&"
 		}
 		logoutURL += fmt.Sprintf("%sid_token_hint=%s", separator, url.QueryEscape(idToken))
-		
+
 		// Add post-logout redirect URI
 		redirectURL := m.config.OAuth.RedirectURL
 		if redirectURL != "" {
@@ -532,17 +532,17 @@ func (m *OAuthMiddleware) buildProviderLogoutURL(idToken string) string {
 			postLogoutURL := strings.Replace(redirectURL, "/auth/callback", "/auth/login", 1)
 			logoutURL += fmt.Sprintf("&post_logout_redirect_uri=%s", url.QueryEscape(postLogoutURL))
 		}
-		
+
 		return logoutURL
 	}
-	
+
 	// Fallback: try to construct from issuer URL (common OIDC pattern)
 	if m.config.OAuth.IssuerURL != "" {
 		logoutURL := strings.TrimSuffix(m.config.OAuth.IssuerURL, "/") + "/protocol/openid-connect/logout"
-		
+
 		// Add ID token hint
 		logoutURL += fmt.Sprintf("?id_token_hint=%s", url.QueryEscape(idToken))
-		
+
 		// Add post-logout redirect URI
 		redirectURL := m.config.OAuth.RedirectURL
 		if redirectURL != "" {
@@ -550,10 +550,10 @@ func (m *OAuthMiddleware) buildProviderLogoutURL(idToken string) string {
 			postLogoutURL := strings.Replace(redirectURL, "/auth/callback", "/auth/login", 1)
 			logoutURL += fmt.Sprintf("&post_logout_redirect_uri=%s", url.QueryEscape(postLogoutURL))
 		}
-		
+
 		return logoutURL
 	}
-	
+
 	// Final fallback to local login page if no provider logout available
 	return "/auth/login"
 }
@@ -585,7 +585,7 @@ func (m *OAuthMiddleware) validateOAuthSession(c *gin.Context) (*database.User, 
 	m.logger.WithField("session_id", sessionID).Debug("Validating session")
 
 	var session database.UserSession
-	err = m.db.Where("session_id = ? AND is_active = ? AND expires_at > ?", 
+	err = m.db.Where("session_id = ? AND is_active = ? AND expires_at > ?",
 		sessionID, true, time.Now()).First(&session).Error
 	if err != nil {
 		m.logger.WithError(err).WithField("session_id", sessionID).Debug("Session validation failed")
@@ -610,8 +610,8 @@ func (m *OAuthMiddleware) validateOAuthSession(c *gin.Context) (*database.User, 
 
 func (m *OAuthMiddleware) isAPIRequest(c *gin.Context) bool {
 	return strings.HasPrefix(c.Request.URL.Path, "/api/") ||
-		   strings.Contains(c.GetHeader("Accept"), "application/json") ||
-		   strings.Contains(c.GetHeader("Content-Type"), "application/json")
+		strings.Contains(c.GetHeader("Accept"), "application/json") ||
+		strings.Contains(c.GetHeader("Content-Type"), "application/json")
 }
 
 func (m *OAuthMiddleware) setUserContext(c *gin.Context, user *database.User, session *database.UserSession) {
@@ -626,31 +626,31 @@ func (m *OAuthMiddleware) getUserFromContext(c *gin.Context) (*database.User, bo
 	if !exists {
 		return nil, false
 	}
-	
+
 	u, ok := user.(*database.User)
 	return u, ok
 }
 
 func (m *OAuthMiddleware) checkProjectAccess(userID, projectID string, minRole database.ProjectRole) (bool, error) {
 	var access database.ProjectAccess
-	err := m.db.Where("user_id = ? AND project_id = ? AND (expires_at IS NULL OR expires_at > ?)", 
+	err := m.db.Where("user_id = ? AND project_id = ? AND (expires_at IS NULL OR expires_at > ?)",
 		userID, projectID, time.Now()).First(&access).Error
-	
+
 	if err != nil {
 		return false, nil // No access found
 	}
 
 	// Check role hierarchy: admin > editor > viewer
 	userRole := database.ProjectRole(access.Role)
-	
+
 	switch minRole {
 	case database.ProjectRoleViewer:
-		return userRole == database.ProjectRoleViewer || 
-			   userRole == database.ProjectRoleEditor || 
-			   userRole == database.ProjectRoleAdmin, nil
+		return userRole == database.ProjectRoleViewer ||
+			userRole == database.ProjectRoleEditor ||
+			userRole == database.ProjectRoleAdmin, nil
 	case database.ProjectRoleEditor:
-		return userRole == database.ProjectRoleEditor || 
-			   userRole == database.ProjectRoleAdmin, nil
+		return userRole == database.ProjectRoleEditor ||
+			userRole == database.ProjectRoleAdmin, nil
 	case database.ProjectRoleAdmin:
 		return userRole == database.ProjectRoleAdmin, nil
 	default:
@@ -674,7 +674,7 @@ func (m *OAuthMiddleware) buildAuthURL(state string) string {
 	params.Add("redirect_uri", m.config.OAuth.RedirectURL)
 	params.Add("scope", strings.Join(m.config.OAuth.Scopes, " "))
 	params.Add("state", state)
-	
+
 	return m.config.OAuth.AuthURL + "?" + params.Encode()
 }
 
@@ -684,7 +684,7 @@ type TokenResponse struct {
 	TokenType    string `json:"token_type"`
 	ExpiresIn    int    `json:"expires_in"`
 	RefreshToken string `json:"refresh_token,omitempty"`
-	IDToken      string `json:"id_token,omitempty"`      // ID token for logout
+	IDToken      string `json:"id_token,omitempty"` // ID token for logout
 	Scope        string `json:"scope,omitempty"`
 }
 
@@ -732,13 +732,13 @@ func (m *OAuthMiddleware) exchangeCodeForToken(code string) (*TokenResponse, err
 
 // UserInfo represents user information from OAuth provider
 type UserInfo struct {
-	Sub           string                 `json:"sub"`
-	Email         string                 `json:"email"`
-	Name          string                 `json:"name"`
-	Picture       string                 `json:"picture"`
-	Groups        []string               `json:"groups"`
-	Roles         []string               `json:"roles"`
-	Attributes    map[string]interface{} `json:"-"` // Store all other attributes
+	Sub        string                 `json:"sub"`
+	Email      string                 `json:"email"`
+	Name       string                 `json:"name"`
+	Picture    string                 `json:"picture"`
+	Groups     []string               `json:"groups"`
+	Roles      []string               `json:"roles"`
+	Attributes map[string]interface{} `json:"-"` // Store all other attributes
 }
 
 func (m *OAuthMiddleware) getUserInfo(accessToken string) (*UserInfo, error) {
@@ -816,10 +816,10 @@ func (m *OAuthMiddleware) getUserInfo(accessToken string) (*UserInfo, error) {
 
 func (m *OAuthMiddleware) createOrUpdateUser(userInfo *UserInfo) (*database.User, error) {
 	var user database.User
-	
+
 	// Try to find existing user
 	err := m.db.Where("user_id = ? OR email = ?", userInfo.Sub, userInfo.Email).First(&user).Error
-	
+
 	if err == gorm.ErrRecordNotFound {
 		// Create new user
 		user = database.User{
@@ -830,7 +830,7 @@ func (m *OAuthMiddleware) createOrUpdateUser(userInfo *UserInfo) (*database.User
 			Status:     "active",
 			ProfileURL: userInfo.Picture,
 		}
-		
+
 		// Safely extract additional fields from attributes
 		if firstName, ok := userInfo.Attributes["given_name"].(string); ok {
 			user.FirstName = firstName
@@ -841,11 +841,11 @@ func (m *OAuthMiddleware) createOrUpdateUser(userInfo *UserInfo) (*database.User
 		if emailVerified, ok := userInfo.Attributes["email_verified"].(bool); ok {
 			user.EmailVerified = emailVerified
 		}
-		
+
 		if err := m.db.Create(&user).Error; err != nil {
 			return nil, err
 		}
-		
+
 		// Create user group memberships
 		for _, group := range userInfo.Groups {
 			userGroup := database.UserGroup{
@@ -863,7 +863,7 @@ func (m *OAuthMiddleware) createOrUpdateUser(userInfo *UserInfo) (*database.User
 		user.Email = userInfo.Email
 		user.Name = userInfo.Name
 		user.ProfileURL = userInfo.Picture
-		
+
 		// Safely extract additional fields from attributes
 		if firstName, ok := userInfo.Attributes["given_name"].(string); ok {
 			user.FirstName = firstName
@@ -874,22 +874,22 @@ func (m *OAuthMiddleware) createOrUpdateUser(userInfo *UserInfo) (*database.User
 		if emailVerified, ok := userInfo.Attributes["email_verified"].(bool); ok {
 			user.EmailVerified = emailVerified
 		}
-		
+
 		// Update role if needed
 		newRole := m.determineUserRole(userInfo)
 		if newRole != user.Role {
 			user.Role = newRole
 		}
-		
+
 		if err := m.db.Save(&user).Error; err != nil {
 			return nil, err
 		}
-		
+
 		// Update user group memberships - remove old ones and add new ones
 		if err := m.db.Where("user_id = ?", user.UserID).Delete(&database.UserGroup{}).Error; err != nil {
 			m.logger.WithError(err).Warn("Failed to delete old user groups")
 		}
-		
+
 		for _, group := range userInfo.Groups {
 			userGroup := database.UserGroup{
 				UserID:    user.UserID,
@@ -918,14 +918,14 @@ func (m *OAuthMiddleware) determineUserRole(userInfo *UserInfo) string {
 		if group == "admin" || group == "/admin" {
 			return string(database.RoleAdmin)
 		}
-		
+
 		// Check configured admin groups
 		for _, adminGroup := range m.config.OAuth.AdminGroups {
 			if group == adminGroup {
 				return string(database.RoleAdmin)
 			}
 		}
-		
+
 		// Check for manager groups (team-managers pattern)
 		if strings.HasSuffix(group, "-managers") || strings.Contains(group, "managers") {
 			return string(database.RoleUser) // Managers are still "users" at the system level
@@ -987,13 +987,13 @@ func (m *OAuthMiddleware) setSessionCookie(c *gin.Context, sessionID string) {
 	// Use Secure flag in production (HTTPS)
 	isSecure := m.shouldUseSecureCookie(c)
 	cookieDomain := m.getCookieDomain()
-	
+
 	// Set SameSite to Lax for CSRF protection
 	c.SetSameSite(http.SameSiteLaxMode)
-	
+
 	// Default to 24 hours
 	var maxAge int = 86400
-	
+
 	c.SetCookie("session_id", sessionID, maxAge, "/", cookieDomain, isSecure, true)
 }
 
@@ -1011,7 +1011,7 @@ func (m *OAuthMiddleware) shouldUseSecureCookie(c *gin.Context) bool {
 	if cookieSecure := os.Getenv("COOKIE_SECURE"); cookieSecure != "" {
 		return cookieSecure == "true"
 	}
-	
+
 	// Check if we trust proxy headers
 	if trustProxy := os.Getenv("TRUST_PROXY"); trustProxy == "true" {
 		// Trust X-Forwarded-Proto header
@@ -1019,7 +1019,7 @@ func (m *OAuthMiddleware) shouldUseSecureCookie(c *gin.Context) bool {
 			return true
 		}
 	}
-	
+
 	// Fall back to TLS check
 	return c.Request.TLS != nil
 }
@@ -1040,7 +1040,7 @@ func GetOAuthUser(c *gin.Context) (*database.User, bool) {
 	if !exists {
 		return nil, false
 	}
-	
+
 	u, ok := user.(*database.User)
 	return u, ok
 }
@@ -1051,7 +1051,7 @@ func GetOAuthSession(c *gin.Context) (*database.UserSession, bool) {
 	if !exists {
 		return nil, false
 	}
-	
+
 	s, ok := session.(*database.UserSession)
 	return s, ok
 }
@@ -1068,13 +1068,13 @@ func GetUserTeams(c *gin.Context) []string {
 	if !exists {
 		return nil
 	}
-	
+
 	var teams []string
 	for _, group := range user.UserGroups {
 		groupName := group.GroupName
 		// Remove leading slash if present
 		groupName = strings.TrimPrefix(groupName, "/")
-		
+
 		// Extract team name from group pattern (e.g., "fern-managers" -> "fern")
 		if strings.HasSuffix(groupName, "-managers") {
 			team := strings.TrimSuffix(groupName, "-managers")
@@ -1084,7 +1084,7 @@ func GetUserTeams(c *gin.Context) []string {
 			teams = append(teams, team)
 		}
 	}
-	
+
 	return teams
 }
 
@@ -1094,12 +1094,12 @@ func IsTeamManager(c *gin.Context) bool {
 	if !exists {
 		return false
 	}
-	
+
 	// Admins are always managers
 	if user.Role == string(database.RoleAdmin) {
 		return true
 	}
-	
+
 	// Check if user is in any manager group
 	for _, group := range user.UserGroups {
 		groupName := strings.TrimPrefix(group.GroupName, "/")
@@ -1107,7 +1107,7 @@ func IsTeamManager(c *gin.Context) bool {
 			return true
 		}
 	}
-	
+
 	return false
 }
 
@@ -1117,12 +1117,12 @@ func IsManagerForTeam(c *gin.Context, team string) bool {
 	if !exists {
 		return false
 	}
-	
+
 	// Admins can manage all teams
 	if user.Role == string(database.RoleAdmin) {
 		return true
 	}
-	
+
 	// Check if user is in the specific team's manager group
 	managerGroup := team + "-managers"
 	for _, group := range user.UserGroups {
@@ -1131,7 +1131,7 @@ func IsManagerForTeam(c *gin.Context, team string) bool {
 			return true
 		}
 	}
-	
+
 	return false
 }
 
@@ -1141,12 +1141,12 @@ func CanAccessTeamProjects(c *gin.Context, team string) bool {
 	if !exists {
 		return false
 	}
-	
+
 	// Admins can access all teams
 	if user.Role == string(database.RoleAdmin) {
 		return true
 	}
-	
+
 	// Check if user is in any group for this team
 	teamGroups := []string{team + "-managers", team + "-users"}
 	for _, group := range user.UserGroups {
@@ -1157,7 +1157,7 @@ func CanAccessTeamProjects(c *gin.Context, team string) bool {
 			}
 		}
 	}
-	
+
 	return false
 }
 
@@ -1167,10 +1167,10 @@ func GetUserScopes(c *gin.Context) []string {
 	if !exists {
 		return nil
 	}
-	
+
 	scopes := make([]string, 0, len(user.UserScopes))
 	now := time.Now()
-	
+
 	for _, scope := range user.UserScopes {
 		// Skip expired scopes
 		if scope.ExpiresAt != nil && scope.ExpiresAt.Before(now) {
@@ -1178,7 +1178,7 @@ func GetUserScopes(c *gin.Context) []string {
 		}
 		scopes = append(scopes, scope.Scope)
 	}
-	
+
 	return scopes
 }
 
@@ -1199,16 +1199,16 @@ func matchScope(userScope, requiredScope string) bool {
 	if userScope == requiredScope {
 		return true
 	}
-	
+
 	// Split scopes into parts
 	userParts := strings.Split(userScope, ":")
 	requiredParts := strings.Split(requiredScope, ":")
-	
+
 	// Must have same number of parts
 	if len(userParts) != len(requiredParts) {
 		return false
 	}
-	
+
 	// Check each part
 	for i := range userParts {
 		if userParts[i] == "*" || requiredParts[i] == "*" {
@@ -1218,7 +1218,7 @@ func matchScope(userScope, requiredScope string) bool {
 			return false
 		}
 	}
-	
+
 	return true
 }
 
@@ -1228,27 +1228,27 @@ func (m *OAuthMiddleware) CanManageProject(c *gin.Context, projectID string, act
 	if !exists {
 		return false
 	}
-	
+
 	// Admin can do anything
 	if user.Role == string(database.RoleAdmin) {
 		return true
 	}
-	
+
 	// Get project to check team
 	var project database.ProjectDetails
 	if err := m.db.Where("project_id = ?", projectID).First(&project).Error; err != nil {
 		return false
 	}
-	
+
 	// Check scopes
 	requiredScopes := []string{
-		fmt.Sprintf("project:%s:%s", action, projectID),        // Specific project
-		fmt.Sprintf("project:%s:%s:*", action, project.Team),   // Team wildcard
-		fmt.Sprintf("project:*:%s", projectID),                 // All actions on project
-		fmt.Sprintf("project:*:%s:*", project.Team),            // All actions on team
-		"project:*:*",                                           // Global project admin
+		fmt.Sprintf("project:%s:%s", action, projectID),      // Specific project
+		fmt.Sprintf("project:%s:%s:*", action, project.Team), // Team wildcard
+		fmt.Sprintf("project:*:%s", projectID),               // All actions on project
+		fmt.Sprintf("project:*:%s:*", project.Team),          // All actions on team
+		"project:*:*", // Global project admin
 	}
-	
+
 	userScopes := GetUserScopes(c)
 	for _, scope := range userScopes {
 		for _, required := range requiredScopes {
@@ -1257,12 +1257,12 @@ func (m *OAuthMiddleware) CanManageProject(c *gin.Context, projectID string, act
 			}
 		}
 	}
-	
+
 	// Check explicit project permissions in database
 	var perm database.ProjectPermission
 	now := time.Now()
-	err := m.db.Where("project_id = ? AND user_id = ? AND permission IN ? AND (expires_at IS NULL OR expires_at > ?)", 
+	err := m.db.Where("project_id = ? AND user_id = ? AND permission IN ? AND (expires_at IS NULL OR expires_at > ?)",
 		projectID, user.UserID, []string{action, "admin"}, now).First(&perm).Error
-	
+
 	return err == nil
 }

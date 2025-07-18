@@ -18,7 +18,7 @@ type User struct {
 	LastLoginAt   *time.Time
 	CreatedAt     time.Time
 	UpdatedAt     time.Time
-	
+
 	// Relationships
 	Groups []UserGroup
 	Scopes []UserScope
@@ -36,8 +36,8 @@ const (
 type UserStatus string
 
 const (
-	StatusActive   UserStatus = "active"
-	StatusInactive UserStatus = "inactive"
+	StatusActive    UserStatus = "active"
+	StatusInactive  UserStatus = "inactive"
 	StatusSuspended UserStatus = "suspended"
 )
 
@@ -93,7 +93,7 @@ func (u *User) IsTeamManager() bool {
 	if u.IsAdmin() {
 		return true
 	}
-	
+
 	for _, group := range u.Groups {
 		if isManagerGroup(group.GroupName) {
 			return true
@@ -107,7 +107,7 @@ func (u *User) IsManagerForTeam(team string) bool {
 	if u.IsAdmin() {
 		return true
 	}
-	
+
 	managerGroup := team + "-managers"
 	return u.HasGroup(managerGroup)
 }
@@ -116,7 +116,7 @@ func (u *User) IsManagerForTeam(team string) bool {
 func extractTeamFromGroup(groupName string) string {
 	// Remove leading slash if present
 	groupName = trimPrefix(groupName, "/")
-	
+
 	// Extract team name from group pattern
 	if hasSuffix(groupName, "-managers") {
 		return trimSuffix(groupName, "-managers")

@@ -5,16 +5,16 @@ import (
 	"fmt"
 	"time"
 
-	"gorm.io/gorm"
 	"github.com/guidewire-oss/fern-platform/internal/domains/projects/domain"
+	"gorm.io/gorm"
 )
 
 // ProjectPermissionDB represents the database model for project permissions
 type ProjectPermissionDB struct {
-	ID         uint      `gorm:"primaryKey"`
-	ProjectID  string    `gorm:"index:idx_project_user_permission,unique"`
-	UserID     string    `gorm:"index:idx_project_user_permission,unique"`
-	Permission string    `gorm:"index:idx_project_user_permission,unique"`
+	ID         uint   `gorm:"primaryKey"`
+	ProjectID  string `gorm:"index:idx_project_user_permission,unique"`
+	UserID     string `gorm:"index:idx_project_user_permission,unique"`
+	Permission string `gorm:"index:idx_project_user_permission,unique"`
 	GrantedBy  string
 	GrantedAt  time.Time
 	ExpiresAt  *time.Time

@@ -50,7 +50,7 @@ func (a *OAuthAdapter) BuildAuthURL(state string) string {
 	params.Add("redirect_uri", a.config.OAuth.RedirectURL)
 	params.Add("scope", strings.Join(a.config.OAuth.Scopes, " "))
 	params.Add("state", state)
-	
+
 	return a.config.OAuth.AuthURL + "?" + params.Encode()
 }
 
@@ -184,45 +184,45 @@ func (a *OAuthAdapter) BuildProviderLogoutURL(idToken string) string {
 	if !a.config.OAuth.Enabled {
 		return "/auth/login"
 	}
-	
+
 	// If no ID token, just redirect to local login
 	if idToken == "" {
 		return "/auth/login"
 	}
-	
+
 	// If a specific logout URL is configured, use it
 	if a.config.OAuth.LogoutURL != "" {
 		logoutURL := a.config.OAuth.LogoutURL
-		
+
 		// Add ID token hint parameter
 		separator := "?"
 		if strings.Contains(logoutURL, "?") {
 			separator = "&"
 		}
 		logoutURL += fmt.Sprintf("%sid_token_hint=%s", separator, url.QueryEscape(idToken))
-		
+
 		// Add post-logout redirect URI
 		if a.config.OAuth.RedirectURL != "" {
 			postLogoutURL := strings.Replace(a.config.OAuth.RedirectURL, "/auth/callback", "/auth/login", 1)
 			logoutURL += fmt.Sprintf("&post_logout_redirect_uri=%s", url.QueryEscape(postLogoutURL))
 		}
-		
+
 		return logoutURL
 	}
-	
+
 	// Fallback: try to construct from issuer URL (common OIDC pattern)
 	if a.config.OAuth.IssuerURL != "" {
 		logoutURL := strings.TrimSuffix(a.config.OAuth.IssuerURL, "/") + "/protocol/openid-connect/logout"
 		logoutURL += fmt.Sprintf("?id_token_hint=%s", url.QueryEscape(idToken))
-		
+
 		if a.config.OAuth.RedirectURL != "" {
 			postLogoutURL := strings.Replace(a.config.OAuth.RedirectURL, "/auth/callback", "/auth/login", 1)
 			logoutURL += fmt.Sprintf("&post_logout_redirect_uri=%s", url.QueryEscape(postLogoutURL))
 		}
-		
+
 		return logoutURL
 	}
-	
+
 	// Final fallback to local login page
 	return "/auth/login"
 }

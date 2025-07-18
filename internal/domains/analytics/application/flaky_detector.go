@@ -119,7 +119,7 @@ func (s *FlakyDetectionService) analyzeTest(ctx context.Context, projectID strin
 		if exec.Status == "failed" {
 			failureCount++
 			consecutivePasses = 0
-			
+
 			if lastFailure == nil || exec.ExecutedAt.After(lastFailure.FailedAt) {
 				lastFailure = &domain.TestFailureInfo{
 					TestRunID:    exec.TestRunID,
@@ -152,7 +152,7 @@ func (s *FlakyDetectionService) analyzeTest(ctx context.Context, projectID strin
 	if failureRate >= s.config.MinFailureRate && failureRate <= s.config.MaxFailureRate {
 		// Test is flaky
 		flakeScore := s.calculateFlakeScore(failureRate, len(history), consecutivePasses)
-		
+
 		if existingFlaky == nil {
 			// New flaky test
 			flaky := &domain.FlakyTest{
@@ -171,15 +171,15 @@ func (s *FlakyDetectionService) analyzeTest(ctx context.Context, projectID strin
 					RecentFailures: []domain.TestFailureInfo{},
 				},
 			}
-			
+
 			if lastFailure != nil {
 				flaky.Metadata.RecentFailures = append(flaky.Metadata.RecentFailures, *lastFailure)
 			}
-			
+
 			if err := s.repo.SaveFlakyTest(ctx, flaky); err != nil {
 				return nil, fmt.Errorf("failed to save new flaky test: %w", err)
 			}
-			
+
 			return &testAnalysisResult{testID: testID, action: actionNewFlaky}, nil
 		} else {
 			// Update existing flaky test
@@ -188,7 +188,7 @@ func (s *FlakyDetectionService) analyzeTest(ctx context.Context, projectID strin
 			existingFlaky.FailureCount = failureCount
 			existingFlaky.FlakeScore = flakeScore
 			existingFlaky.Status = domain.StatusActive
-			
+
 			if lastFailure != nil {
 				// Add to recent failures, keep only last 10
 				existingFlaky.Metadata.RecentFailures = append([]domain.TestFailureInfo{*lastFailure}, existingFlaky.Metadata.RecentFailures...)
@@ -196,11 +196,11 @@ func (s *FlakyDetectionService) analyzeTest(ctx context.Context, projectID strin
 					existingFlaky.Metadata.RecentFailures = existingFlaky.Metadata.RecentFailures[:10]
 				}
 			}
-			
+
 			if err := s.repo.SaveFlakyTest(ctx, existingFlaky); err != nil {
 				return nil, fmt.Errorf("failed to update flaky test: %w", err)
 			}
-			
+
 			return &testAnalysisResult{testID: testID, action: actionStillFlaky}, nil
 		}
 	} else if existingFlaky != nil && existingFlaky.Status == domain.StatusActive {
@@ -220,17 +220,17 @@ func (s *FlakyDetectionService) analyzeTest(ctx context.Context, projectID strin
 func (s *FlakyDetectionService) calculateFlakeScore(failureRate float64, totalRuns int, consecutivePasses int) float64 {
 	// Base score is the failure rate
 	score := failureRate
-	
+
 	// Adjust based on total runs (more runs = more confidence)
 	runConfidence := math.Min(float64(totalRuns)/100.0, 1.0)
 	score = score * (0.7 + 0.3*runConfidence)
-	
+
 	// Adjust based on recent stability
 	if consecutivePasses > 5 {
 		stabilityFactor := math.Min(float64(consecutivePasses)/20.0, 0.5)
 		score = score * (1.0 - stabilityFactor)
 	}
-	
+
 	return math.Min(math.Max(score, 0.0), 1.0)
 }
 
@@ -247,7 +247,7 @@ func (s *FlakyDetectionService) GetFlakyTestTrends(ctx context.Context, projectI
 	// Get all analyses for the project within the period
 	// endTime := time.Now()
 	// startTime := endTime.Add(-period)
-	
+
 	// This would be implemented by the repository
 	// For now, return empty trends
 	return []FlakyTestTrend{}, nil
@@ -255,8 +255,8 @@ func (s *FlakyDetectionService) GetFlakyTestTrends(ctx context.Context, projectI
 
 // FlakyTestTrend represents flaky test counts over time
 type FlakyTestTrend struct {
-	Date         time.Time
-	ActiveCount  int
-	NewCount     int
+	Date          time.Time
+	ActiveCount   int
+	NewCount      int
 	ResolvedCount int
 }

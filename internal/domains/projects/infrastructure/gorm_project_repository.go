@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"gorm.io/gorm"
 	"github.com/guidewire-oss/fern-platform/internal/domains/projects/domain"
 	"github.com/guidewire-oss/fern-platform/pkg/database"
+	"gorm.io/gorm"
 )
 
 // GormProjectRepository is a GORM implementation of ProjectRepository

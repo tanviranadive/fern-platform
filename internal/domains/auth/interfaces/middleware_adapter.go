@@ -12,11 +12,11 @@ import (
 
 // AuthMiddlewareAdapter provides Gin middleware using auth domain services
 type AuthMiddlewareAdapter struct {
-	authService   *application.AuthenticationService
-	authzService  *application.AuthorizationService
-	oauthAdapter  *OAuthAdapter
-	config        *config.AuthConfig
-	logger        *logging.Logger
+	authService  *application.AuthenticationService
+	authzService *application.AuthorizationService
+	oauthAdapter *OAuthAdapter
+	config       *config.AuthConfig
+	logger       *logging.Logger
 }
 
 // NewAuthMiddlewareAdapter creates a new auth middleware adapter
@@ -79,7 +79,7 @@ func (m *AuthMiddlewareAdapter) RequireAdmin() gin.HandlerFunc {
 				WithField("user_id", user.UserID).
 				WithField("user_role", user.Role).
 				Warn("Admin access denied - insufficient privileges")
-			
+
 			if m.isAPIRequest(c) {
 				c.JSON(403, gin.H{"error": "Admin privileges required"})
 			} else {
@@ -106,7 +106,7 @@ func (m *AuthMiddlewareAdapter) RequireManager() gin.HandlerFunc {
 		if !exists || !user.IsTeamManager() {
 			m.logger.WithRequest(c.GetString("request_id"), c.Request.Method, c.Request.URL.Path).
 				Warn("Manager access denied - insufficient privileges")
-			
+
 			if m.isAPIRequest(c) {
 				c.JSON(403, gin.H{"error": "Manager privileges required"})
 			} else {
@@ -142,7 +142,7 @@ func (m *AuthMiddlewareAdapter) StartOAuthFlow() gin.HandlerFunc {
 
 		// Build authorization URL
 		authURL := m.oauthAdapter.BuildAuthURL(state)
-		
+
 		c.Redirect(302, authURL)
 	}
 }
@@ -210,9 +210,9 @@ func (m *AuthMiddlewareAdapter) HandleOAuthCallback() gin.HandlerFunc {
 
 		// Log successful authentication
 		m.logger.WithFields(map[string]interface{}{
-			"user_id": result.User.UserID,
-			"email": result.User.Email,
-			"session_id": result.Session.SessionID,
+			"user_id":     result.User.UserID,
+			"email":       result.User.Email,
+			"session_id":  result.Session.SessionID,
 			"is_new_user": result.IsNewUser,
 		}).Info("OAuth authentication successful")
 
@@ -229,14 +229,14 @@ func (m *AuthMiddlewareAdapter) Logout() gin.HandlerFunc {
 		if err == nil && sessionID != "" {
 			// Get session for ID token
 			session, _ := m.authService.ValidateSession(c.Request.Context(), sessionID)
-			
+
 			// Invalidate session
 			m.authService.Logout(c.Request.Context(), sessionID)
-			
+
 			// Clear session cookie
 			isSecure := c.Request.TLS != nil || c.GetHeader("X-Forwarded-Proto") == "https"
 			c.SetCookie("session_id", "", -1, "/", "", isSecure, true)
-			
+
 			// Build provider logout URL
 			var providerLogoutURL string
 			if session != nil {
@@ -244,16 +244,16 @@ func (m *AuthMiddlewareAdapter) Logout() gin.HandlerFunc {
 			} else {
 				providerLogoutURL = m.oauthAdapter.BuildProviderLogoutURL("")
 			}
-			
+
 			// For AJAX requests, return JSON response
 			if c.GetHeader("Content-Type") == "application/json" || c.GetHeader("X-Requested-With") == "XMLHttpRequest" {
 				c.JSON(200, gin.H{
-					"message": "Logged out successfully",
+					"message":    "Logged out successfully",
 					"logout_url": providerLogoutURL,
 				})
 				return
 			}
-			
+
 			// For direct requests, redirect to provider logout
 			c.Redirect(302, providerLogoutURL)
 			return
@@ -269,7 +269,7 @@ func (m *AuthMiddlewareAdapter) Logout() gin.HandlerFunc {
 func (m *AuthMiddlewareAdapter) handleUnauthenticated(c *gin.Context) {
 	m.logger.WithRequest(c.GetString("request_id"), c.Request.Method, c.Request.URL.Path).
 		Debug("Authentication required")
-	
+
 	// Redirect to login for browser requests, return 401 for API requests
 	if m.isAPIRequest(c) {
 		c.JSON(401, gin.H{"error": "Authentication required"})
@@ -281,8 +281,8 @@ func (m *AuthMiddlewareAdapter) handleUnauthenticated(c *gin.Context) {
 
 func (m *AuthMiddlewareAdapter) isAPIRequest(c *gin.Context) bool {
 	return strings.HasPrefix(c.Request.URL.Path, "/api/") ||
-		   strings.Contains(c.GetHeader("Accept"), "application/json") ||
-		   strings.Contains(c.GetHeader("Content-Type"), "application/json")
+		strings.Contains(c.GetHeader("Accept"), "application/json") ||
+		strings.Contains(c.GetHeader("Content-Type"), "application/json")
 }
 
 func (m *AuthMiddlewareAdapter) setUserContext(c *gin.Context, user *domain.User, session *domain.Session) {
@@ -297,7 +297,7 @@ func (m *AuthMiddlewareAdapter) getUserFromContext(c *gin.Context) (*domain.User
 	if !exists {
 		return nil, false
 	}
-	
+
 	u, ok := user.(*domain.User)
 	return u, ok
 }
@@ -314,18 +314,18 @@ func GetAuthUser(c *gin.Context) (*domain.User, bool) {
 	if !exists {
 		return nil, false
 	}
-	
+
 	u, ok := user.(*domain.User)
 	return u, ok
 }
 
-// GetAuthSession extracts the session from Gin context  
+// GetAuthSession extracts the session from Gin context
 func GetAuthSession(c *gin.Context) (*domain.Session, bool) {
 	session, exists := c.Get("session")
 	if !exists {
 		return nil, false
 	}
-	
+
 	s, ok := session.(*domain.Session)
 	return s, ok
 }
@@ -354,12 +354,12 @@ func CanAccessTeamProjects(c *gin.Context, team string) bool {
 	if !exists {
 		return false
 	}
-	
+
 	// Admins can access all teams
 	if user.IsAdmin() {
 		return true
 	}
-	
+
 	// Check if user is in any group for this team
 	teamGroups := []string{team + "-managers", team + "-users"}
 	for _, group := range user.Groups {
@@ -369,6 +369,6 @@ func CanAccessTeamProjects(c *gin.Context, team string) bool {
 			}
 		}
 	}
-	
+
 	return false
 }

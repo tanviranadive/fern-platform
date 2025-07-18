@@ -23,20 +23,20 @@ func NewGormTestRunRepository(db *gorm.DB) *GormTestRunRepository {
 // Create creates a new test run
 func (r *GormTestRunRepository) Create(ctx context.Context, testRun *domain.TestRun) error {
 	dbTestRun := &database.TestRun{
-		ProjectID:     testRun.ProjectID,
-		RunID:         testRun.RunID,
-		Status:        testRun.Status,
-		Branch:        testRun.Branch,
-		CommitSHA:     testRun.GitCommit,
-		StartTime:     testRun.StartTime,
-		EndTime:       testRun.EndTime,
-		Duration:      int64(testRun.Duration / time.Millisecond),
-		TotalTests:    testRun.TotalTests,
-		PassedTests:   testRun.PassedTests,
-		FailedTests:   testRun.FailedTests,
-		SkippedTests:  testRun.SkippedTests,
-		Environment:   testRun.Environment,
-		Metadata:      database.JSONMap(testRun.Metadata),
+		ProjectID:    testRun.ProjectID,
+		RunID:        testRun.RunID,
+		Status:       testRun.Status,
+		Branch:       testRun.Branch,
+		CommitSHA:    testRun.GitCommit,
+		StartTime:    testRun.StartTime,
+		EndTime:      testRun.EndTime,
+		Duration:     int64(testRun.Duration / time.Millisecond),
+		TotalTests:   testRun.TotalTests,
+		PassedTests:  testRun.PassedTests,
+		FailedTests:  testRun.FailedTests,
+		SkippedTests: testRun.SkippedTests,
+		Environment:  testRun.Environment,
+		Metadata:     database.JSONMap(testRun.Metadata),
 	}
 
 	if err := r.db.WithContext(ctx).Create(dbTestRun).Error; err != nil {
@@ -118,11 +118,11 @@ func (r *GormTestRunRepository) GetByProjectID(ctx context.Context, projectID st
 func (r *GormTestRunRepository) GetLatestByProjectID(ctx context.Context, projectID string, limit int) ([]*domain.TestRun, error) {
 	var dbTestRuns []database.TestRun
 	query := r.db.WithContext(ctx).Where("project_id = ?", projectID).Preload("SuiteRuns.SpecRuns").Order("created_at DESC")
-	
+
 	if limit > 0 {
 		query = query.Limit(limit)
 	}
-	
+
 	if err := query.Find(&dbTestRuns).Error; err != nil {
 		return nil, fmt.Errorf("failed to get latest test runs: %w", err)
 	}
@@ -152,7 +152,7 @@ func (r *GormTestRunRepository) GetWithDetails(ctx context.Context, id uint) (*d
 func (r *GormTestRunRepository) FindByDateRange(ctx context.Context, projectID string, startDate, endDate time.Time) ([]*domain.TestRun, error) {
 	var dbTestRuns []database.TestRun
 	query := r.db.WithContext(ctx).Where("project_id = ? AND created_at >= ? AND created_at <= ?", projectID, startDate, endDate).Order("created_at DESC")
-	
+
 	if err := query.Find(&dbTestRuns).Error; err != nil {
 		return nil, fmt.Errorf("failed to find test runs by date range: %w", err)
 	}
@@ -308,11 +308,11 @@ func (r *GormTestRunRepository) CountByProjectID(ctx context.Context, projectID 
 func (r *GormTestRunRepository) GetRecent(ctx context.Context, limit int) ([]*domain.TestRun, error) {
 	var dbTestRuns []database.TestRun
 	query := r.db.WithContext(ctx).Model(&database.TestRun{}).Preload("SuiteRuns.SpecRuns").Order("created_at DESC")
-	
+
 	if limit > 0 {
 		query = query.Limit(limit)
 	}
-	
+
 	if err := query.Find(&dbTestRuns).Error; err != nil {
 		return nil, fmt.Errorf("failed to get recent test runs: %w", err)
 	}

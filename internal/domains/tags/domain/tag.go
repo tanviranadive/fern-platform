@@ -65,4 +65,3 @@ func (t *Tag) ToSnapshot() TagSnapshot {
 		CreatedAt: t.createdAt,
 	}
 }
-

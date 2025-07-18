@@ -28,7 +28,7 @@ func NewAssignTagsHandler(tagRepo domain.TagRepository) *AssignTagsHandler {
 // Handle assigns tags to a test run
 func (h *AssignTagsHandler) Handle(ctx context.Context, cmd AssignTagsCommand) error {
 	tagIDs := make([]domain.TagID, 0, len(cmd.TagNames))
-	
+
 	// Create or find tags
 	for _, tagName := range cmd.TagNames {
 		// Check if tag exists
@@ -39,17 +39,17 @@ func (h *AssignTagsHandler) Handle(ctx context.Context, cmd AssignTagsCommand) e
 			if err != nil {
 				return err
 			}
-			
+
 			if err := h.tagRepo.Save(ctx, newTag); err != nil {
 				return err
 			}
-			
+
 			tagIDs = append(tagIDs, newTag.ID())
 		} else {
 			tagIDs = append(tagIDs, tag.ID())
 		}
 	}
-	
+
 	// Assign tags to test run
 	return h.tagRepo.AssignToTestRun(ctx, fmt.Sprintf("%d", cmd.TestRunID), tagIDs)
 }

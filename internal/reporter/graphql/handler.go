@@ -14,9 +14,10 @@ import (
 	"github.com/99designs/gqlgen/graphql/playground"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
+
 	// "github.com/guidewire-oss/fern-platform/internal/reporter/graphql/dataloader"
-	"github.com/guidewire-oss/fern-platform/internal/reporter/graphql/generated"
 	authInterfaces "github.com/guidewire-oss/fern-platform/internal/domains/auth/interfaces"
+	"github.com/guidewire-oss/fern-platform/internal/reporter/graphql/generated"
 	"github.com/vektah/gqlparser/v2/gqlerror"
 )
 
@@ -76,22 +77,22 @@ func NewHandler(resolver *Resolver, roleGroupNames *RoleGroupNames) *Handler {
 	// Add custom error handler
 	srv.SetErrorPresenter(func(ctx context.Context, e error) *gqlerror.Error {
 		err := graphql.DefaultErrorPresenter(ctx, e)
-		
+
 		// Log errors
 		if resolver.logger != nil {
 			resolver.logger.WithError(e).Error("GraphQL error")
 		}
-		
+
 		// Don't expose internal errors in production
 		if err.Extensions == nil {
 			err.Extensions = make(map[string]interface{})
 		}
-		
+
 		// Add request ID if available
 		if reqID := ctx.Value("request_id"); reqID != nil {
 			err.Extensions["request_id"] = reqID
 		}
-		
+
 		return err
 	})
 
@@ -106,13 +107,13 @@ func NewHandler(resolver *Resolver, roleGroupNames *RoleGroupNames) *Handler {
 	// Enable field middleware for timing and logging
 	srv.AroundFields(func(ctx context.Context, next graphql.Resolver) (res interface{}, err error) {
 		start := time.Now()
-		
+
 		// Get field context
 		fc := graphql.GetFieldContext(ctx)
-		
+
 		// Execute resolver
 		res, err = next(ctx)
-		
+
 		// Log slow queries
 		duration := time.Since(start)
 		if duration > 100*time.Millisecond && resolver.logger != nil {
@@ -122,7 +123,7 @@ func NewHandler(resolver *Resolver, roleGroupNames *RoleGroupNames) *Handler {
 				"path":     fc.Path(),
 			}).Warn("Slow GraphQL field")
 		}
-		
+
 		return res, err
 	})
 
@@ -147,7 +148,7 @@ func (h *Handler) RegisterRoutes(router *gin.Engine, authMiddleware *authInterfa
 
 	// GraphQL endpoint with authentication
 	router.POST("/query", authMiddleware.RequireAuth(), h.graphqlHandler())
-	
+
 	// WebSocket endpoint for subscriptions
 	router.GET("/query", authMiddleware.RequireAuth(), h.graphqlHandler())
 }
@@ -157,24 +158,24 @@ func (h *Handler) graphqlHandler() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Add DataLoader middleware to context
 		ctx := c.Request.Context()
-		
+
 		// Add loaders to context
 		ctx = context.WithValue(ctx, "loaders", h.resolver.loaders)
-		
+
 		// Add request metadata
 		ctx = context.WithValue(ctx, "request_id", c.GetString("request_id"))
-		
+
 		// Add role group names to context
 		ctx = context.WithValue(ctx, "roleGroupNames", h.roleGroupNames)
-		
+
 		// Get user from auth context
 		if user, exists := authInterfaces.GetAuthUser(c); exists {
 			ctx = context.WithValue(ctx, "user", user)
 		}
-		
+
 		// Update request with new context
 		c.Request = c.Request.WithContext(ctx)
-		
+
 		// Serve GraphQL
 		h.server.ServeHTTP(c.Writer, c.Request)
 	}

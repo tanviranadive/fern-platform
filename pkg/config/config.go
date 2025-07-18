@@ -70,32 +70,32 @@ type OAuthConfig struct {
 	ClientSecret string   `mapstructure:"clientSecret"`
 	RedirectURL  string   `mapstructure:"redirectUrl"`
 	Scopes       []string `mapstructure:"scopes"`
-	
+
 	// OAuth 2.0/OpenID Connect endpoints (required for any provider)
-	AuthURL      string `mapstructure:"authUrl"`      // Authorization endpoint
-	TokenURL     string `mapstructure:"tokenUrl"`     // Token endpoint  
-	UserInfoURL  string `mapstructure:"userInfoUrl"`  // UserInfo endpoint
-	JWKSUrl      string `mapstructure:"jwksUrl"`      // JWKS endpoint for token validation
-	IssuerURL    string `mapstructure:"issuerUrl"`    // OpenID Connect Discovery URL (optional)
-	LogoutURL    string `mapstructure:"logoutUrl"`    // Logout endpoint (optional)
-	
+	AuthURL     string `mapstructure:"authUrl"`     // Authorization endpoint
+	TokenURL    string `mapstructure:"tokenUrl"`    // Token endpoint
+	UserInfoURL string `mapstructure:"userInfoUrl"` // UserInfo endpoint
+	JWKSUrl     string `mapstructure:"jwksUrl"`     // JWKS endpoint for token validation
+	IssuerURL   string `mapstructure:"issuerUrl"`   // OpenID Connect Discovery URL (optional)
+	LogoutURL   string `mapstructure:"logoutUrl"`   // Logout endpoint (optional)
+
 	// User and role mapping
 	AdminUsers       []string          `mapstructure:"adminUsers"`       // List of admin user emails/IDs
 	AdminGroups      []string          `mapstructure:"adminGroups"`      // List of admin groups from token claims
 	UserRoleMapping  map[string]string `mapstructure:"userRoleMapping"`  // Map specific users to roles
 	GroupRoleMapping map[string]string `mapstructure:"groupRoleMapping"` // Map groups to roles
-	
+
 	// Role group names (configurable)
 	AdminGroupName   string `mapstructure:"adminGroupName"`   // Name of admin group (default: "admin")
 	ManagerGroupName string `mapstructure:"managerGroupName"` // Name of manager group (default: "manager")
 	UserGroupName    string `mapstructure:"userGroupName"`    // Name of user group (default: "user")
-	
+
 	// Token claim field mappings (customize based on your provider)
-	UserIDField    string `mapstructure:"userIdField"`    // Field in token containing user ID (default: "sub")
-	EmailField     string `mapstructure:"emailField"`     // Field containing email (default: "email") 
-	NameField      string `mapstructure:"nameField"`      // Field containing display name (default: "name")
-	GroupsField    string `mapstructure:"groupsField"`    // Field containing user groups (default: "groups")
-	RolesField     string `mapstructure:"rolesField"`     // Field containing user roles (default: "roles")
+	UserIDField string `mapstructure:"userIdField"` // Field in token containing user ID (default: "sub")
+	EmailField  string `mapstructure:"emailField"`  // Field containing email (default: "email")
+	NameField   string `mapstructure:"nameField"`   // Field containing display name (default: "name")
+	GroupsField string `mapstructure:"groupsField"` // Field containing user groups (default: "groups")
+	RolesField  string `mapstructure:"rolesField"`  // Field containing user roles (default: "roles")
 }
 
 type LoggingConfig struct {
@@ -253,7 +253,7 @@ func (m *Manager) setDefaults() {
 	viper.SetDefault("auth.enabled", false)
 	viper.SetDefault("auth.tokenExpiry", "24h")
 	viper.SetDefault("auth.refreshExpiry", "168h")
-	
+
 	// OAuth defaults
 	viper.SetDefault("auth.oauth.enabled", false)
 	viper.SetDefault("auth.oauth.scopes", []string{"openid", "profile", "email"})
@@ -262,7 +262,7 @@ func (m *Manager) setDefaults() {
 	viper.SetDefault("auth.oauth.nameField", "name")
 	viper.SetDefault("auth.oauth.groupsField", "groups")
 	viper.SetDefault("auth.oauth.rolesField", "roles")
-	
+
 	// Role group name defaults
 	viper.SetDefault("auth.oauth.adminGroupName", "admin")
 	viper.SetDefault("auth.oauth.managerGroupName", "manager")
@@ -316,7 +316,7 @@ func (m *Manager) bindEnvVars() {
 	viper.BindEnv("auth.jwksUrl", "JWKS_URL")
 	viper.BindEnv("auth.issuer", "AUTH_ISSUER")
 	viper.BindEnv("auth.audience", "AUTH_AUDIENCE")
-	
+
 	// OAuth
 	viper.BindEnv("auth.oauth.enabled", "OAUTH_ENABLED")
 	viper.BindEnv("auth.oauth.clientId", "OAUTH_CLIENT_ID")
@@ -328,7 +328,7 @@ func (m *Manager) bindEnvVars() {
 	viper.BindEnv("auth.oauth.jwksUrl", "OAUTH_JWKS_URL")
 	viper.BindEnv("auth.oauth.issuerUrl", "OAUTH_ISSUER_URL")
 	viper.BindEnv("auth.oauth.logoutUrl", "OAUTH_LOGOUT_URL")
-	
+
 	// OAuth Admin and Field Mappings
 	viper.BindEnv("auth.oauth.adminUsers", "OAUTH_ADMIN_USERS")
 	viper.BindEnv("auth.oauth.adminGroups", "OAUTH_ADMIN_GROUPS")
@@ -337,7 +337,7 @@ func (m *Manager) bindEnvVars() {
 	viper.BindEnv("auth.oauth.nameField", "OAUTH_NAME_FIELD")
 	viper.BindEnv("auth.oauth.groupsField", "OAUTH_GROUPS_FIELD")
 	viper.BindEnv("auth.oauth.rolesField", "OAUTH_ROLES_FIELD")
-	
+
 	// Role group names
 	viper.BindEnv("auth.oauth.adminGroupName", "OAUTH_ADMIN_GROUP_NAME")
 	viper.BindEnv("auth.oauth.managerGroupName", "OAUTH_MANAGER_GROUP_NAME")

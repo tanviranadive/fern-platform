@@ -208,7 +208,7 @@ func (s *AuthenticationService) determineUserRole(userInfo UserInfo) domain.User
 			return domain.RoleAdmin
 		}
 	}
-	
+
 	// Default to regular user
 	return domain.RoleUser
 }

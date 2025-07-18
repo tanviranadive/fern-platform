@@ -8,12 +8,12 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/guidewire-oss/fern-platform/internal/reporter/graphql/model"
 	authDomain "github.com/guidewire-oss/fern-platform/internal/domains/auth/domain"
-	testingDomain "github.com/guidewire-oss/fern-platform/internal/domains/testing/domain"
-	projectsDomain "github.com/guidewire-oss/fern-platform/internal/domains/projects/domain"
 	projectsApp "github.com/guidewire-oss/fern-platform/internal/domains/projects/application"
+	projectsDomain "github.com/guidewire-oss/fern-platform/internal/domains/projects/domain"
 	tagsDomain "github.com/guidewire-oss/fern-platform/internal/domains/tags/domain"
+	testingDomain "github.com/guidewire-oss/fern-platform/internal/domains/testing/domain"
+	"github.com/guidewire-oss/fern-platform/internal/reporter/graphql/model"
 )
 
 // convertTestRunToGraphQL converts a domain test run to GraphQL model
@@ -28,19 +28,19 @@ func (r *Resolver) convertTestRunToGraphQL(testRun *testingDomain.TestRun) *mode
 	suiteDetails := make([]map[string]interface{}, len(testRun.SuiteRuns))
 	for i, s := range testRun.SuiteRuns {
 		suiteDetails[i] = map[string]interface{}{
-			"name": s.Name,
-			"id": s.ID,
-			"total_specs": s.TotalTests,
+			"name":         s.Name,
+			"id":           s.ID,
+			"total_specs":  s.TotalTests,
 			"passed_specs": s.PassedTests,
 			"failed_specs": s.FailedTests,
-			"spec_count": len(s.SpecRuns),
+			"spec_count":   len(s.SpecRuns),
 		}
 	}
-	
+
 	r.logger.WithFields(map[string]interface{}{
-		"test_run_id": testRun.ID,
-		"run_id": testRun.RunID,
-		"suite_count": len(testRun.SuiteRuns),
+		"test_run_id":   testRun.ID,
+		"run_id":        testRun.RunID,
+		"suite_count":   len(testRun.SuiteRuns),
 		"suite_details": suiteDetails,
 	}).Info("Converting test run to GraphQL")
 
@@ -97,7 +97,7 @@ func (r *Resolver) convertSpecRunToGraphQL(spec *testingDomain.SpecRun) *model.S
 	if spec.ErrorMessage != "" {
 		errorMessage = &spec.ErrorMessage
 	}
-	
+
 	var stackTrace *string
 	if spec.StackTrace != "" {
 		stackTrace = &spec.StackTrace
@@ -129,7 +129,7 @@ func (r *queryResolver) RecentTestRuns_domain(ctx context.Context, projectID *st
 
 	var testRuns []*testingDomain.TestRun
 	var err error
-	
+
 	if projectID != nil {
 		// Get test runs for specific project
 		testRuns, err = r.testingService.GetProjectTestRuns(ctx, *projectID, limitVal)
@@ -177,12 +177,12 @@ func (r *Resolver) convertTagToGraphQL(tag *tagsDomain.Tag) *model.Tag {
 		// Simple conversion - in production you'd want a proper mapping
 		id = fmt.Sprintf("%d", len(string(tagID)))
 	}
-	
+
 	return &model.Tag{
 		ID:          id,
 		Name:        tag.Name(),
-		Description: nil, // Not available in domain model
-		Color:       nil, // Not available in domain model
+		Description: nil,        // Not available in domain model
+		Color:       nil,        // Not available in domain model
 		CreatedAt:   time.Now(), // TODO: Add timestamps to domain model
 		UpdatedAt:   time.Now(), // TODO: Add timestamps to domain model
 	}
@@ -279,7 +279,7 @@ func (r *mutationResolver) CreateProject_domain(ctx context.Context, input model
 	// Only admins and managers can create projects
 	roleGroups := getRoleGroupNamesFromContext(ctx)
 	canCreate := user.Role == authDomain.RoleAdmin || hasManagerRole(user, roleGroups)
-	
+
 	if !canCreate {
 		return nil, fmt.Errorf("insufficient permissions to create project")
 	}
@@ -330,7 +330,7 @@ func (r *mutationResolver) CreateProject_domain(ctx context.Context, input model
 		if err := r.projectService.UpdateProject(ctx, projectsDomain.ProjectID(projectID), updateReq); err != nil {
 			return nil, err
 		}
-		
+
 		// Fetch updated project
 		project, err = r.projectService.GetProject(ctx, projectsDomain.ProjectID(projectID))
 		if err != nil {
@@ -363,10 +363,10 @@ func getStringValue(ptr *string) string {
 // UpdateProject implementation using domain service
 func (r *mutationResolver) UpdateProject_domain(ctx context.Context, id string, input model.UpdateProjectInput) (*model.Project, error) {
 	r.logger.WithFields(map[string]interface{}{
-		"id": id,
+		"id":    id,
 		"input": input,
 	}).Info("UpdateProject mutation called")
-	
+
 	// Check user permissions
 	user, err := getCurrentUser(ctx)
 	if err != nil {
@@ -469,10 +469,10 @@ func (r *mutationResolver) UpdateProject_domain(ctx context.Context, id string, 
 
 	if !canUpdate {
 		r.logger.WithFields(map[string]interface{}{
-			"user_id": user.UserID,
-			"project_id": projectID,
-			"user_role": user.Role,
-			"user_groups": user.Groups,
+			"user_id":      user.UserID,
+			"project_id":   projectID,
+			"user_role":    user.Role,
+			"user_groups":  user.Groups,
 			"project_team": snapshot.Team,
 		}).Warn("User lacks permission to update project")
 		return nil, fmt.Errorf("insufficient permissions to update project")
@@ -499,10 +499,10 @@ func (r *mutationResolver) UpdateProject_domain(ctx context.Context, id string, 
 
 	// Update the project
 	r.logger.WithFields(map[string]interface{}{
-		"project_id": projectID,
+		"project_id":     projectID,
 		"update_request": updateReq,
 	}).Info("Updating project")
-	
+
 	if err := r.projectService.UpdateProject(ctx, projectID, updateReq); err != nil {
 		return nil, fmt.Errorf("failed to update project: %w", err)
 	}
@@ -526,7 +526,7 @@ func (r *mutationResolver) DeleteProject_domain(ctx context.Context, id string) 
 	r.logger.WithFields(map[string]interface{}{
 		"id": id,
 	}).Info("DeleteProject mutation called")
-	
+
 	// Check user permissions
 	user, err := getCurrentUser(ctx)
 	if err != nil {
@@ -690,7 +690,7 @@ func (r *queryResolver) Projects_domain(ctx context.Context, filter *model.Proje
 	if first != nil && *first > 0 && *first <= 100 {
 		pageSize = *first
 	}
-	
+
 	offset := 0
 	if after != nil && *after != "" {
 		// Simple cursor: just the index
@@ -717,7 +717,7 @@ func (r *queryResolver) Projects_domain(ctx context.Context, filter *model.Proje
 		for _, team := range userTeams {
 			teamMap[team] = true
 		}
-		
+
 		// Filter projects by team
 		for _, project := range projects {
 			snapshot := project.ToSnapshot()
@@ -725,7 +725,7 @@ func (r *queryResolver) Projects_domain(ctx context.Context, filter *model.Proje
 				filteredProjects = append(filteredProjects, project)
 			}
 		}
-		
+
 		// Update total count to reflect filtered results
 		totalCount = int64(len(filteredProjects))
 	}
@@ -757,7 +757,7 @@ func (r *queryResolver) Projects_domain(ctx context.Context, filter *model.Proje
 		totalCount = int64(len(filteredProjects))
 	}
 
-	hasMore := offset + len(filteredProjects) < int(totalCount)
+	hasMore := offset+len(filteredProjects) < int(totalCount)
 
 	// Build edges
 	edges := make([]*model.ProjectEdge, len(filteredProjects))
@@ -770,7 +770,7 @@ func (r *queryResolver) Projects_domain(ctx context.Context, filter *model.Proje
 
 	// Build page info
 	pageInfo := &model.PageInfo{
-		HasNextPage: hasMore,
+		HasNextPage:     hasMore,
 		HasPreviousPage: offset > 0,
 	}
 	if len(edges) > 0 {
@@ -792,7 +792,7 @@ func (r *queryResolver) DashboardSummary_domain(ctx context.Context) (*model.Das
 	if err != nil {
 		return nil, fmt.Errorf("failed to get project count: %w", err)
 	}
-	
+
 	// Count active projects
 	activeProjects := int64(0)
 	for _, project := range projects {
@@ -807,28 +807,28 @@ func (r *queryResolver) DashboardSummary_domain(ctx context.Context) (*model.Das
 		// Log error but don't fail the whole query
 		r.logger.WithError(err).Error("Failed to get recent test runs for dashboard")
 	}
-	
+
 	totalTestRuns := len(recentRuns)
 	recentTestRuns := len(recentRuns)
 	overallPassRate := float64(0)
 	totalTestsExecuted := 0
 	avgDuration := 0
-	
+
 	if len(recentRuns) > 0 {
 		var totalTests, passedTests int
 		var totalDuration int64
-		
+
 		for _, tr := range recentRuns {
 			totalTests += tr.TotalTests
 			passedTests += tr.PassedTests
 			totalTestsExecuted += tr.TotalTests
 			totalDuration += tr.Duration.Milliseconds()
 		}
-		
+
 		if totalTests > 0 {
 			overallPassRate = float64(passedTests) / float64(totalTests) * 100
 		}
-		
+
 		if len(recentRuns) > 0 {
 			avgDuration = int(totalDuration / int64(len(recentRuns)))
 		}
@@ -842,13 +842,13 @@ func (r *queryResolver) DashboardSummary_domain(ctx context.Context) (*model.Das
 			Timestamp: time.Now(),
 			Version:   &version,
 		},
-		ProjectCount:         int(totalProjects),
-		ActiveProjectCount:   int(activeProjects),
-		TotalTestRuns:        totalTestRuns,
-		RecentTestRuns:       recentTestRuns,
-		OverallPassRate:      overallPassRate,
-		TotalTestsExecuted:   totalTestsExecuted,
-		AverageTestDuration:  avgDuration,
+		ProjectCount:        int(totalProjects),
+		ActiveProjectCount:  int(activeProjects),
+		TotalTestRuns:       totalTestRuns,
+		RecentTestRuns:      recentTestRuns,
+		OverallPassRate:     overallPassRate,
+		TotalTestsExecuted:  totalTestsExecuted,
+		AverageTestDuration: avgDuration,
 	}, nil
 }
 
@@ -859,17 +859,17 @@ func (r *queryResolver) TreemapData_domain(ctx context.Context, projectID *strin
 	if days != nil && *days > 0 {
 		daysToQuery = *days
 	}
-	
+
 	// Calculate date range
 	endTime := time.Now()
 	startTime := endTime.AddDate(0, 0, -daysToQuery)
-	
+
 	// Get all projects that the user has access to
 	projects, _, err := r.projectService.ListProjects(ctx, 1000, 0)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch projects: %w", err)
 	}
-	
+
 	// For each project, get test runs
 	var allTestRuns []*testingDomain.TestRun
 	for _, project := range projects {
@@ -877,14 +877,14 @@ func (r *queryResolver) TreemapData_domain(ctx context.Context, projectID *strin
 		if projectID != nil && *projectID != "" && string(project.ProjectID()) != *projectID {
 			continue
 		}
-		
+
 		// Get test runs for this project
 		testRuns, _, err := r.testingService.ListTestRuns(ctx, string(project.ProjectID()), 1000, 0)
 		if err != nil {
 			r.logger.WithError(err).Errorf("Failed to get test runs for project %s", project.ProjectID())
 			continue
 		}
-		
+
 		// Filter by date range
 		for _, run := range testRuns {
 			if run.StartTime.After(startTime) && run.StartTime.Before(endTime) {
@@ -892,13 +892,13 @@ func (r *queryResolver) TreemapData_domain(ctx context.Context, projectID *strin
 			}
 		}
 	}
-	
+
 	// Create a map for quick project lookup
 	projectMap := make(map[string]*projectsDomain.Project)
 	for _, p := range projects {
 		projectMap[string(p.ProjectID())] = p
 	}
-	
+
 	// Group test runs by project
 	projectRuns := make(map[string][]*testingDomain.TestRun)
 	for _, run := range allTestRuns {
@@ -907,28 +907,28 @@ func (r *queryResolver) TreemapData_domain(ctx context.Context, projectID *strin
 			projectRuns[run.ProjectID] = append(projectRuns[run.ProjectID], run)
 		}
 	}
-	
+
 	// Build treemap data
 	var projectNodes []*model.ProjectTreemapNode
 	totalDuration := 0
 	totalTests := 0
 	totalPassed := 0
-	
+
 	for projectID, runs := range projectRuns {
 		project, ok := projectMap[projectID]
 		if !ok {
 			continue
 		}
-		
+
 		// Convert to GraphQL project model
 		gqlProject := r.convertProjectToGraphQL(project)
-		
+
 		// Aggregate suite data across all runs for this project
 		suiteMap := make(map[string]*model.SuiteTreemapNode)
 		projectDuration := 0
 		projectTests := 0
 		projectPassed := 0
-		
+
 		for _, run := range runs {
 			// Get test run with details including suite runs
 			testRunWithDetails, err := r.testingService.GetTestRunWithDetails(ctx, run.ID)
@@ -936,10 +936,10 @@ func (r *queryResolver) TreemapData_domain(ctx context.Context, projectID *strin
 				r.logger.WithError(err).Errorf("Failed to get test run details for run %d", run.ID)
 				continue
 			}
-			
+
 			for _, suite := range testRunWithDetails.SuiteRuns {
 				key := suite.Name
-				
+
 				if node, exists := suiteMap[key]; exists {
 					// Update existing suite node
 					node.TotalDuration += int(suite.Duration.Milliseconds())
@@ -961,7 +961,7 @@ func (r *queryResolver) TreemapData_domain(ctx context.Context, projectID *strin
 						SkippedSpecs: suite.SkippedTests,
 						Duration:     int(suite.Duration.Milliseconds()),
 					}
-					
+
 					suiteMap[key] = &model.SuiteTreemapNode{
 						Suite:         gqlSuite,
 						Specs:         []*model.SpecTreemapNode{}, // Not including spec level for performance
@@ -973,12 +973,12 @@ func (r *queryResolver) TreemapData_domain(ctx context.Context, projectID *strin
 					}
 				}
 			}
-			
+
 			projectDuration += int(run.Duration.Milliseconds())
 			projectTests += run.TotalTests
 			projectPassed += run.PassedTests
 		}
-		
+
 		// Convert suite map to slice and calculate pass rates
 		var suiteNodes []*model.SuiteTreemapNode
 		for _, node := range suiteMap {
@@ -987,13 +987,13 @@ func (r *queryResolver) TreemapData_domain(ctx context.Context, projectID *strin
 			}
 			suiteNodes = append(suiteNodes, node)
 		}
-		
+
 		// Calculate project pass rate
 		projectPassRate := float64(0)
 		if projectTests > 0 {
 			projectPassRate = float64(projectPassed) / float64(projectTests)
 		}
-		
+
 		projectNode := &model.ProjectTreemapNode{
 			Project:       gqlProject,
 			Suites:        suiteNodes,
@@ -1004,19 +1004,19 @@ func (r *queryResolver) TreemapData_domain(ctx context.Context, projectID *strin
 			PassRate:      projectPassRate,
 			TotalRuns:     len(runs), // Add the count of test runs for this project within the time range
 		}
-		
+
 		projectNodes = append(projectNodes, projectNode)
 		totalDuration += projectDuration
 		totalTests += projectTests
 		totalPassed += projectPassed
 	}
-	
+
 	// Calculate overall pass rate
 	overallPassRate := float64(0)
 	if totalTests > 0 {
 		overallPassRate = float64(totalPassed) / float64(totalTests)
 	}
-	
+
 	return &model.TreemapData{
 		Projects:        projectNodes,
 		TotalDuration:   totalDuration,
@@ -1032,7 +1032,7 @@ func (r *queryResolver) TestRuns_domain(ctx context.Context, filter *model.TestR
 	if first != nil && *first > 0 && *first <= 100 {
 		pageSize = *first
 	}
-	
+
 	offset := 0
 	if after != nil && *after != "" {
 		// Simple cursor: just the index
@@ -1053,7 +1053,7 @@ func (r *queryResolver) TestRuns_domain(ctx context.Context, filter *model.TestR
 		return nil, fmt.Errorf("failed to list test runs: %w", err)
 	}
 
-	hasMore := offset + len(testRuns) < int(totalCount)
+	hasMore := offset+len(testRuns) < int(totalCount)
 
 	// Build edges
 	edges := make([]*model.TestRunEdge, len(testRuns))

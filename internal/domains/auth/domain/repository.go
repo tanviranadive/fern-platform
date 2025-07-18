@@ -14,11 +14,11 @@ type UserRepository interface {
 	FindByEmail(ctx context.Context, email string) (*User, error)
 	FindByIDOrEmail(ctx context.Context, userID, email string) (*User, error)
 	UpdateLastLogin(ctx context.Context, userID string, loginTime time.Time) error
-	
+
 	// Group operations
 	SetUserGroups(ctx context.Context, userID string, groups []string) error
 	GetUserGroups(ctx context.Context, userID string) ([]UserGroup, error)
-	
+
 	// Scope operations
 	GrantScope(ctx context.Context, scope UserScope) error
 	RevokeScope(ctx context.Context, userID, scope string) error

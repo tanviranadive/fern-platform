@@ -113,7 +113,7 @@ func (db *DB) Migrate(migrationsPath string) error {
 	}
 
 	log.Printf("[MIGRATE] Starting migrations from path: %s\n", migrationsPath)
-	
+
 	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
 		return fmt.Errorf("failed to run migrations: %w", err)
 	}

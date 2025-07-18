@@ -86,8 +86,8 @@ func (pp *ProjectPermission) CanRead() bool {
 	if pp.IsExpired() {
 		return false
 	}
-	return pp.permission == PermissionRead || pp.permission == PermissionWrite || 
-	       pp.permission == PermissionDelete || pp.permission == PermissionAdmin
+	return pp.permission == PermissionRead || pp.permission == PermissionWrite ||
+		pp.permission == PermissionDelete || pp.permission == PermissionAdmin
 }
 
 // CanWrite checks if the permission allows writing
@@ -95,8 +95,8 @@ func (pp *ProjectPermission) CanWrite() bool {
 	if pp.IsExpired() {
 		return false
 	}
-	return pp.permission == PermissionWrite || pp.permission == PermissionDelete || 
-	       pp.permission == PermissionAdmin
+	return pp.permission == PermissionWrite || pp.permission == PermissionDelete ||
+		pp.permission == PermissionAdmin
 }
 
 // CanDelete checks if the permission allows deletion

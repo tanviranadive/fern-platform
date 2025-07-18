@@ -11,15 +11,15 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/guidewire-oss/fern-platform/internal/domains/testing/application"
-	"github.com/guidewire-oss/fern-platform/internal/domains/testing/domain"
+	analyticsApp "github.com/guidewire-oss/fern-platform/internal/domains/analytics/application"
+	_ "github.com/guidewire-oss/fern-platform/internal/domains/auth/domain"
+	"github.com/guidewire-oss/fern-platform/internal/domains/auth/interfaces"
 	projectsApp "github.com/guidewire-oss/fern-platform/internal/domains/projects/application"
 	projectsDomain "github.com/guidewire-oss/fern-platform/internal/domains/projects/domain"
 	tagsApp "github.com/guidewire-oss/fern-platform/internal/domains/tags/application"
 	tagsDomain "github.com/guidewire-oss/fern-platform/internal/domains/tags/domain"
-	_ "github.com/guidewire-oss/fern-platform/internal/domains/auth/domain"
-	"github.com/guidewire-oss/fern-platform/internal/domains/auth/interfaces"
-	analyticsApp "github.com/guidewire-oss/fern-platform/internal/domains/analytics/application"
+	"github.com/guidewire-oss/fern-platform/internal/domains/testing/application"
+	"github.com/guidewire-oss/fern-platform/internal/domains/testing/domain"
 	"github.com/guidewire-oss/fern-platform/pkg/logging"
 )
 
@@ -27,10 +27,10 @@ import (
 type DomainHandler struct {
 	testingService        *application.TestRunService
 	projectService        *projectsApp.ProjectService
-	tagService           *tagsApp.TagService
+	tagService            *tagsApp.TagService
 	flakyDetectionService *analyticsApp.FlakyDetectionService
-	authMiddleware       *interfaces.AuthMiddlewareAdapter
-	logger               *logging.Logger
+	authMiddleware        *interfaces.AuthMiddlewareAdapter
+	logger                *logging.Logger
 }
 
 // NewDomainHandler creates a new domain-based API handler
@@ -45,10 +45,10 @@ func NewDomainHandler(
 	return &DomainHandler{
 		testingService:        testingService,
 		projectService:        projectService,
-		tagService:           tagService,
+		tagService:            tagService,
 		flakyDetectionService: flakyDetectionService,
-		authMiddleware:       authMiddleware,
-		logger:               logger,
+		authMiddleware:        authMiddleware,
+		logger:                logger,
 	}
 }
 
@@ -57,7 +57,7 @@ func (h *DomainHandler) RegisterRoutes(router *gin.Engine) {
 	// Static file serving for web interface
 	router.Static("/web", "./web")
 	router.Static("/docs", "./docs")
-	
+
 	// Root route - redirect to login if not authenticated, otherwise serve app
 	router.GET("/", func(c *gin.Context) {
 		// Check if user is authenticated
@@ -100,25 +100,25 @@ func (h *DomainHandler) RegisterRoutes(router *gin.Engine) {
 		user.GET("/test-runs/by-run-id/:runId", h.getTestRunByRunID)
 		user.GET("/test-runs/stats", h.getTestRunStats)
 		user.GET("/test-runs/recent", h.getRecentTestRuns)
-		
+
 		// Projects - read operations (require authentication)
 		user.GET("/projects", h.listProjects)
 		user.GET("/projects/:projectId", h.getProject)
 		user.GET("/projects/by-project-id/:projectId", h.getProjectByProjectID)
 		user.GET("/projects/stats/:projectId", h.getProjectStats)
-		
+
 		// Tags - read operations (require authentication)
 		user.GET("/tags", h.listTags)
 		user.GET("/tags/:id", h.getTag)
 		user.GET("/tags/by-name/:name", h.getTagByName)
 		user.GET("/tags/usage-stats", h.getTagUsageStats)
 		user.GET("/tags/popular", h.getPopularTags)
-		
+
 		// User-specific operations
 		user.GET("/user/preferences", h.getUserPreferences)
 		user.PUT("/user/preferences", h.updateUserPreferences)
 		user.GET("/user/projects", h.getUserProjects)
-		
+
 		// Test runs - user operations
 		user.POST("/test-runs/:id/tags", h.assignTagsToTestRun)
 	}
@@ -146,23 +146,23 @@ func (h *DomainHandler) RegisterRoutes(router *gin.Engine) {
 		admin.POST("/users/:userId/suspend", h.suspendUser)
 		admin.POST("/users/:userId/activate", h.activateUser)
 		admin.DELETE("/users/:userId", h.deleteUser)
-		
+
 		// Project access management
 		admin.POST("/projects/:projectId/users/:userId/access", h.grantProjectAccess)
 		admin.DELETE("/projects/:projectId/users/:userId/access", h.revokeProjectAccess)
 		admin.GET("/projects/:projectId/users", h.getProjectUsers)
-		
+
 		// Tag management
 		admin.POST("/tags", h.createTag)
 		admin.PUT("/tags/:id", h.updateTag)
 		admin.DELETE("/tags/:id", h.deleteTag)
-		
+
 		// Test run management
 		admin.POST("/test-runs", h.createTestRun)
 		admin.PUT("/test-runs/:runId/status", h.updateTestRunStatus)
 		admin.DELETE("/test-runs/:id", h.deleteTestRun)
 		admin.POST("/test-runs/bulk-delete", h.bulkDeleteTestRuns)
-		
+
 		// System management
 		admin.GET("/system/stats", h.getSystemStats)
 		admin.GET("/system/health", h.getSystemHealth)
@@ -177,12 +177,12 @@ func (h *DomainHandler) RegisterRoutes(router *gin.Engine) {
 		api.POST("/project", h.createFernProject)
 		api.GET("/project/:uuid", h.getFernProject)
 		api.GET("/projects", h.listFernProjects)
-		
+
 		// Test reports endpoints
 		api.POST("/reports/testrun", h.createFernTestReport)
 		api.GET("/reports/testruns", h.listFernTestReports)
 		api.GET("/reports/testrun/:uuid", h.getFernTestReport)
-		
+
 		// Additional endpoints that fern-ginkgo-client might expect
 		api.POST("/testrun", h.createFernTestReport) // Alias for test run creation
 	}
@@ -646,17 +646,17 @@ func (h *DomainHandler) getCurrentUser(c *gin.Context) {
 
 func (h *DomainHandler) createTestRun(c *gin.Context) {
 	var input struct {
-		ID        string   `json:"id"`
-		ProjectID string   `json:"projectId" binding:"required"`
-		SuiteID   string   `json:"suiteId"`
-		Status    string   `json:"status"`
+		ID        string     `json:"id"`
+		ProjectID string     `json:"projectId" binding:"required"`
+		SuiteID   string     `json:"suiteId"`
+		Status    string     `json:"status"`
 		StartTime *time.Time `json:"startTime"`
 		EndTime   *time.Time `json:"endTime,omitempty"`
-		Duration  int64    `json:"duration"`
-		Branch    string   `json:"branch"`
-		Tags      []string `json:"tags"`
+		Duration  int64      `json:"duration"`
+		Branch    string     `json:"branch"`
+		Tags      []string   `json:"tags"`
 	}
-	
+
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -718,7 +718,7 @@ func (h *DomainHandler) getTestRun(c *gin.Context) {
 
 func (h *DomainHandler) getTestRunByRunID(c *gin.Context) {
 	_ = c.Param("runId")
-	
+
 	// For now, we'll need to implement a method to get by run ID in the domain service
 	// This is a limitation that needs to be addressed
 	c.JSON(http.StatusNotImplemented, gin.H{"error": "Get test run by run ID not yet implemented"})
@@ -728,7 +728,7 @@ func (h *DomainHandler) listTestRuns(c *gin.Context) {
 	projectID := c.Query("project_id")
 	limit := 50 // default
 	offset := 0
-	
+
 	if limitStr := c.Query("limit"); limitStr != "" {
 		if l, err := strconv.Atoi(limitStr); err == nil {
 			limit = l
@@ -764,7 +764,7 @@ func (h *DomainHandler) listTestRuns(c *gin.Context) {
 
 func (h *DomainHandler) countTestRuns(c *gin.Context) {
 	projectID := c.Query("project_id")
-	
+
 	// Get count from domain service
 	testRuns, err := h.testingService.GetProjectTestRuns(c.Request.Context(), projectID, 0)
 	if err != nil {
@@ -779,12 +779,12 @@ func (h *DomainHandler) countTestRuns(c *gin.Context) {
 
 func (h *DomainHandler) updateTestRunStatus(c *gin.Context) {
 	_ = c.Param("runId")
-	
+
 	var input struct {
 		Status  string     `json:"status" binding:"required"`
 		EndTime *time.Time `json:"end_time,omitempty"`
 	}
-	
+
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -808,7 +808,7 @@ func (h *DomainHandler) deleteTestRun(c *gin.Context) {
 func (h *DomainHandler) getTestRunStats(c *gin.Context) {
 	projectID := c.Query("project_id")
 	days := 30 // default
-	
+
 	if daysStr := c.Query("days"); daysStr != "" {
 		if parsedDays, err := strconv.Atoi(daysStr); err == nil {
 			days = parsedDays
@@ -823,19 +823,19 @@ func (h *DomainHandler) getTestRunStats(c *gin.Context) {
 
 	// Convert to stats format
 	c.JSON(http.StatusOK, gin.H{
-		"total":        summary.TotalRuns,
-		"passed":       summary.PassedRuns,
-		"failed":       summary.FailedRuns,
-		"days":         days,
-		"avgDuration":  summary.AverageRunTime.Seconds(),
-		"successRate":  summary.SuccessRate,
+		"total":       summary.TotalRuns,
+		"passed":      summary.PassedRuns,
+		"failed":      summary.FailedRuns,
+		"days":        days,
+		"avgDuration": summary.AverageRunTime.Seconds(),
+		"successRate": summary.SuccessRate,
 	})
 }
 
 func (h *DomainHandler) getRecentTestRuns(c *gin.Context) {
 	projectID := c.Query("project_id")
 	limit := 10 // default
-	
+
 	if limitStr := c.Query("limit"); limitStr != "" {
 		if parsedLimit, err := strconv.Atoi(limitStr); err == nil {
 			limit = parsedLimit
@@ -867,7 +867,7 @@ func (h *DomainHandler) assignTagsToTestRun(c *gin.Context) {
 	var input struct {
 		TagIDs []uint `json:"tagIds" binding:"required"`
 	}
-	
+
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -891,7 +891,7 @@ func (h *DomainHandler) bulkDeleteTestRuns(c *gin.Context) {
 	var input struct {
 		IDs []uint `json:"ids" binding:"required"`
 	}
-	
+
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -913,7 +913,7 @@ func (h *DomainHandler) createProject(c *gin.Context) {
 		Team          string                 `json:"team" binding:"required"`
 		Settings      map[string]interface{} `json:"settings"`
 	}
-	
+
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -958,7 +958,7 @@ func (h *DomainHandler) createProject(c *gin.Context) {
 		if input.DefaultBranch != "" {
 			updates.DefaultBranch = &input.DefaultBranch
 		}
-		
+
 		if err := h.projectService.UpdateProject(c.Request.Context(), project.ProjectID(), updates); err != nil {
 			h.logger.WithError(err).Warn("Failed to update project details after creation")
 		}
@@ -970,7 +970,7 @@ func (h *DomainHandler) createProject(c *gin.Context) {
 
 func (h *DomainHandler) getProject(c *gin.Context) {
 	projectIDStr := c.Param("projectId")
-	
+
 	// Try to parse as numeric ID first (for backward compatibility)
 	if _, err := strconv.ParseUint(projectIDStr, 10, 32); err == nil {
 		// This is a numeric ID - need to implement GetProjectByID in domain service
@@ -990,7 +990,7 @@ func (h *DomainHandler) getProject(c *gin.Context) {
 
 func (h *DomainHandler) getProjectByProjectID(c *gin.Context) {
 	projectID := c.Param("projectId")
-	
+
 	project, err := h.projectService.GetProject(c.Request.Context(), projectsDomain.ProjectID(projectID))
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Project not found"})
@@ -1002,7 +1002,7 @@ func (h *DomainHandler) getProjectByProjectID(c *gin.Context) {
 
 func (h *DomainHandler) updateProject(c *gin.Context) {
 	projectID := c.Param("projectId")
-	
+
 	var input struct {
 		Name          string                 `json:"name"`
 		Description   string                 `json:"description"`
@@ -1011,7 +1011,7 @@ func (h *DomainHandler) updateProject(c *gin.Context) {
 		Team          string                 `json:"team"`
 		Settings      map[string]interface{} `json:"settings"`
 	}
-	
+
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -1054,7 +1054,7 @@ func (h *DomainHandler) updateProject(c *gin.Context) {
 
 func (h *DomainHandler) deleteProject(c *gin.Context) {
 	projectID := c.Param("projectId")
-	
+
 	if err := h.projectService.DeleteProject(c.Request.Context(), projectsDomain.ProjectID(projectID)); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -1066,7 +1066,7 @@ func (h *DomainHandler) deleteProject(c *gin.Context) {
 func (h *DomainHandler) listProjects(c *gin.Context) {
 	limit := 20
 	offset := 0
-	
+
 	if limitStr := c.Query("limit"); limitStr != "" {
 		if l, err := strconv.Atoi(limitStr); err == nil {
 			limit = l
@@ -1096,7 +1096,7 @@ func (h *DomainHandler) listProjects(c *gin.Context) {
 
 func (h *DomainHandler) activateProject(c *gin.Context) {
 	projectID := c.Param("projectId")
-	
+
 	if err := h.projectService.ActivateProject(c.Request.Context(), projectsDomain.ProjectID(projectID)); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -1107,7 +1107,7 @@ func (h *DomainHandler) activateProject(c *gin.Context) {
 
 func (h *DomainHandler) deactivateProject(c *gin.Context) {
 	projectID := c.Param("projectId")
-	
+
 	if err := h.projectService.DeactivateProject(c.Request.Context(), projectsDomain.ProjectID(projectID)); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -1118,7 +1118,7 @@ func (h *DomainHandler) deactivateProject(c *gin.Context) {
 
 func (h *DomainHandler) getProjectStats(c *gin.Context) {
 	projectID := c.Param("projectId")
-	
+
 	// TODO: Implement project stats in domain service
 	c.JSON(http.StatusOK, gin.H{
 		"projectId":      projectID,
@@ -1138,7 +1138,7 @@ func (h *DomainHandler) createTag(c *gin.Context) {
 		Description string `json:"description"`
 		Color       string `json:"color"`
 	}
-	
+
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -1162,7 +1162,7 @@ func (h *DomainHandler) createTag(c *gin.Context) {
 
 func (h *DomainHandler) getTag(c *gin.Context) {
 	idStr := c.Param("id")
-	
+
 	tag, err := h.tagService.GetTag(c.Request.Context(), tagsDomain.TagID(idStr))
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Tag not found"})
@@ -1174,7 +1174,7 @@ func (h *DomainHandler) getTag(c *gin.Context) {
 
 func (h *DomainHandler) getTagByName(c *gin.Context) {
 	name := c.Param("name")
-	
+
 	tag, err := h.tagService.GetTagByName(c.Request.Context(), name)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Tag not found"})
@@ -1186,13 +1186,13 @@ func (h *DomainHandler) getTagByName(c *gin.Context) {
 
 func (h *DomainHandler) updateTag(c *gin.Context) {
 	idStr := c.Param("id")
-	
+
 	var input struct {
 		Name        string `json:"name"`
 		Description string `json:"description"`
 		Color       string `json:"color"`
 	}
-	
+
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -1218,7 +1218,7 @@ func (h *DomainHandler) updateTag(c *gin.Context) {
 
 func (h *DomainHandler) deleteTag(c *gin.Context) {
 	idStr := c.Param("id")
-	
+
 	if err := h.tagService.DeleteTag(c.Request.Context(), tagsDomain.TagID(idStr)); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -1272,7 +1272,7 @@ func (h *DomainHandler) getPopularTags(c *gin.Context) {
 	popularTags := make([]gin.H, len(tags))
 	for i, tag := range tags {
 		popularTags[i] = gin.H{
-			"tag": h.convertTagToAPI(tag),
+			"tag":        h.convertTagToAPI(tag),
 			"usageCount": 0, // TODO: Implement usage counting
 		}
 	}
@@ -1293,7 +1293,7 @@ func (h *DomainHandler) getUserPreferences(c *gin.Context) {
 		"theme": "light",
 		"notifications": gin.H{
 			"email": true,
-			"push": false,
+			"push":  false,
 		},
 		"defaultProjectView": "grid",
 	})
@@ -1361,11 +1361,11 @@ func (h *DomainHandler) deleteUser(c *gin.Context) {
 func (h *DomainHandler) grantProjectAccess(c *gin.Context) {
 	projectID := c.Param("projectId")
 	userID := c.Param("userId")
-	
+
 	var input struct {
 		Permission string `json:"permission" binding:"required"`
 	}
-	
+
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -1411,7 +1411,7 @@ func (h *DomainHandler) grantProjectAccess(c *gin.Context) {
 func (h *DomainHandler) revokeProjectAccess(c *gin.Context) {
 	_ = c.Param("projectId")
 	_ = c.Param("userId")
-	
+
 	// TODO: Need to specify which permission to revoke
 	c.JSON(http.StatusNotImplemented, gin.H{"error": "Revoke access not yet implemented"})
 }
@@ -1424,16 +1424,16 @@ func (h *DomainHandler) getSystemStats(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"totalProjects": 0,
 		"totalTestRuns": 0,
-		"totalUsers": 0,
-		"activeUsers": 0,
+		"totalUsers":    0,
+		"activeUsers":   0,
 	})
 }
 
 func (h *DomainHandler) getSystemHealth(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
-		"status": "healthy",
+		"status":   "healthy",
 		"database": "connected",
-		"cache": "connected",
+		"cache":    "connected",
 	})
 }
 
@@ -1453,7 +1453,7 @@ func (h *DomainHandler) createFernProject(c *gin.Context) {
 		Repository    string `json:"repository"`
 		DefaultBranch string `json:"default_branch"`
 	}
-	
+
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -1464,7 +1464,7 @@ func (h *DomainHandler) createFernProject(c *gin.Context) {
 	if projectID == "" {
 		projectID = uuid.New().String()
 	}
-	
+
 	project, err := h.projectService.CreateProject(
 		c.Request.Context(),
 		projectsDomain.ProjectID(projectID),
@@ -1498,7 +1498,7 @@ func (h *DomainHandler) createFernProject(c *gin.Context) {
 
 func (h *DomainHandler) getFernProject(c *gin.Context) {
 	projectID := c.Param("uuid")
-	
+
 	project, err := h.projectService.GetProject(c.Request.Context(), projectsDomain.ProjectID(projectID))
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Project not found"})
@@ -1543,27 +1543,27 @@ func (h *DomainHandler) createFernTestReport(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to read request body"})
 		return
 	}
-	
-	h.logger.Info("fern-ginkgo-client request received", 
+
+	h.logger.Info("fern-ginkgo-client request received",
 		"endpoint", c.Request.URL.Path,
 		"method", c.Request.Method,
 		"content-length", len(bodyBytes),
 		"body", string(bodyBytes))
-	
+
 	// Parse the structured input
 	var input struct {
-		ID                 uint64 `json:"id"`
-		TestProjectName    string `json:"test_project_name"`
-		TestProjectID      string `json:"test_project_id"`
-		TestSeed           uint64 `json:"test_seed"`
-		StartTime          string `json:"start_time"`
-		EndTime            string `json:"end_time"`
-		GitBranch          string `json:"git_branch"`
-		GitSha             string `json:"git_sha"`
-		BuildTriggerActor  string `json:"build_trigger_actor"`
-		BuildUrl           string `json:"build_url"`
-		ClientType         string `json:"client_type"`
-		SuiteRuns       []struct {
+		ID                uint64 `json:"id"`
+		TestProjectName   string `json:"test_project_name"`
+		TestProjectID     string `json:"test_project_id"`
+		TestSeed          uint64 `json:"test_seed"`
+		StartTime         string `json:"start_time"`
+		EndTime           string `json:"end_time"`
+		GitBranch         string `json:"git_branch"`
+		GitSha            string `json:"git_sha"`
+		BuildTriggerActor string `json:"build_trigger_actor"`
+		BuildUrl          string `json:"build_url"`
+		ClientType        string `json:"client_type"`
+		SuiteRuns         []struct {
 			ID        uint64 `json:"id"`
 			TestRunID uint64 `json:"test_run_id"`
 			SuiteName string `json:"suite_name"`
@@ -1584,7 +1584,7 @@ func (h *DomainHandler) createFernTestReport(c *gin.Context) {
 			} `json:"spec_runs"`
 		} `json:"suite_runs"`
 	}
-	
+
 	if err := json.Unmarshal(bodyBytes, &input); err != nil {
 		h.logger.WithError(err).Error("Failed to parse JSON input")
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -1608,7 +1608,7 @@ func (h *DomainHandler) createFernTestReport(c *gin.Context) {
 			"spec_runs_count", len(suite.SpecRuns),
 			"start_time", suite.StartTime,
 			"end_time", suite.EndTime)
-		
+
 		// Log first few specs for debugging
 		for j, spec := range suite.SpecRuns {
 			if j < 3 { // Only log first 3 specs to avoid spam
@@ -1682,45 +1682,45 @@ func (h *DomainHandler) createFernTestReport(c *gin.Context) {
 	if branch == "" {
 		branch = "main" // Default
 	}
-	
+
 	commitSHA := input.GitSha
 
 	// Create run ID with test seed
 	runID := fmt.Sprintf("%s-run-%d", project.Name(), input.TestSeed)
-	
+
 	// Check if test run already exists with this run_id
 	h.logger.Info("Checking if test run already exists", "run_id", runID)
 	existingTestRun, err := h.testingService.GetTestRunByRunID(c.Request.Context(), runID)
-	
+
 	var testRun *domain.TestRun
 	if err != nil || existingTestRun == nil {
 		// Test run doesn't exist, create a new one
 		h.logger.Info("Test run does not exist, creating new one", "run_id", runID)
-		
+
 		testRun = &domain.TestRun{
-			ProjectID:     string(project.ProjectID()),
-			RunID:         runID,
-			Name:          project.Name(), // Use project name as test run name
-			GitBranch:     branch,
-			GitCommit:     commitSHA,
-			Environment:   "test",
-			Source:        input.ClientType,
-			Status:        "completed",
-			StartTime:     startTime,
-			EndTime:       endTime,
-			TotalTests:    totalTests,
-			PassedTests:   passedTests,
-			FailedTests:   failedTests,
-			SkippedTests:  skippedTests,
+			ProjectID:    string(project.ProjectID()),
+			RunID:        runID,
+			Name:         project.Name(), // Use project name as test run name
+			GitBranch:    branch,
+			GitCommit:    commitSHA,
+			Environment:  "test",
+			Source:       input.ClientType,
+			Status:       "completed",
+			StartTime:    startTime,
+			EndTime:      endTime,
+			TotalTests:   totalTests,
+			PassedTests:  passedTests,
+			FailedTests:  failedTests,
+			SkippedTests: skippedTests,
 		}
 
 		// Store additional metadata
 		if input.BuildUrl != "" || input.BuildTriggerActor != "" {
 			testRun.Metadata = map[string]interface{}{
-				"test_seed":        input.TestSeed,
-				"build_url":        input.BuildUrl,
+				"test_seed":           input.TestSeed,
+				"build_url":           input.BuildUrl,
 				"build_trigger_actor": input.BuildTriggerActor,
-				"suite_runs":       input.SuiteRuns,
+				"suite_runs":          input.SuiteRuns,
 			}
 		}
 
@@ -1730,45 +1730,45 @@ func (h *DomainHandler) createFernTestReport(c *gin.Context) {
 			"name", testRun.Name,
 			"total_tests", testRun.TotalTests,
 			"status", testRun.Status)
-		
+
 		if err := h.testingService.CreateTestRun(c.Request.Context(), testRun); err != nil {
 			h.logger.WithError(err).Error("Failed to create test run")
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
-		
+
 		h.logger.Info("Test run created successfully", "test_run_id", testRun.ID)
 	} else {
 		// Test run exists, use the existing one
 		testRun = existingTestRun
-		h.logger.Info("Using existing test run", 
+		h.logger.Info("Using existing test run",
 			"test_run_id", testRun.ID,
 			"run_id", testRun.RunID,
 			"existing_total_tests", testRun.TotalTests,
 			"new_total_tests", totalTests)
-		
+
 		// We'll update test run statistics after processing all suites
 		h.logger.Info("Will update test run statistics after processing suites")
 	}
-	
+
 	// Get existing suite runs for this test run to avoid duplicates
 	existingSuites, err := h.testingService.GetSuiteRunsByTestRunID(c.Request.Context(), testRun.ID)
 	if err != nil {
 		h.logger.WithError(err).Warn("Failed to get existing suite runs")
 		existingSuites = []*domain.SuiteRun{}
 	}
-	
+
 	// Create a map of existing suite names for quick lookup
 	existingSuiteNames := make(map[string]bool)
 	for _, suite := range existingSuites {
 		existingSuiteNames[suite.Name] = true
 	}
-	
+
 	// Process suite runs to create in the domain
-	h.logger.Info("Processing suite runs for database storage", 
+	h.logger.Info("Processing suite runs for database storage",
 		"suite_count", len(input.SuiteRuns),
 		"existing_suites", len(existingSuites))
-	
+
 	for idx, suiteData := range input.SuiteRuns {
 		// Skip if suite already exists
 		if existingSuiteNames[suiteData.SuiteName] {
@@ -1777,16 +1777,16 @@ func (h *DomainHandler) createFernTestReport(c *gin.Context) {
 				"test_run_id", testRun.ID)
 			continue
 		}
-		
+
 		suiteStart, _ := time.Parse(time.RFC3339, suiteData.StartTime)
 		suiteEnd, _ := time.Parse(time.RFC3339, suiteData.EndTime)
-		
+
 		h.logger.Info("Creating suite run",
 			"index", idx,
 			"suite_name", suiteData.SuiteName,
 			"test_run_id", testRun.ID,
 			"spec_count", len(suiteData.SpecRuns))
-		
+
 		// Calculate suite statistics
 		var totalSpecs, passedSpecs, failedSpecs, skippedSpecs int
 		for _, spec := range suiteData.SpecRuns {
@@ -1800,9 +1800,9 @@ func (h *DomainHandler) createFernTestReport(c *gin.Context) {
 				skippedSpecs++
 			}
 		}
-		
+
 		duration := suiteEnd.Sub(suiteStart)
-		
+
 		suiteRun := &domain.SuiteRun{
 			TestRunID:    testRun.ID,
 			Name:         suiteData.SuiteName,
@@ -1815,7 +1815,7 @@ func (h *DomainHandler) createFernTestReport(c *gin.Context) {
 			SkippedTests: skippedSpecs,
 			Duration:     duration,
 		}
-		
+
 		// Create suite run
 		if err := h.testingService.CreateSuiteRun(c.Request.Context(), suiteRun); err != nil {
 			h.logger.WithError(err).Error("Failed to create suite run",
@@ -1823,17 +1823,17 @@ func (h *DomainHandler) createFernTestReport(c *gin.Context) {
 				"test_run_id", testRun.ID)
 			continue
 		}
-		
+
 		h.logger.Info("Suite run created successfully",
 			"suite_id", suiteRun.ID,
 			"suite_name", suiteRun.Name,
 			"test_run_id", suiteRun.TestRunID)
-		
+
 		// Process spec runs
 		for _, specData := range suiteData.SpecRuns {
 			specStart, _ := time.Parse(time.RFC3339, specData.StartTime)
 			specEnd, _ := time.Parse(time.RFC3339, specData.EndTime)
-			
+
 			specRun := &domain.SpecRun{
 				SuiteRunID:     suiteRun.ID,
 				Name:           specData.SpecDescription,
@@ -1843,7 +1843,7 @@ func (h *DomainHandler) createFernTestReport(c *gin.Context) {
 				ErrorMessage:   specData.Message,
 				FailureMessage: specData.Message,
 			}
-			
+
 			// Create spec run
 			if err := h.testingService.CreateSpecRun(c.Request.Context(), specRun); err != nil {
 				h.logger.WithError(err).Warn("Failed to create spec run")
@@ -1864,7 +1864,7 @@ func (h *DomainHandler) createFernTestReport(c *gin.Context) {
 			failedTests += suite.FailedTests
 			skippedTests += suite.SkippedTests
 		}
-		
+
 		h.logger.Info("Calculated aggregate test run statistics",
 			"test_run_id", testRun.ID,
 			"total_suites", len(allSuites),
@@ -1872,18 +1872,18 @@ func (h *DomainHandler) createFernTestReport(c *gin.Context) {
 			"passed_tests", passedTests,
 			"failed_tests", failedTests,
 			"skipped_tests", skippedTests)
-		
+
 		// Update test run with aggregate statistics
 		testRun.TotalTests = totalTests
 		testRun.PassedTests = passedTests
 		testRun.FailedTests = failedTests
 		testRun.SkippedTests = skippedTests
-		
+
 		// Update end time if provided
 		if endTime != nil {
 			testRun.EndTime = endTime
 		}
-		
+
 		// Save updated statistics
 		if err := h.testingService.UpdateTestRun(c.Request.Context(), testRun); err != nil {
 			h.logger.WithError(err).Error("Failed to update test run statistics")
@@ -1896,12 +1896,12 @@ func (h *DomainHandler) createFernTestReport(c *gin.Context) {
 
 	// Return response in the format fern-ginkgo-client expects
 	response := gin.H{
-		"id":               testRun.ID,
+		"id":                testRun.ID,
 		"test_project_name": project.Name(),
-		"test_seed":        input.TestSeed,
-		"start_time":       startTime.Format(time.RFC3339),
-		"status":           testRun.Status,
-		"created_at":       testRun.StartTime,
+		"test_seed":         input.TestSeed,
+		"start_time":        startTime.Format(time.RFC3339),
+		"status":            testRun.Status,
+		"created_at":        testRun.StartTime,
 	}
 	if endTime != nil {
 		response["end_time"] = endTime.Format(time.RFC3339)
@@ -1910,13 +1910,13 @@ func (h *DomainHandler) createFernTestReport(c *gin.Context) {
 	h.logger.Info("Sending response to fern-ginkgo-client",
 		"test_run_id", testRun.ID,
 		"status_code", http.StatusCreated)
-	
+
 	c.JSON(http.StatusCreated, response)
 }
 
 func (h *DomainHandler) listFernTestReports(c *gin.Context) {
 	projectID := c.Query("project_id")
-	
+
 	testRuns, err := h.testingService.GetProjectTestRuns(c.Request.Context(), projectID, 100)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -1927,9 +1927,9 @@ func (h *DomainHandler) listFernTestReports(c *gin.Context) {
 	fernReports := make([]gin.H, len(testRuns))
 	for i, tr := range testRuns {
 		fernReports[i] = gin.H{
-			"uuid": tr.ID,
+			"uuid":       tr.ID,
 			"project_id": tr.ProjectID,
-			"status": tr.Status,
+			"status":     tr.Status,
 			"created_at": tr.StartTime,
 		}
 	}
@@ -1970,10 +1970,10 @@ func (h *DomainHandler) convertTestRunToAPI(tr *domain.TestRun) gin.H {
 
 func (h *DomainHandler) convertProjectToAPI(p *projectsDomain.Project) gin.H {
 	snapshot := p.ToSnapshot()
-	
+
 	// Convert settings to JSON string for backward compatibility
 	settingsJSON, _ := json.Marshal(snapshot.Settings)
-	
+
 	return gin.H{
 		"id":            snapshot.ID,
 		"projectId":     string(snapshot.ProjectID),

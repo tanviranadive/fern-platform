@@ -106,7 +106,7 @@ func (s *TagService) AssignTagsToTestRun(ctx context.Context, testRunID string, 
 // CreateMultipleTags creates multiple tags from a list of names
 func (s *TagService) CreateMultipleTags(ctx context.Context, tagNames []string) ([]*domain.Tag, error) {
 	tags := make([]*domain.Tag, 0, len(tagNames))
-	
+
 	for _, name := range tagNames {
 		name = strings.TrimSpace(name)
 		if name == "" {

@@ -58,7 +58,7 @@ func (s *TestRunService) CompleteTestRun(ctx context.Context, testRunID uint, st
 
 	// Update status
 	testRun.Status = status
-	
+
 	// Calculate statistics from suite runs
 	suiteRuns, err := s.suiteRunRepo.FindByTestRunID(ctx, testRunID)
 	if err != nil {
@@ -227,12 +227,12 @@ func (s *TestRunService) CreateSuiteRun(ctx context.Context, suiteRun *domain.Su
 	if suiteRun.TestRunID == 0 {
 		return fmt.Errorf("test run ID is required")
 	}
-	
+
 	// Set default values
 	if suiteRun.Status == "" {
 		suiteRun.Status = "running"
 	}
-	
+
 	return s.suiteRunRepo.Create(ctx, suiteRun)
 }
 
@@ -241,17 +241,17 @@ func (s *TestRunService) CreateSpecRun(ctx context.Context, specRun *domain.Spec
 	if specRun.SuiteRunID == 0 {
 		return fmt.Errorf("suite run ID is required")
 	}
-	
+
 	// Set default values
 	if specRun.Status == "" {
 		specRun.Status = "pending"
 	}
-	
+
 	// Calculate duration if not set
 	if specRun.EndTime != nil && !specRun.StartTime.IsZero() {
 		specRun.Duration = specRun.EndTime.Sub(specRun.StartTime)
 	}
-	
+
 	return s.specRunRepo.Create(ctx, specRun)
 }
 

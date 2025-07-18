@@ -16,8 +16,8 @@ type CompleteTestRunCommand struct {
 
 // CompleteTestRunHandler handles the complete test run use case
 type CompleteTestRunHandler struct {
-	testRunRepo  domain.TestRunRepository
-	flakyRepo    domain.FlakyTestRepository
+	testRunRepo domain.TestRunRepository
+	flakyRepo   domain.FlakyTestRepository
 }
 
 // NewCompleteTestRunHandler creates a new handler
@@ -77,6 +77,6 @@ func (h *CompleteTestRunHandler) updateFlakyTests(ctx context.Context, testRun *
 	// 2. Identify tests that have been marked as flaky
 	// 3. Update or create FlakyTest records
 	// 4. Calculate new flakiness metrics
-	
+
 	return nil
 }

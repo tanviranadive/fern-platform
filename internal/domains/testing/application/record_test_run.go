@@ -11,12 +11,12 @@ import (
 
 // RecordTestRunCommand represents the command to record a test run
 type RecordTestRunCommand struct {
-	RunID        string                 `json:"run_id"`
-	ProjectID    string                 `json:"project_id"`
-	Branch       string                 `json:"branch"`
-	CommitSHA    string                 `json:"commit_sha"`
-	Environment  string                 `json:"environment"`
-	Metadata     map[string]interface{} `json:"metadata"`
+	RunID       string                 `json:"run_id"`
+	ProjectID   string                 `json:"project_id"`
+	Branch      string                 `json:"branch"`
+	CommitSHA   string                 `json:"commit_sha"`
+	Environment string                 `json:"environment"`
+	Metadata    map[string]interface{} `json:"metadata"`
 }
 
 // RecordTestRunHandler handles the record test run use case

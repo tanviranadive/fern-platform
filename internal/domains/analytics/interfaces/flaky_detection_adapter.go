@@ -150,7 +150,7 @@ func (a *FlakyDetectionAdapter) GetFlakyTestTrends() gin.HandlerFunc {
 func (a *FlakyDetectionAdapter) RegisterRoutes(router *gin.RouterGroup) {
 	// Analysis endpoints
 	router.POST("/projects/:projectId/test-runs/:testRunId/analyze", a.AnalyzeTestRun())
-	
+
 	// Flaky test endpoints
 	router.GET("/projects/:projectId/flaky-tests", a.GetFlakyTests())
 	router.GET("/projects/:projectId/flaky-tests/trends", a.GetFlakyTestTrends())
@@ -166,7 +166,7 @@ func parsePeriod(periodStr string) (time.Duration, error) {
 
 	unit := periodStr[len(periodStr)-1]
 	valueStr := periodStr[:len(periodStr)-1]
-	
+
 	value, err := strconv.Atoi(valueStr)
 	if err != nil {
 		return 0, err

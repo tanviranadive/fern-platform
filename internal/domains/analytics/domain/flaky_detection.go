@@ -48,30 +48,30 @@ type TestFailureInfo struct {
 
 // TestRunAnalysis represents the analysis of a single test run
 type TestRunAnalysis struct {
-	TestRunID      string
-	ProjectID      string
-	AnalyzedAt     time.Time
-	TotalTests     int
-	NewFlaky       []string // Test IDs newly identified as flaky
-	StillFlaky     []string // Test IDs that remain flaky
-	ResolvedFlaky  []string // Test IDs no longer flaky
+	TestRunID     string
+	ProjectID     string
+	AnalyzedAt    time.Time
+	TotalTests    int
+	NewFlaky      []string // Test IDs newly identified as flaky
+	StillFlaky    []string // Test IDs that remain flaky
+	ResolvedFlaky []string // Test IDs no longer flaky
 }
 
 // FlakyTestDetectionConfig contains configuration for flaky test detection
 type FlakyTestDetectionConfig struct {
 	// Minimum number of runs before a test can be considered flaky
 	MinimumRuns int
-	
+
 	// Minimum failure rate to be considered flaky (e.g., 0.1 = 10%)
 	MinFailureRate float64
-	
+
 	// Maximum failure rate to be considered flaky (e.g., 0.9 = 90%)
 	// Tests failing more than this are likely broken, not flaky
 	MaxFailureRate float64
-	
+
 	// Time window to consider for recent test runs
 	AnalysisWindow time.Duration
-	
+
 	// Number of consecutive passes required to mark as resolved
 	ConsecutivePassesForResolution int
 }
@@ -80,8 +80,8 @@ type FlakyTestDetectionConfig struct {
 func DefaultFlakyTestDetectionConfig() FlakyTestDetectionConfig {
 	return FlakyTestDetectionConfig{
 		MinimumRuns:                    10,
-		MinFailureRate:                 0.05, // 5%
-		MaxFailureRate:                 0.95, // 95%
+		MinFailureRate:                 0.05,               // 5%
+		MaxFailureRate:                 0.95,               // 95%
 		AnalysisWindow:                 7 * 24 * time.Hour, // 7 days
 		ConsecutivePassesForResolution: 20,
 	}

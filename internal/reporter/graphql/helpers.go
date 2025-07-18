@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"strings"
 	"time"
-	
-	"github.com/guidewire-oss/fern-platform/internal/reporter/graphql/dataloader"
+
 	authDomain "github.com/guidewire-oss/fern-platform/internal/domains/auth/domain"
+	"github.com/guidewire-oss/fern-platform/internal/reporter/graphql/dataloader"
 )
 
 // getLoaders gets the dataloader from context
@@ -15,12 +15,12 @@ func getLoaders(ctx context.Context) *dataloader.Loaders {
 	if ctx == nil {
 		return nil
 	}
-	
+
 	loadersVal := ctx.Value("loaders")
 	if loadersVal == nil {
 		return nil
 	}
-	
+
 	loaders, ok := loadersVal.(*dataloader.Loaders)
 	if !ok {
 		return nil
@@ -66,20 +66,20 @@ func paginateSlice[T any](items []T, first int, after string) ([]T, bool) {
 		// Simple cursor implementation - in production, use proper cursor encoding
 		fmt.Sscanf(after, "%d", &start)
 	}
-	
+
 	if start >= len(items) {
 		return []T{}, false
 	}
-	
+
 	end := start + first
 	hasMore := false
-	
+
 	if end > len(items) {
 		end = len(items)
 	} else {
 		hasMore = true
 	}
-	
+
 	return items[start:end], hasMore
 }
 
@@ -89,27 +89,27 @@ func getUserTeamsFromContext(ctx context.Context) []string {
 	if err != nil {
 		return nil
 	}
-	
+
 	// Get role group names from context (set by resolver)
 	roleGroups := getRoleGroupNamesFromContext(ctx)
-	
+
 	var teams []string
 	teamMap := make(map[string]bool)
-	
+
 	for _, group := range user.Groups {
 		groupName := strings.TrimPrefix(group.GroupName, "/")
-		
+
 		// Check if this is a team group (not a role group)
 		if !isRoleGroup(groupName, roleGroups) {
 			teamMap[groupName] = true
 		}
 	}
-	
+
 	// Convert map to slice
 	for team := range teamMap {
 		teams = append(teams, team)
 	}
-	
+
 	return teams
 }
 
@@ -119,10 +119,10 @@ func getUserScopesFromContext(ctx context.Context) []string {
 	if err != nil {
 		return nil
 	}
-	
+
 	scopes := make([]string, 0, len(user.Scopes))
 	now := time.Now()
-	
+
 	for _, scope := range user.Scopes {
 		// Skip expired scopes
 		if scope.ExpiresAt != nil && scope.ExpiresAt.Before(now) {
@@ -130,7 +130,7 @@ func getUserScopesFromContext(ctx context.Context) []string {
 		}
 		scopes = append(scopes, scope.Scope)
 	}
-	
+
 	return scopes
 }
 
@@ -140,16 +140,16 @@ func matchScope(userScope, requiredScope string) bool {
 	if userScope == requiredScope {
 		return true
 	}
-	
+
 	// Split scopes into parts
 	userParts := strings.Split(userScope, ":")
 	requiredParts := strings.Split(requiredScope, ":")
-	
+
 	// Must have same number of parts
 	if len(userParts) != len(requiredParts) {
 		return false
 	}
-	
+
 	// Check each part
 	for i := range userParts {
 		if userParts[i] == "*" || requiredParts[i] == "*" {
@@ -159,7 +159,7 @@ func matchScope(userScope, requiredScope string) bool {
 			return false
 		}
 	}
-	
+
 	return true
 }
 

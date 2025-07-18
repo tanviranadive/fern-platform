@@ -9,21 +9,21 @@ import (
 
 // CreateTestRunInput represents input for creating a test run
 type CreateTestRunInput struct {
-	ProjectID     string            `json:"project_id" binding:"required"`
-	RunID         string            `json:"run_id" binding:"required"`
-	Branch        string            `json:"branch"`
-	CommitSHA     string            `json:"commit_sha"`
-	Environment   string            `json:"environment"`
-	Metadata      database.JSONMap  `json:"metadata,omitempty"`
-	Tags          []string          `json:"tags,omitempty"`
-	StartTime     *time.Time        `json:"start_time,omitempty"`
-	EndTime       *time.Time        `json:"end_time,omitempty"`
-	Duration      int64             `json:"duration,omitempty"`
-	TotalTests    int               `json:"total_tests,omitempty"`
-	PassedTests   int               `json:"passed_tests,omitempty"`
-	FailedTests   int               `json:"failed_tests,omitempty"`
-	SkippedTests  int               `json:"skipped_tests,omitempty"`
-	SuiteRuns     []SuiteRunInput   `json:"suite_runs,omitempty"`
+	ProjectID    string           `json:"project_id" binding:"required"`
+	RunID        string           `json:"run_id" binding:"required"`
+	Branch       string           `json:"branch"`
+	CommitSHA    string           `json:"commit_sha"`
+	Environment  string           `json:"environment"`
+	Metadata     database.JSONMap `json:"metadata,omitempty"`
+	Tags         []string         `json:"tags,omitempty"`
+	StartTime    *time.Time       `json:"start_time,omitempty"`
+	EndTime      *time.Time       `json:"end_time,omitempty"`
+	Duration     int64            `json:"duration,omitempty"`
+	TotalTests   int              `json:"total_tests,omitempty"`
+	PassedTests  int              `json:"passed_tests,omitempty"`
+	FailedTests  int              `json:"failed_tests,omitempty"`
+	SkippedTests int              `json:"skipped_tests,omitempty"`
+	SuiteRuns    []SuiteRunInput  `json:"suite_runs,omitempty"`
 }
 
 // SuiteRunInput represents input for creating a suite run
@@ -67,11 +67,11 @@ type UpdateProjectInput struct {
 
 // CreateSuiteRunInput represents input for creating a suite run directly
 type CreateSuiteRunInput struct {
-	TestRunID  uint       `json:"test_run_id" binding:"required"`
-	SuiteName  string     `json:"suite_name" binding:"required"`
-	StartTime  *time.Time `json:"start_time,omitempty"`
-	EndTime    *time.Time `json:"end_time,omitempty"`
-	Status     string     `json:"status,omitempty"`
+	TestRunID uint       `json:"test_run_id" binding:"required"`
+	SuiteName string     `json:"suite_name" binding:"required"`
+	StartTime *time.Time `json:"start_time,omitempty"`
+	EndTime   *time.Time `json:"end_time,omitempty"`
+	Status    string     `json:"status,omitempty"`
 }
 
 // CreateSpecRunInput represents input for creating a spec run directly

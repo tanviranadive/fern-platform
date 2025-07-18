@@ -62,12 +62,12 @@ func (r *GormFlakyDetectionRepository) GetFlakyTest(ctx context.Context, testID 
 // FindFlakyTestsByProject finds all flaky tests for a project with a specific status
 func (r *GormFlakyDetectionRepository) FindFlakyTestsByProject(ctx context.Context, projectID string, status domain.FlakyTestStatus) ([]*domain.FlakyTest, error) {
 	var dbFlakyTests []database.FlakyTest
-	
+
 	query := r.db.WithContext(ctx).Where("project_id = ?", projectID)
 	if status != "" {
 		query = query.Where("status = ?", string(status))
 	}
-	
+
 	if err := query.Order("flake_score DESC").Find(&dbFlakyTests).Error; err != nil {
 		return nil, fmt.Errorf("failed to find flaky tests: %w", err)
 	}
@@ -90,7 +90,7 @@ func (r *GormFlakyDetectionRepository) UpdateFlakyTestStatus(ctx context.Context
 	result := r.db.WithContext(ctx).Model(&database.FlakyTest{}).
 		Where("test_id = ?", testID).
 		Update("status", string(status))
-	
+
 	if result.Error != nil {
 		return fmt.Errorf("failed to update flaky test status: %w", result.Error)
 	}
@@ -130,7 +130,7 @@ func (r *GormFlakyDetectionRepository) GetTestRunHistory(ctx context.Context, pr
 		WHERE tr.project_id = ? AND sr.name = ? AND tr.created_at >= ?
 		ORDER BY tr.created_at DESC
 	`
-	
+
 	rows, err := r.db.WithContext(ctx).Raw(query, projectID, testName, since).Rows()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get test run history: %w", err)
@@ -195,7 +195,7 @@ func (r *GormFlakyDetectionRepository) GetTestRunHistory(ctx context.Context, pr
 // GetUniqueTestNames returns all unique test names for a project since a given time
 func (r *GormFlakyDetectionRepository) GetUniqueTestNames(ctx context.Context, projectID string, since time.Time) ([]string, error) {
 	var testNames []string
-	
+
 	query := `
 		SELECT DISTINCT sr.name
 		FROM spec_runs sr
@@ -204,12 +204,12 @@ func (r *GormFlakyDetectionRepository) GetUniqueTestNames(ctx context.Context, p
 		WHERE tr.project_id = ? AND tr.created_at >= ?
 		ORDER BY sr.name
 	`
-	
+
 	err := r.db.WithContext(ctx).Raw(query, projectID, since).Pluck("name", &testNames).Error
 	if err != nil {
 		return nil, fmt.Errorf("failed to get unique test names: %w", err)
 	}
-	
+
 	return testNames, nil
 }
 

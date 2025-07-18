@@ -67,7 +67,7 @@ func (ft *FlakyTest) RecordExecution(isFlaky bool, errorMessage string) {
 		ft.flakyExecutions++
 		ft.lastErrorMessage = errorMessage
 	}
-	
+
 	ft.lastSeenAt = time.Now()
 	ft.updateFlakeRate()
 	ft.updateSeverity()

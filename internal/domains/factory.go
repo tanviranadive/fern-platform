@@ -10,9 +10,9 @@ import (
 
 	// Analytics domain
 	analyticsApp "github.com/guidewire-oss/fern-platform/internal/domains/analytics/application"
+	analyticsDomain "github.com/guidewire-oss/fern-platform/internal/domains/analytics/domain"
 	analyticsInfra "github.com/guidewire-oss/fern-platform/internal/domains/analytics/infrastructure"
 	analyticsInterfaces "github.com/guidewire-oss/fern-platform/internal/domains/analytics/interfaces"
-	analyticsDomain "github.com/guidewire-oss/fern-platform/internal/domains/analytics/domain"
 
 	// Testing domain
 	testingApp "github.com/guidewire-oss/fern-platform/internal/domains/testing/application"
@@ -36,26 +36,25 @@ type DomainFactory struct {
 	db         *gorm.DB
 	logger     *logging.Logger
 	authConfig *config.AuthConfig
-	
+
 	// Auth domain
-	authService      *authApp.AuthenticationService
-	authzService     *authApp.AuthorizationService
-	authMiddleware   *authInterfaces.AuthMiddlewareAdapter
-	
+	authService    *authApp.AuthenticationService
+	authzService   *authApp.AuthorizationService
+	authMiddleware *authInterfaces.AuthMiddlewareAdapter
+
 	// Analytics domain
 	flakyDetectionService *analyticsApp.FlakyDetectionService
 	flakyDetectionAdapter *analyticsInterfaces.FlakyDetectionAdapter
-	
+
 	// Testing domain
-	testRunService         *testingApp.TestRunService
-	testingAdapter         *testingInterfaces.TestServiceAdapter
-	
+	testRunService *testingApp.TestRunService
+	testingAdapter *testingInterfaces.TestServiceAdapter
+
 	// Projects domain
-	projectService         *projectsApp.ProjectService
-	
+	projectService *projectsApp.ProjectService
+
 	// Tags domain
-	tagService             *tagsApp.TagService
-	
+	tagService *tagsApp.TagService
 }
 
 // NewDomainFactory creates a new domain factory
@@ -65,23 +64,22 @@ func NewDomainFactory(db *gorm.DB, logger *logging.Logger, authConfig *config.Au
 		logger:     logger,
 		authConfig: authConfig,
 	}
-	
-	
+
 	// Initialize Auth domain (must be first as others may depend on it)
 	factory.initAuthDomain()
-	
+
 	// Initialize Analytics domain
 	factory.initAnalyticsDomain()
-	
+
 	// Initialize Testing domain
 	factory.initTestingDomain()
-	
+
 	// Initialize Projects domain
 	factory.initProjectsDomain()
-	
+
 	// Initialize Tags domain
 	factory.initTagsDomain()
-	
+
 	return factory
 }
 
@@ -91,14 +89,14 @@ func (f *DomainFactory) initTestingDomain() {
 	testRunRepo := testingInfra.NewGormTestRunRepository(f.db)
 	suiteRunRepo := testingInfra.NewGormSuiteRunRepository(f.db)
 	specRunRepo := testingInfra.NewGormSpecRunRepository(f.db)
-	
+
 	// Create application service
 	f.testRunService = testingApp.NewTestRunService(
 		testRunRepo,
 		suiteRunRepo,
 		specRunRepo,
 	)
-	
+
 	// Create adapter
 	f.testingAdapter = testingInterfaces.NewTestServiceAdapter(
 		f.testRunService,
@@ -111,10 +109,10 @@ func (f *DomainFactory) initProjectsDomain() {
 	// Create repositories
 	projectRepo := projectsInfra.NewGormProjectRepository(f.db)
 	permissionRepo := projectsInfra.NewGormProjectPermissionRepository(f.db)
-	
+
 	// Create application service
 	f.projectService = projectsApp.NewProjectService(projectRepo, permissionRepo)
-	
+
 }
 
 // GetTestingService returns the new domain test run service
@@ -132,15 +130,14 @@ func (f *DomainFactory) GetProjectDomainService() *projectsApp.ProjectService {
 	return f.projectService
 }
 
-
 // initTagsDomain initializes the tags domain components
 func (f *DomainFactory) initTagsDomain() {
 	// Create repositories
 	tagRepo := tagsInfra.NewGormTagRepository(f.db)
-	
+
 	// Create application service
 	f.tagService = tagsApp.NewTagService(tagRepo)
-	
+
 }
 
 // GetTagDomainService returns the new domain tag service
@@ -153,14 +150,14 @@ func (f *DomainFactory) initAuthDomain() {
 	// Create repositories
 	userRepo := authInfra.NewGormUserRepository(f.db)
 	sessionRepo := authInfra.NewGormSessionRepository(f.db)
-	
+
 	// Create application services
 	f.authService = authApp.NewAuthenticationService(userRepo, sessionRepo)
 	f.authzService = authApp.NewAuthorizationService(userRepo)
-	
+
 	// Create OAuth adapter
 	oauthAdapter := authInterfaces.NewOAuthAdapter(f.authConfig, f.logger)
-	
+
 	// Create middleware adapter
 	f.authMiddleware = authInterfaces.NewAuthMiddlewareAdapter(
 		f.authService,
@@ -190,11 +187,11 @@ func (f *DomainFactory) GetAuthMiddleware() *authInterfaces.AuthMiddlewareAdapte
 func (f *DomainFactory) initAnalyticsDomain() {
 	// Create repository
 	flakyRepo := analyticsInfra.NewGormFlakyDetectionRepository(f.db)
-	
+
 	// Create service with default config
 	config := analyticsDomain.DefaultFlakyTestDetectionConfig()
 	f.flakyDetectionService = analyticsApp.NewFlakyDetectionService(flakyRepo, config)
-	
+
 	// Create adapter
 	f.flakyDetectionAdapter = analyticsInterfaces.NewFlakyDetectionAdapter(f.flakyDetectionService, f.logger)
 }

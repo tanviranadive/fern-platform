@@ -70,27 +70,27 @@ func (h *UpdateProjectHandler) Handle(ctx context.Context, cmd UpdateProjectComm
 			return nil, fmt.Errorf("failed to update name: %w", err)
 		}
 	}
-	
+
 	if cmd.Description != nil {
 		project.UpdateDescription(*cmd.Description)
 	}
-	
+
 	if cmd.Repository != nil {
 		project.UpdateRepository(*cmd.Repository)
 	}
-	
+
 	if cmd.DefaultBranch != nil {
 		if err := project.UpdateDefaultBranch(*cmd.DefaultBranch); err != nil {
 			return nil, fmt.Errorf("failed to update default branch: %w", err)
 		}
 	}
-	
+
 	if cmd.Team != nil {
 		if err := project.UpdateTeam(domain.Team(*cmd.Team)); err != nil {
 			return nil, fmt.Errorf("failed to update team: %w", err)
 		}
 	}
-	
+
 	// Update settings
 	for k, v := range cmd.Settings {
 		project.SetSetting(k, v)

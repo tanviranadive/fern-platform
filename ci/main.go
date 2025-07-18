@@ -190,11 +190,21 @@ func (m *Ci) runTests(ctx context.Context, source *dagger.Directory) (string, er
 
 // Helper function to run lint
 func (m *Ci) runLint(ctx context.Context, source *dagger.Directory) (string, error) {
-	_, err := dag.Container().
-		From("golangci/golangci-lint:v1.54-alpine").
+	// Use golang base image and install golangci-lint
+	// This ensures we have the right Go version and modules
+	container := dag.Container().
+		From("golang:1.23-alpine").
 		WithMountedDirectory("/src", source).
 		WithWorkdir("/src").
-		WithExec([]string{"golangci-lint", "run", "--timeout", "5m"}).
+		WithExec([]string{"apk", "add", "--no-cache", "git", "make", "gcc", "musl-dev"}).
+		WithEnvVariable("CGO_ENABLED", "1").
+		WithExec([]string{"go", "mod", "download"}).
+		// Install golangci-lint
+		WithExec([]string{"sh", "-c", "wget -O- -nv https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s v1.61.0"})
+	
+	// Run golangci-lint
+	_, err := container.
+		WithExec([]string{"./bin/golangci-lint", "run", "--timeout", "5m"}).
 		Stdout(ctx)
 	
 	if err != nil {

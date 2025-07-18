@@ -9,22 +9,22 @@ import (
 type FlakyDetectionRepository interface {
 	// Save or update a flaky test record
 	SaveFlakyTest(ctx context.Context, flaky *FlakyTest) error
-	
+
 	// Get a flaky test by ID
 	GetFlakyTest(ctx context.Context, testID string) (*FlakyTest, error)
-	
+
 	// Find flaky tests for a project
 	FindFlakyTestsByProject(ctx context.Context, projectID string, status FlakyTestStatus) ([]*FlakyTest, error)
-	
+
 	// Update flaky test status
 	UpdateFlakyTestStatus(ctx context.Context, testID string, status FlakyTestStatus) error
-	
+
 	// Record a test run analysis
 	SaveTestRunAnalysis(ctx context.Context, analysis *TestRunAnalysis) error
-	
+
 	// Get test run history for flaky detection
 	GetTestRunHistory(ctx context.Context, projectID string, testName string, since time.Time) ([]TestExecutionResult, error)
-	
+
 	// Get unique test names for a project
 	GetUniqueTestNames(ctx context.Context, projectID string, since time.Time) ([]string, error)
 }

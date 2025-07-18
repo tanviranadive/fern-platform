@@ -80,7 +80,7 @@ func (h *CreateProjectHandler) Handle(ctx context.Context, cmd CreateProjectComm
 	if cmd.DefaultBranch != "" {
 		project.UpdateDefaultBranch(cmd.DefaultBranch)
 	}
-	
+
 	// Set settings
 	for k, v := range cmd.Settings {
 		project.SetSetting(k, v)
