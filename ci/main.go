@@ -15,24 +15,17 @@ import (
 	"dagger/ci/internal/dagger"
 )
 
-// Type aliases for convenience
-type (
-	Container = dagger.Container
-	Directory = dagger.Directory
-	Secret    = dagger.Secret
-)
-
 type Ci struct{}
 
 // Build builds the Go application
 func (m *Ci) Build(
 	ctx context.Context,
 	// +required
-	source *Directory,
+	source *dagger.Directory,
 	// +optional
 	// +default="linux/amd64,linux/arm64"
 	platforms string,
-) *Container {
+) *dagger.Container {
 	return m.buildContainer(ctx, source, platforms)
 }
 
@@ -40,7 +33,7 @@ func (m *Ci) Build(
 func (m *Ci) Test(
 	ctx context.Context,
 	// +required
-	source *Directory,
+	source *dagger.Directory,
 ) (string, error) {
 	return m.runTests(ctx, source)
 }
@@ -49,7 +42,7 @@ func (m *Ci) Test(
 func (m *Ci) Lint(
 	ctx context.Context,
 	// +required
-	source *Directory,
+	source *dagger.Directory,
 ) (string, error) {
 	return m.runLint(ctx, source)
 }
@@ -58,7 +51,7 @@ func (m *Ci) Lint(
 func (m *Ci) SecurityScan(
 	ctx context.Context,
 	// +required
-	source *Directory,
+	source *dagger.Directory,
 ) (string, error) {
 	return m.runSecurityScan(ctx, source)
 }
@@ -67,7 +60,7 @@ func (m *Ci) SecurityScan(
 func (m *Ci) AcceptanceTest(
 	ctx context.Context,
 	// +required
-	source *Directory,
+	source *dagger.Directory,
 	// +optional
 	image string,
 ) (string, error) {
@@ -88,7 +81,7 @@ func (m *Ci) AcceptanceTest(
 func (m *Ci) Publish(
 	ctx context.Context,
 	// +required
-	source *Directory,
+	source *dagger.Directory,
 	// +required
 	registry string,
 	// +required
@@ -99,7 +92,7 @@ func (m *Ci) Publish(
 	// +optional
 	username string,
 	// +optional
-	password *Secret,
+	password *dagger.Secret,
 ) (string, error) {
 	return m.publishImages(ctx, source, registry, tag, platforms, username, password)
 }
@@ -108,7 +101,7 @@ func (m *Ci) Publish(
 func (m *Ci) All(
 	ctx context.Context,
 	// +required
-	source *Directory,
+	source *dagger.Directory,
 ) (string, error) {
 	var results []string
 
@@ -145,7 +138,7 @@ func (m *Ci) All(
 }
 
 // Helper function to build container
-func (m *Ci) buildContainer(ctx context.Context, source *Directory, platforms string) *Container {
+func (m *Ci) buildContainer(ctx context.Context, source *dagger.Directory, platforms string) *dagger.Container {
 	// Note: Dagger handles multi-platform builds internally
 	_ = platforms // platforms will be used when we implement multi-platform support
 	
@@ -177,7 +170,7 @@ func (m *Ci) buildContainer(ctx context.Context, source *Directory, platforms st
 }
 
 // Helper function to run tests
-func (m *Ci) runTests(ctx context.Context, source *Directory) (string, error) {
+func (m *Ci) runTests(ctx context.Context, source *dagger.Directory) (string, error) {
 	output, err := dag.Container().
 		From("golang:1.23-alpine").
 		WithMountedDirectory("/src", source).
@@ -196,7 +189,7 @@ func (m *Ci) runTests(ctx context.Context, source *Directory) (string, error) {
 }
 
 // Helper function to run lint
-func (m *Ci) runLint(ctx context.Context, source *Directory) (string, error) {
+func (m *Ci) runLint(ctx context.Context, source *dagger.Directory) (string, error) {
 	_, err := dag.Container().
 		From("golangci/golangci-lint:v1.54-alpine").
 		WithMountedDirectory("/src", source).
@@ -212,7 +205,7 @@ func (m *Ci) runLint(ctx context.Context, source *Directory) (string, error) {
 }
 
 // Helper function to run security scan
-func (m *Ci) runSecurityScan(ctx context.Context, source *Directory) (string, error) {
+func (m *Ci) runSecurityScan(ctx context.Context, source *dagger.Directory) (string, error) {
 	// Build the container first
 	container := m.buildContainer(ctx, source, "linux/amd64")
 	
@@ -238,7 +231,7 @@ func (m *Ci) runSecurityScan(ctx context.Context, source *Directory) (string, er
 }
 
 // Helper function to run acceptance tests
-func (m *Ci) runAcceptanceTests(ctx context.Context, source *Directory, image string) (string, error) {
+func (m *Ci) runAcceptanceTests(ctx context.Context, source *dagger.Directory, image string) (string, error) {
 	// Create a k3d container with Docker-in-Docker
 	k3dContainer := dag.Container().
 		From("rancher/k3d:5.6.0-dind").
@@ -284,7 +277,7 @@ func (m *Ci) runAcceptanceTests(ctx context.Context, source *Directory, image st
 }
 
 // Helper function to publish images
-func (m *Ci) publishImages(ctx context.Context, source *Directory, registry string, tag string, platforms string, username string, password *Secret) (string, error) {
+func (m *Ci) publishImages(ctx context.Context, source *dagger.Directory, registry string, tag string, platforms string, username string, password *dagger.Secret) (string, error) {
 	container := m.buildContainer(ctx, source, platforms)
 	
 	// Add registry auth if provided
