@@ -17,6 +17,25 @@ import (
 
 type Ci struct{}
 
+// ContainerEcho is a simple echo function for testing
+func (m *Ci) ContainerEcho(stringArg string) string {
+	return stringArg
+}
+
+// GrepDir searches for a pattern in files within a directory
+// Returns matching lines if found, or empty string if no matches (does not error)
+func (m *Ci) GrepDir(directoryArg *dagger.Directory, pattern string) (string, error) {
+	ctx := context.Background()
+	// Using grep with || true ensures we don't fail when no matches are found
+	// The pattern is passed as a positional parameter to avoid shell injection
+	return dag.Container().
+		From("alpine:3.21").
+		WithMountedDirectory("/search", directoryArg).
+		WithExec([]string{"sh", "-c", `
+			grep -r "$1" /search || true
+		`, "sh", pattern}).
+		Stdout(ctx)
+}
 
 // Build builds the Go application
 func (m *Ci) Build(
@@ -173,7 +192,7 @@ func (m *Ci) buildContainer(ctx context.Context, source *dagger.Directory, platf
 	
 	// Base builder stage
 	builder := dag.Container().
-		From("golang:1.23-alpine").
+		From("golang:1.24.5-alpine").
 		WithMountedDirectory("/src", source).
 		WithWorkdir("/src").
 		WithExec([]string{"apk", "add", "--no-cache", "git", "make"}).
@@ -184,7 +203,7 @@ func (m *Ci) buildContainer(ctx context.Context, source *dagger.Directory, platf
 
 	// Final stage
 	return dag.Container().
-		From("alpine:3.19").
+		From("alpine:3.21").
 		WithExec([]string{"apk", "add", "--no-cache", "ca-certificates", "tzdata"}).
 		WithExec([]string{"addgroup", "-g", "1001", "-S", "fern"}).
 		WithExec([]string{"adduser", "-u", "1001", "-S", "fern", "-G", "fern"}).
@@ -201,10 +220,10 @@ func (m *Ci) buildContainer(ctx context.Context, source *dagger.Directory, platf
 // Helper function to run tests
 func (m *Ci) runTests(ctx context.Context, source *dagger.Directory) (string, error) {
 	output, err := dag.Container().
-		From("golang:1.23-alpine").
+		From("golang:1.24.5-alpine").
 		WithMountedDirectory("/src", source).
 		WithWorkdir("/src").
-		WithExec([]string{"apk", "add", "--no-cache", "git", "make", "gcc", "musl-dev"}).
+		WithExec([]string{"apk", "add", "--no-cache", "git", "make", "gcc", "musl-dev", "binutils-gold"}).
 		WithEnvVariable("CGO_ENABLED", "1").
 		WithExec([]string{"go", "mod", "download"}).
 		WithExec([]string{"go", "test", "-v", "-race", "-coverprofile=coverage.out", "./..."}).
@@ -222,18 +241,19 @@ func (m *Ci) runLint(ctx context.Context, source *dagger.Directory) (string, err
 	// Use golang base image and install golangci-lint
 	// This ensures we have the right Go version and modules
 	container := dag.Container().
-		From("golang:1.23-alpine").
+		From("golang:1.24.5-alpine").
 		WithMountedDirectory("/src", source).
 		WithWorkdir("/src").
-		WithExec([]string{"apk", "add", "--no-cache", "git", "make", "gcc", "musl-dev"}).
+		WithExec([]string{"apk", "add", "--no-cache", "git", "make", "gcc", "musl-dev", "binutils-gold"}).
 		WithEnvVariable("CGO_ENABLED", "1").
+		WithEnvVariable("PATH", "/go/bin:/usr/local/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin").
 		WithExec([]string{"go", "mod", "download"}).
-		// Install golangci-lint
-		WithExec([]string{"sh", "-c", "wget -O- -nv https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s v1.61.0"})
+		// Install golangci-lint using go install (more secure than downloading scripts)
+		WithExec([]string{"go", "install", "github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.5"})
 	
-	// Run golangci-lint
+	// Run golangci-lint (go install puts it in $GOPATH/bin which is in PATH)
 	_, err := container.
-		WithExec([]string{"./bin/golangci-lint", "run", "--timeout", "5m"}).
+		WithExec([]string{"golangci-lint", "run", "--timeout", "5m"}).
 		Stdout(ctx)
 	
 	if err != nil {
@@ -254,7 +274,7 @@ func (m *Ci) runSecurityScan(ctx context.Context, source *dagger.Directory) (str
 	// Run Trivy scan
 	// Override entrypoint to avoid command duplication
 	output, err := dag.Container().
-		From("aquasec/trivy:0.48.1").
+		From("aquasec/trivy:0.64.1").
 		WithMountedFile("/image.tar", tarball).
 		WithEntrypoint([]string{"trivy"}).
 		WithExec([]string{
@@ -283,11 +303,29 @@ func (m *Ci) runAcceptanceTestsWithPlaywright(ctx context.Context, source *dagge
 	
 	// Run acceptance tests in a container with Playwright support
 	output, err := dag.Container().
-		From("mcr.microsoft.com/playwright:v1.40.0-focal").
+		From("mcr.microsoft.com/playwright:v1.54.1-focal").
 		WithMountedDirectory("/workspace", source).
 		WithWorkdir("/workspace/acceptance").
-		// Install Go
-		WithExec([]string{"sh", "-c", "curl -LO https://go.dev/dl/go1.23.0.linux-amd64.tar.gz && tar -C /usr/local -xzf go1.23.0.linux-amd64.tar.gz"}).
+		// Install Go with checksum verification
+		WithExec([]string{"sh", "-c", `
+			set -e
+			GO_VERSION="1.24.5"
+			GO_TARBALL="go${GO_VERSION}.linux-amd64.tar.gz"
+			GO_URL="https://go.dev/dl/${GO_TARBALL}"
+			
+			# Download Go tarball
+			curl -LO "${GO_URL}"
+			
+			# Download and verify checksum
+			curl -LO "${GO_URL}.sha256"
+			sha256sum -c "${GO_TARBALL}.sha256"
+			
+			# Extract only if checksum is valid
+			tar -C /usr/local -xzf "${GO_TARBALL}"
+			
+			# Clean up
+			rm -f "${GO_TARBALL}" "${GO_TARBALL}.sha256"
+		`}).
 		WithEnvVariable("PATH", "/usr/local/go/bin:/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin").
 		WithEnvVariable("GOPATH", "/go").
 		// Install ginkgo
@@ -497,7 +535,7 @@ func (m *Ci) AcceptanceTestK3s(
 
 	// Start k3s server with necessary features
 	k3sContainer := dag.Container().
-		From("rancher/k3s:v1.28.5-k3s1").
+		From("rancher/k3s:v1.33.2-k3s1").
 		WithMountedDirectory("/workspace", source).
 		WithExec([]string{"sh", "-c", `
 			# Start k3s server (keep traefik for ingress support)
@@ -586,7 +624,7 @@ spec:
               spec: {
                 containers: [{
                   name: "postgres"
-                  image: "postgres:15"
+                  image: "postgres:17"
                   env: [
                     {name: "POSTGRES_PASSWORD", value: "postgres"},
                     {name: "POSTGRES_DB", value: "fern_platform"}
@@ -864,6 +902,19 @@ SA_EOF
 	return testContainer.Stdout(ctx)
 }
 
+// Export exports the built container as a tarball for local use (e.g., k3d import)
+func (m *Ci) Export(
+	ctx context.Context,
+	// +required
+	source *dagger.Directory,
+	// +optional
+	// +default="linux/amd64"
+	platform string,
+) *dagger.File {
+	container := m.buildContainer(ctx, source, platform)
+	return container.AsTarball()
+}
+
 // AcceptanceTestSimple runs tests using direct service binding (no k8s)
 func (m *Ci) AcceptanceTestSimple(
 	ctx context.Context,
@@ -887,7 +938,7 @@ func (m *Ci) AcceptanceTestSimple(
 
 	// PostgreSQL service
 	postgresService := dag.Container().
-		From("postgres:15").
+		From("postgres:17").
 		WithEnvVariable("POSTGRES_PASSWORD", "postgres").
 		WithEnvVariable("POSTGRES_DB", "fern_platform").
 		WithExposedPort(5432).
@@ -895,20 +946,38 @@ func (m *Ci) AcceptanceTestSimple(
 
 	// Redis service
 	redisService := dag.Container().
-		From("redis:7-alpine").
+		From("redis:8-alpine").
 		WithExposedPort(6379).
 		AsService()
 
 	// Run acceptance tests directly against the services
 	return dag.Container().
-		From("mcr.microsoft.com/playwright:v1.40.0-focal").
+		From("mcr.microsoft.com/playwright:v1.54.1-focal").
 		WithMountedDirectory("/workspace", source).
 		WithWorkdir("/workspace/acceptance").
 		WithServiceBinding("postgres", postgresService).
 		WithServiceBinding("redis", redisService).
 		WithServiceBinding("app", appContainer).
-		// Install Go
-		WithExec([]string{"sh", "-c", "curl -LO https://go.dev/dl/go1.23.0.linux-amd64.tar.gz && tar -C /usr/local -xzf go1.23.0.linux-amd64.tar.gz"}).
+		// Install Go with checksum verification
+		WithExec([]string{"sh", "-c", `
+			set -e
+			GO_VERSION="1.24.5"
+			GO_TARBALL="go${GO_VERSION}.linux-amd64.tar.gz"
+			GO_URL="https://go.dev/dl/${GO_TARBALL}"
+			
+			# Download Go tarball
+			curl -LO "${GO_URL}"
+			
+			# Download and verify checksum
+			curl -LO "${GO_URL}.sha256"
+			sha256sum -c "${GO_TARBALL}.sha256"
+			
+			# Extract only if checksum is valid
+			tar -C /usr/local -xzf "${GO_TARBALL}"
+			
+			# Clean up
+			rm -f "${GO_TARBALL}" "${GO_TARBALL}.sha256"
+		`}).
 		WithEnvVariable("PATH", "/usr/local/go/bin:/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin").
 		WithEnvVariable("GOPATH", "/go").
 		// Install ginkgo

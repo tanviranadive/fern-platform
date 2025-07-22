@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 
 	"github.com/gin-gonic/gin"
@@ -90,15 +91,35 @@ func main() {
 	}
 
 	// Use the new domain-based API handler
-	domainHandler := api.NewDomainHandler(
-		testingService,
-		projectService,
-		tagService,
-		flakyDetectionService,
-		authMiddleware,
-		logger,
-	)
-	domainHandler.RegisterRoutes(router)
+	// Check environment variable to determine which handler version to use
+	// ParseBool accepts 1, t, T, TRUE, true, True, 0, f, F, FALSE, false, False
+	useSplitHandlers, _ := strconv.ParseBool(os.Getenv("FERN_USE_SPLIT_HANDLERS"))
+	
+	if useSplitHandlers {
+		// Use the new split handler architecture
+		domainHandler := api.NewDomainHandlerV2(
+			testingService,
+			projectService,
+			tagService,
+			flakyDetectionService,
+			authMiddleware,
+			logger,
+		)
+		domainHandler.RegisterRoutes(router)
+		logger.WithService("fern-platform").Info("Using split handler architecture (V2)")
+	} else {
+		// Use the original monolithic handler for backward compatibility
+		domainHandler := api.NewDomainHandler(
+			testingService,
+			projectService,
+			tagService,
+			flakyDetectionService,
+			authMiddleware,
+			logger,
+		)
+		domainHandler.RegisterRoutes(router)
+		logger.WithService("fern-platform").Info("Using original monolithic handler")
+	}
 
 	// GraphQL routes with role group names from config
 	// Initialize GraphQL resolver with domain services
