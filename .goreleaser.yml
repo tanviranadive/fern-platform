@@ -5,11 +5,9 @@ version: 2
 
 project_name: fern-platform
 
-# Generate SLSA provenance
-slsa:
-  enabled: true
-  attestation:
-    enabled: true
+# SLSA provenance is handled by a separate workflow
+# slsa:
+#   enabled: false
 
 before:
   hooks:

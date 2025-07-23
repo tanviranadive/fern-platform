@@ -3,6 +3,9 @@
 
 version: 1
 
+# The main package
+main: ./cmd/fern-platform
+
 env:
   - CGO_ENABLED=0
 
