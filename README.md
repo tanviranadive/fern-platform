@@ -29,6 +29,14 @@ Think of it as a specialized analytics platform for your tests - like Datadog or
 
 ### Requirements
 
+Choose based on your installation method:
+
+**For Docker:**
+- Docker Engine 20.10+
+- PostgreSQL 14+ (external or containerized)
+- Redis 6+ (external or containerized)
+
+**For Kubernetes deployment:**
 - Docker with buildx
 - [k3d](https://k3d.io/stable/#installation) (lightweight Kubernetes)
 - kubectl
@@ -37,6 +45,38 @@ Think of it as a specialized analytics platform for your tests - like Datadog or
 - 8GB RAM minimum
 
 ### Installation
+
+Choose your preferred installation method:
+
+#### Option 1: Docker (Quickest)
+
+```bash
+# Run with Docker (requires PostgreSQL and Redis)
+docker run -d \
+  --name fern-platform \
+  -p 8080:8080 \
+  -e DB_HOST=host.docker.internal \
+  -e DB_USER=postgres \
+  -e DB_PASSWORD=yourpassword \
+  -e DB_NAME=fern_platform \
+  -e REDIS_HOST=host.docker.internal \
+  ghcr.io/guidewire-oss/fern-platform:v0.1.0
+
+# Or use Docker Hub
+docker run -d \
+  --name fern-platform \
+  -p 8080:8080 \
+  -e DB_HOST=host.docker.internal \
+  -e DB_USER=postgres \
+  -e DB_PASSWORD=yourpassword \
+  -e DB_NAME=fern_platform \
+  -e REDIS_HOST=host.docker.internal \
+  docker.io/guidewireoss/fern-platform:v0.1.0
+```
+
+Access at `http://localhost:8080`
+
+#### Option 2: Kubernetes with OAuth (Full Features)
 
 ```bash
 # Clone the repository

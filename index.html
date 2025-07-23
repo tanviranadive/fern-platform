@@ -1115,8 +1115,26 @@
             
             <div class="installation-options">
                 <div class="installation-card">
-                    <h3>⚡ One-Command Setup</h3>
-                    <p>Perfect for local development and testing</p>
+                    <h3>🐳 Docker Quick Start</h3>
+                    <p>Fastest way to try Fern Platform</p>
+                    <div class="code-block">
+# Run with Docker (bring your own PostgreSQL & Redis)
+docker run -d \
+  --name fern-platform \
+  -p 8080:8080 \
+  -e DB_HOST=your-postgres-host \
+  -e DB_USER=postgres \
+  -e DB_PASSWORD=yourpassword \
+  ghcr.io/guidewire-oss/fern-platform:latest
+
+# Visit http://localhost:8080
+                    </div>
+                    <p><strong>Ready in:</strong> 2 minutes</p>
+                </div>
+                
+                <div class="installation-card">
+                    <h3>⚡ Full Local Setup</h3>
+                    <p>Complete platform with OAuth and sample data</p>
                     <div class="code-block">
 # Prerequisites: Docker, k3d, kubectl
 git clone https://github.com/guidewire-oss/fern-platform
