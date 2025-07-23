@@ -218,7 +218,7 @@ jobs:
           type=semver,pattern={{major}}.{{minor}}
           type=semver,pattern={{major}}
           type=raw,value=latest,enable={{is_default_branch}}
-          type=sha,prefix={{branch}}-
+          type=sha
     
     - name: Build and push by platform
       id: build
@@ -284,6 +284,7 @@ jobs:
           type=semver,pattern={{major}}.{{minor}}
           type=semver,pattern={{major}}
           type=raw,value=latest,enable={{is_default_branch}}
+          type=sha
     
     - name: Create and push manifest
       run: |
