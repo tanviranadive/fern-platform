@@ -61,7 +61,6 @@ jobs:
   # Keep the existing Dagger publish for additional container registry support
   publish-additional-registries:
     runs-on: ubuntu-latest
-    if: ${{ secrets.DOCKER_REGISTRY != '' }}
     steps:
     - uses: actions/checkout@v4
     
