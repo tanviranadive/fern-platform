@@ -234,39 +234,13 @@ release:
     - glob: ./deployments/fern-platform-kubevela.yaml
     - glob: ./deployments/docker-compose.yml
 
-nfpms:
-  - id: fern-platform
-    package_name: fern-platform
-    vendor: Guidewire
-    homepage: https://github.com/guidewire-oss/fern-platform
-    maintainer: Fern Platform Team <fern-platform@guidewire.com>
-    description: Unified test intelligence platform
-    license: Apache-2.0
-    formats:
-      - deb
-      - rpm
-      - apk
-    bindir: /usr/bin
-    section: utils
-    priority: optional
-    meta: false
-    contents:
-      - src: ./config/config.yaml
-        dst: /etc/fern-platform/config.yaml
-        type: config
-      - src: ./deployments/systemd/fern-platform.service
-        dst: /etc/systemd/system/fern-platform.service
-        type: config
-    scripts:
-      postinstall: ./scripts/postinstall.sh
-      preremove: ./scripts/preremove.sh
 
 brews:
   - repository:
       owner: guidewire-oss
       name: homebrew-tap
       token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
-    folder: Formula
+    directory: Formula
     homepage: https://github.com/guidewire-oss/fern-platform
     description: Unified test intelligence platform
     license: Apache-2.0
