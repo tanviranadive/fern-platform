@@ -48,10 +48,14 @@ Choose based on your installation method:
 
 Choose your preferred installation method:
 
-#### Option 1: Docker (Quickest)
+#### Option 1: Docker (Coming Soon)
+
+Docker images will be available after the v0.1.0 release:
+- GitHub Container Registry: `ghcr.io/guidewire-oss/fern-platform:latest`
+- Docker Hub: `docker.io/guidewireoss/fern-platform:latest`
 
 ```bash
-# Run with Docker (requires PostgreSQL and Redis)
+# Future usage (not yet available):
 docker run -d \
   --name fern-platform \
   -p 8080:8080 \
@@ -60,21 +64,10 @@ docker run -d \
   -e DB_PASSWORD=yourpassword \
   -e DB_NAME=fern_platform \
   -e REDIS_HOST=host.docker.internal \
-  ghcr.io/guidewire-oss/fern-platform:v0.1.0
-
-# Or use Docker Hub
-docker run -d \
-  --name fern-platform \
-  -p 8080:8080 \
-  -e DB_HOST=host.docker.internal \
-  -e DB_USER=postgres \
-  -e DB_PASSWORD=yourpassword \
-  -e DB_NAME=fern_platform \
-  -e REDIS_HOST=host.docker.internal \
-  docker.io/guidewireoss/fern-platform:v0.1.0
+  ghcr.io/guidewire-oss/fern-platform:latest
 ```
 
-Access at `http://localhost:8080`
+For now, please use Option 2 (Kubernetes deployment) or build from source.
 
 #### Option 2: Kubernetes with OAuth (Full Features)
 

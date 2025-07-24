@@ -1115,21 +1115,20 @@
             
             <div class="installation-options">
                 <div class="installation-card">
-                    <h3>🐳 Docker Quick Start</h3>
+                    <h3>🐳 Docker (Coming Soon)</h3>
                     <p>Fastest way to try Fern Platform</p>
                     <div class="code-block">
-# Run with Docker (bring your own PostgreSQL & Redis)
-docker run -d \
-  --name fern-platform \
+# Docker images will be available soon at:
+# - ghcr.io/guidewire-oss/fern-platform:latest
+# - docker.io/guidewireoss/fern-platform:latest
+
+# Future usage:
+docker run -d --name fern-platform \
   -p 8080:8080 \
   -e DB_HOST=your-postgres-host \
-  -e DB_USER=postgres \
-  -e DB_PASSWORD=yourpassword \
   ghcr.io/guidewire-oss/fern-platform:latest
-
-# Visit http://localhost:8080
                     </div>
-                    <p><strong>Ready in:</strong> 2 minutes</p>
+                    <p><strong>Ready in:</strong> 2 minutes (once available)</p>
                 </div>
                 
                 <div class="installation-card">

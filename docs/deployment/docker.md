@@ -2,6 +2,10 @@
 
 This guide covers running Fern Platform using Docker containers.
 
+> **Note**: Docker images are currently being published. This guide will be fully functional once v0.1.0 images are available on:
+> - GitHub Container Registry: `ghcr.io/guidewire-oss/fern-platform`
+> - Docker Hub: `docker.io/guidewireoss/fern-platform`
+
 ## Quick Start
 
 ### Prerequisites

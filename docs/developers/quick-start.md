@@ -15,18 +15,22 @@
 
 ---
 
-## 🐳 2-Minute Docker Quick Start
+## 🐳 2-Minute Docker Quick Start (Coming Soon)
 
 **Perfect for:** Quick evaluation without full setup
+
+> **Note**: Docker images are being published. Once available, you'll be able to use:
+> - `ghcr.io/guidewire-oss/fern-platform:latest`
+> - `docker.io/guidewireoss/fern-platform:latest`
 
 ### Prerequisites
 - Docker Engine 20.10+
 - PostgreSQL and Redis (local or cloud)
 
-### Run with Docker
+### Future Usage
 
 ```bash
-# Using GitHub Container Registry
+# Once images are available:
 docker run -d \
   --name fern-platform \
   -p 8080:8080 \
@@ -36,17 +40,6 @@ docker run -d \
   -e DB_NAME=fern_platform \
   -e REDIS_HOST=host.docker.internal \
   ghcr.io/guidewire-oss/fern-platform:latest
-
-# Or using Docker Hub
-docker run -d \
-  --name fern-platform \
-  -p 8080:8080 \
-  -e DB_HOST=host.docker.internal \
-  -e DB_USER=postgres \
-  -e DB_PASSWORD=yourpassword \
-  -e DB_NAME=fern_platform \
-  -e REDIS_HOST=host.docker.internal \
-  docker.io/guidewireoss/fern-platform:latest
 
 # Check health
 curl http://localhost:8080/health
