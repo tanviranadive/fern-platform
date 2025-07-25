@@ -498,19 +498,32 @@ func (m *Ci) runAcceptanceTests(ctx context.Context, source *dagger.Directory, i
 func (m *Ci) publishImages(ctx context.Context, source *dagger.Directory, registry string, tag string, platforms string, username string, password *dagger.Secret) (string, error) {
 	container := m.buildContainer(ctx, source, platforms)
 	
+	// Construct the full image reference
+	var imageRef string
+	if strings.Contains(registry, "/") {
+		// Registry already contains the full path (e.g., docker.io/guidewireoss/fern-platform)
+		imageRef = registry
+	} else if username != "" {
+		// Construct registry/username/repository format
+		imageRef = fmt.Sprintf("%s/%s/fern-platform", registry, username)
+	} else {
+		// Fallback to registry/fern-platform
+		imageRef = fmt.Sprintf("%s/fern-platform", registry)
+	}
+	
 	// Add registry auth if provided
 	if username != "" && password != nil {
 		container = container.WithRegistryAuth(registry, username, password)
 	}
 	
 	// Publish with the specified tag
-	addr, err := container.Publish(ctx, fmt.Sprintf("%s:%s", registry, tag))
+	addr, err := container.Publish(ctx, fmt.Sprintf("%s:%s", imageRef, tag))
 	if err != nil {
 		return "", err
 	}
 	
 	// Also publish as latest
-	latestAddr, err := container.Publish(ctx, fmt.Sprintf("%s:latest", registry))
+	latestAddr, err := container.Publish(ctx, fmt.Sprintf("%s:latest", imageRef))
 	if err != nil {
 		return "", err
 	}
