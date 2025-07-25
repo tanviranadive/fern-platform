@@ -62,7 +62,6 @@ archives:
       - LICENSE
       - README.md
       - docs/developers/quick-start.md
-      - deployments/docker-compose.yml
       - deployments/fern-platform-kubevela.yaml
       - config/config.yaml
 
@@ -234,7 +233,6 @@ release:
   
   extra_files:
     - glob: ./deployments/fern-platform-kubevela.yaml
-    - glob: ./deployments/docker-compose.yml
 
 
 brews:
