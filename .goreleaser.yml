@@ -136,7 +136,43 @@ dockers:
       - "--label=org.opencontainers.image.licenses=Apache-2.0"
       - "--label=org.opencontainers.image.description=Unified test intelligence platform"
 
+  # Docker Hub images - amd64
+  - image_templates:
+      - 'docker.io/guidewireoss/{{ .ProjectName }}:{{ .Version }}-amd64'
+      - 'docker.io/guidewireoss/{{ .ProjectName }}:latest-amd64'
+    use: buildx
+    dockerfile: Dockerfile.goreleaser
+    build_flag_templates:
+      - "--pull"
+      - "--platform=linux/amd64"
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.title={{.ProjectName}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.version={{.Version}}"
+      - "--label=org.opencontainers.image.source={{.GitURL}}"
+      - "--label=org.opencontainers.image.licenses=Apache-2.0"
+      - "--label=org.opencontainers.image.description=Unified test intelligence platform"
+
+  # Docker Hub images - arm64
+  - image_templates:
+      - 'docker.io/guidewireoss/{{ .ProjectName }}:{{ .Version }}-arm64'
+      - 'docker.io/guidewireoss/{{ .ProjectName }}:latest-arm64'
+    use: buildx
+    goarch: arm64
+    dockerfile: Dockerfile.goreleaser
+    build_flag_templates:
+      - "--pull"
+      - "--platform=linux/arm64"
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.title={{.ProjectName}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.version={{.Version}}"
+      - "--label=org.opencontainers.image.source={{.GitURL}}"
+      - "--label=org.opencontainers.image.licenses=Apache-2.0"
+      - "--label=org.opencontainers.image.description=Unified test intelligence platform"
+
 docker_manifests:
+  # GHCR manifests
   - name_template: 'ghcr.io/guidewire-oss/{{ .ProjectName }}:{{ .Version }}'
     image_templates:
       - 'ghcr.io/guidewire-oss/{{ .ProjectName }}:{{ .Version }}-amd64'
@@ -146,6 +182,17 @@ docker_manifests:
     image_templates:
       - 'ghcr.io/guidewire-oss/{{ .ProjectName }}:latest-amd64'
       - 'ghcr.io/guidewire-oss/{{ .ProjectName }}:latest-arm64'
+
+  # Docker Hub manifests
+  - name_template: 'docker.io/guidewireoss/{{ .ProjectName }}:{{ .Version }}'
+    image_templates:
+      - 'docker.io/guidewireoss/{{ .ProjectName }}:{{ .Version }}-amd64'
+      - 'docker.io/guidewireoss/{{ .ProjectName }}:{{ .Version }}-arm64'
+  
+  - name_template: 'docker.io/guidewireoss/{{ .ProjectName }}:latest'
+    image_templates:
+      - 'docker.io/guidewireoss/{{ .ProjectName }}:latest-amd64'
+      - 'docker.io/guidewireoss/{{ .ProjectName }}:latest-arm64'
 
 changelog:
   sort: asc
