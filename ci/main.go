@@ -498,34 +498,54 @@ func (m *Ci) runAcceptanceTests(ctx context.Context, source *dagger.Directory, i
 func (m *Ci) publishImages(ctx context.Context, source *dagger.Directory, registry string, tag string, platforms string, username string, password *dagger.Secret) (string, error) {
 	container := m.buildContainer(ctx, source, platforms)
 	
-	// Construct the full image reference
+	// Construct the full image reference based on the registry
 	var imageRef string
-	if strings.Contains(registry, "/") {
-		// Registry already contains the full path (e.g., docker.io/guidewireoss/fern-platform)
-		imageRef = registry
-	} else if username != "" {
-		// Construct registry/username/repository format
-		imageRef = fmt.Sprintf("%s/%s/fern-platform", registry, username)
-	} else {
-		// Fallback to registry/fern-platform
-		imageRef = fmt.Sprintf("%s/fern-platform", registry)
-	}
 	
-	// Add registry auth if provided
-	if username != "" && password != nil {
-		container = container.WithRegistryAuth(registry, username, password)
+	if registry == "docker.io" || registry == "" {
+		// For Docker Hub, use the standard format: docker.io/username/repository
+		if username == "" {
+			return "", fmt.Errorf("username is required for Docker Hub")
+		}
+		imageRef = fmt.Sprintf("docker.io/%s/fern-platform", username)
+		
+		// Add Docker Hub authentication
+		if password != nil {
+			container = container.WithRegistryAuth("docker.io", username, password)
+		}
+	} else if strings.HasPrefix(registry, "ghcr.io") {
+		// For GitHub Container Registry
+		imageRef = fmt.Sprintf("%s/fern-platform", registry)
+		
+		// Add GHCR authentication if credentials provided
+		if username != "" && password != nil {
+			container = container.WithRegistryAuth("ghcr.io", username, password)
+		}
+	} else {
+		// For other registries
+		imageRef = fmt.Sprintf("%s/fern-platform", registry)
+		
+		// Extract the registry hostname for auth
+		registryHost := registry
+		if idx := strings.Index(registry, "/"); idx != -1 {
+			registryHost = registry[:idx]
+		}
+		
+		// Add authentication if credentials provided
+		if username != "" && password != nil {
+			container = container.WithRegistryAuth(registryHost, username, password)
+		}
 	}
 	
 	// Publish with the specified tag
 	addr, err := container.Publish(ctx, fmt.Sprintf("%s:%s", imageRef, tag))
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to publish %s:%s: %w", imageRef, tag, err)
 	}
 	
 	// Also publish as latest
 	latestAddr, err := container.Publish(ctx, fmt.Sprintf("%s:latest", imageRef))
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to publish %s:latest: %w", imageRef, err)
 	}
 	
 	return fmt.Sprintf("Published: %s, %s", addr, latestAddr), nil
