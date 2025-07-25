@@ -75,7 +75,7 @@ jobs:
         args: >-
           publish
           --source .
-          --registry ${{ secrets.DOCKER_REGISTRY }}
+          --registry docker.io
           --tag ${{ steps.version.outputs.VERSION }}
           --username "${{ secrets.DOCKER_USERNAME }}"
           --password env:DAGGER_DOCKER_PASSWORD
