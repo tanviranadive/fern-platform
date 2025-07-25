@@ -14,10 +14,12 @@ flags:
   - -tags=netgo
 
 # SLSA builds use environment variables from the matrix
-goos: "{{ .Env.GOOS }}"
-goarch: "{{ .Env.GOARCH }}"
+# These are evaluated by the SLSA builder, not as Go templates
+goos: "$GOOS"
+goarch: "$GOARCH"
 
-binary: fern-platform-{{ .Os }}-{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}
+# Simplified binary name without ARM version suffix
+binary: fern-platform-$GOOS-$GOARCH
 
 ldflags:
   - "-s -w"
