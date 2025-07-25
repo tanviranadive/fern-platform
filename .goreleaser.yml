@@ -107,7 +107,7 @@ dockers:
       - 'ghcr.io/guidewire-oss/{{ .ProjectName }}:{{ .Version }}-amd64'
       - 'ghcr.io/guidewire-oss/{{ .ProjectName }}:latest-amd64'
     use: buildx
-    dockerfile: Dockerfile
+    dockerfile: Dockerfile.goreleaser
     build_flag_templates:
       - "--pull"
       - "--platform=linux/amd64"
@@ -124,7 +124,7 @@ dockers:
       - 'ghcr.io/guidewire-oss/{{ .ProjectName }}:latest-arm64'
     use: buildx
     goarch: arm64
-    dockerfile: Dockerfile
+    dockerfile: Dockerfile.goreleaser
     build_flag_templates:
       - "--pull"
       - "--platform=linux/arm64"
