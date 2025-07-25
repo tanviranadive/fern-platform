@@ -235,19 +235,6 @@ release:
     - glob: ./deployments/fern-platform-kubevela.yaml
 
 
-brews:
-  - repository:
-      owner: guidewire-oss
-      name: homebrew-tap
-      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
-    directory: Formula
-    homepage: https://github.com/guidewire-oss/fern-platform
-    description: Unified test intelligence platform
-    license: Apache-2.0
-    test: |
-      system "#{bin}/fern-platform", "--version"
-    install: |
-      bin.install "fern-platform"
     
 announce:
   discord:

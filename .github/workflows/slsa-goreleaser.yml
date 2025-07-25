@@ -42,16 +42,30 @@ jobs:
       actions: read
       contents: write
     needs: args
+    strategy:
+      matrix:
+        os: [linux, darwin, windows]
+        arch: [amd64, arm64]
+        exclude:
+          - os: windows
+            arch: arm64
     uses: slsa-framework/slsa-github-generator/.github/workflows/builder_go_slsa3.yml@v2.0.0
     with:
       go-version: "1.24"
-      evaluated-envs: "COMMIT_DATE:${{needs.args.outputs.commit-date}},COMMIT:${{needs.args.outputs.commit}},VERSION:${{needs.args.outputs.version}},TREE_STATE:${{needs.args.outputs.tree-state}}"
+      evaluated-envs: "COMMIT_DATE:${{needs.args.outputs.commit-date}},COMMIT:${{needs.args.outputs.commit}},VERSION:${{needs.args.outputs.version}},TREE_STATE:${{needs.args.outputs.tree-state}},GOOS:${{matrix.os}},GOARCH:${{matrix.arch}}"
       config-file: .slsa-goreleaser.yml
 
   verification:
     needs: build
     runs-on: ubuntu-latest
     permissions: read-all
+    strategy:
+      matrix:
+        os: [linux, darwin, windows]
+        arch: [amd64, arm64]
+        exclude:
+          - os: windows
+            arch: arm64
     steps:
       - name: Install SLSA verifier
         uses: slsa-framework/slsa-verifier/actions/installer@v2.6.0

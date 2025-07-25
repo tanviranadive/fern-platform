@@ -13,15 +13,9 @@ flags:
   - -trimpath
   - -tags=netgo
 
-goos:
-  - linux
-  - darwin
-  - windows
-
-goarch:
-  - amd64
-  - arm64
-  - 386
+# SLSA builds use environment variables from the matrix
+goos: "{{ .Env.GOOS }}"
+goarch: "{{ .Env.GOARCH }}"
 
 binary: fern-platform-{{ .Os }}-{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}
 
