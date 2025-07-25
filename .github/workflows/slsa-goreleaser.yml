@@ -1,8 +1,9 @@
 name: SLSA go releaser
 on:
-  push:
-    tags:
-      - "v*"
+  # Temporarily disabled - SLSA workflow needs debugging
+  # push:
+  #   tags:
+  #     - "v*"
   workflow_dispatch:
     inputs:
       tag:
