@@ -78,4 +78,6 @@ jobs:
           --registry ${{ secrets.DOCKER_REGISTRY }}
           --tag ${{ steps.version.outputs.VERSION }}
           --username "${{ secrets.DOCKER_USERNAME }}"
-          --password "${{ secrets.DOCKER_PASSWORD }}"
+          --password env:DOCKER_PASSWORD
+      env:
+        DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
