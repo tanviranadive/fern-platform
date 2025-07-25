@@ -52,8 +52,8 @@ jobs:
     uses: slsa-framework/slsa-github-generator/.github/workflows/builder_go_slsa3.yml@v2.0.0
     with:
       go-version: "1.24"
-      evaluated-envs: "COMMIT_DATE:${{needs.args.outputs.commit-date}},COMMIT:${{needs.args.outputs.commit}},VERSION:${{needs.args.outputs.version}},TREE_STATE:${{needs.args.outputs.tree-state}},GOOS:${{matrix.os}},GOARCH:${{matrix.arch}}"
-      config-file: .slsa-goreleaser.yml
+      evaluated-envs: "COMMIT_DATE:${{needs.args.outputs.commit-date}},COMMIT:${{needs.args.outputs.commit}},VERSION:${{needs.args.outputs.version}},TREE_STATE:${{needs.args.outputs.tree-state}}"
+      config-file: .slsa-goreleaser/${{matrix.os}}-${{matrix.arch}}.yml
 
   verification:
     needs: build
