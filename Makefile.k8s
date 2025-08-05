@@ -144,13 +144,42 @@ check-install-cnpg: ## Check if CloudNativePG is installed, install if not
 		echo "✅ CloudNativePG installed successfully"; \
 	fi
 
-build-and-load-image: ## Build Docker image via Dagger and load into k3d cluster
-	@echo "🐳 Building and loading Docker image via Dagger..."
-	@echo "📦 Building and exporting image with Dagger..."
-	@cd ci && dagger call export --source=../ --platform="linux/$(shell go env GOARCH)" export --path /tmp/fern-platform.tar
-	@echo "📥 Importing OCI image directly into k3d..."
-	@k3d image import /tmp/fern-platform.tar -c fern-platform
-	@rm -f /tmp/fern-platform.tar
+build-and-load-image: ## Build Docker image directly and load into k3d cluster
+	@echo "🐳 Building and loading Docker image..."
+	@echo "📦 Building multi-stage Docker image..."
+	@# Create a temporary Dockerfile that mirrors what Dagger does
+	@echo '# Builder stage' > Dockerfile.fern-platform
+	@echo 'FROM golang:1.24.5-alpine AS builder' >> Dockerfile.fern-platform
+	@echo 'WORKDIR /src' >> Dockerfile.fern-platform
+	@echo 'RUN apk add --no-cache git make' >> Dockerfile.fern-platform
+	@echo 'COPY go.mod go.sum ./' >> Dockerfile.fern-platform
+	@echo 'RUN go mod download' >> Dockerfile.fern-platform
+	@echo 'COPY . .' >> Dockerfile.fern-platform
+	@echo 'RUN go build -ldflags "-w -s" -o fern-platform cmd/fern-platform/main.go' >> Dockerfile.fern-platform
+	@echo '' >> Dockerfile.fern-platform
+	@echo '# Final stage' >> Dockerfile.fern-platform
+	@echo 'FROM alpine:3.21' >> Dockerfile.fern-platform
+	@echo 'RUN apk add --no-cache ca-certificates tzdata' >> Dockerfile.fern-platform
+	@echo 'RUN addgroup -g 1001 -S fern && adduser -u 1001 -S fern -G fern' >> Dockerfile.fern-platform
+	@echo 'WORKDIR /app' >> Dockerfile.fern-platform
+	@echo 'COPY --from=builder /src/fern-platform ./fern-platform' >> Dockerfile.fern-platform
+	@echo 'COPY config ./config' >> Dockerfile.fern-platform
+	@echo 'COPY migrations ./migrations' >> Dockerfile.fern-platform
+	@echo 'COPY web ./web' >> Dockerfile.fern-platform
+	@echo 'RUN chown -R fern:fern /app' >> Dockerfile.fern-platform
+	@echo 'USER fern' >> Dockerfile.fern-platform
+	@echo 'EXPOSE 8080' >> Dockerfile.fern-platform
+	@echo 'HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \' >> Dockerfile.fern-platform
+	@echo '  CMD wget --no-verbose --tries=1 --spider http://localhost:8080/health || exit 1' >> Dockerfile.fern-platform
+	@echo 'ENTRYPOINT ["/app/fern-platform"]' >> Dockerfile.fern-platform
+	@echo 'CMD ["-config", "config/config.yaml"]' >> Dockerfile.fern-platform
+	@# Build the image with a timestamp tag to avoid caching issues
+	@docker build -f Dockerfile.fern-platform -t fern-platform:latest -t fern-platform:$(shell date +%s) --no-cache .
+	@# Import into k3d
+	@echo "📥 Importing image into k3d cluster..."
+	@k3d image import fern-platform:latest -c fern-platform
+	@# Clean up
+	@rm -f Dockerfile.fern-platform
 	@echo "✅ Image built and loaded successfully"
 
 deploy-and-verify: ## Deploy application and verify it's running

@@ -33,3 +33,6 @@ deployments/mock-jira*.yaml
 mock-jira/
 EOF < /dev/null
 bin/fern-platform
+
+# Temporary Dockerfile created by Makefile
+Dockerfile.fern-platform
