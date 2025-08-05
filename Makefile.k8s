@@ -146,12 +146,12 @@ check-install-cnpg: ## Check if CloudNativePG is installed, install if not
 
 build-and-load-image: ## Build Docker image via Dagger and load into k3d cluster
 	@echo "🐳 Building and loading Docker image via Dagger..."
-	@echo "📦 Building and exporting image..."
-	@cd ci && dagger call export --source=.. --platform="linux/$(shell go env GOARCH)" export --path /tmp/fern-image.tar
-	@echo "📥 Loading image into k3d cluster..."
-	@k3d image import /tmp/fern-image.tar -c fern-platform
-	@rm -f /tmp/fern-image.tar
-	@echo "✅ Image loaded successfully"
+	@echo "📦 Building and exporting image with Dagger..."
+	@cd ci && dagger call export --source=../ --platform="linux/$(shell go env GOARCH)" export --path /tmp/fern-platform.tar
+	@echo "📥 Importing OCI image directly into k3d..."
+	@k3d image import /tmp/fern-platform.tar -c fern-platform
+	@rm -f /tmp/fern-platform.tar
+	@echo "✅ Image built and loaded successfully"
 
 deploy-and-verify: ## Deploy application and verify it's running
 	@echo "☸️ Deploying Fern Platform application..."
