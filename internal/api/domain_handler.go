@@ -80,7 +80,7 @@ func (h *DomainHandler) RegisterRoutes(router *gin.Engine) {
 			// Test runs
 			protected.GET("/test-runs", h.getTestRuns)
 			protected.GET("/test-runs/:id", h.getTestRun)
-			protected.GET("/test-runs/by-run-id/:runId", h.getTestRunByRunId)
+			protected.GET("/test-runs/by-run-id/:id", h.getTestRunByRunId)
 			protected.DELETE("/test-runs/:id", h.deleteTestRun)
 
 			// Suites
@@ -605,7 +605,7 @@ func (h *DomainHandler) getTestRun(c *gin.Context) {
 }
 
 func (h *DomainHandler) getTestRunByRunId(c *gin.Context) {
-	runID := c.Param("runId")
+	runID := c.Param("id")
 	c.JSON(http.StatusNotImplemented, gin.H{"error": "Get test run by run ID not yet implemented"})
 	_ = runID // TODO: Implement
 }

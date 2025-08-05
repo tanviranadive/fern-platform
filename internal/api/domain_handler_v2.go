@@ -177,9 +177,3 @@ func (h *DomainHandlerV2) getTag(c *gin.Context) {
 	h.tagHandler.getTag(c)
 }
 
-// Helper methods
-
-func (h *DomainHandlerV2) isUserAuthenticated(c *gin.Context) bool {
-	sessionID, err := c.Cookie("session_id")
-	return err == nil && sessionID != ""
-}

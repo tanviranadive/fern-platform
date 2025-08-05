@@ -339,15 +339,6 @@ func (h *AuthHandler) getLoginPageHTML(oauthURL string) string {
 
 // RegisterRoutes registers auth routes
 func (h *AuthHandler) RegisterRoutes(router *gin.Engine, authGroup, userGroup, adminGroup *gin.RouterGroup) {
-	// Root route handler
-	router.GET("/", func(c *gin.Context) {
-		if !h.isUserAuthenticated(c) {
-			c.Redirect(302, "/auth/login")
-			return
-		}
-		c.File("./web/index.html")
-	})
-
 	// Auth routes (no authentication required for login)
 	authGroup.GET("/login", h.showLoginPage)
 	authGroup.GET("/start", h.authMiddleware.StartOAuthFlow())
