@@ -5559,12 +5559,47 @@
 
             const handleCreateProject = async (projectData) => {
                 try {
-                    await graphqlClient.mutation(GRAPHQL_QUERIES.CREATE_PROJECT, {
+                    // First create the project
+                    const projectResult = await graphqlClient.mutation(GRAPHQL_QUERIES.CREATE_PROJECT, {
                         input: {
                             projectId: '', // Empty string - will be auto-generated
-                            ...projectData
+                            name: projectData.name,
+                            description: projectData.description,
+                            team: projectData.team,
+                            repository: projectData.repository,
+                            defaultBranch: projectData.defaultBranch
                         }
                     });
+                    
+                    // If PM tool is configured, create the connection
+                    if (projectData.pmTool === 'jira' && projectResult.createProject) {
+                        const createdProject = projectResult.createProject;
+                        console.log('Created project:', createdProject);
+                        console.log('Project ID:', createdProject.projectId);
+                        console.log('Team:', createdProject.team);
+                        
+                        // Small delay to ensure project is fully created
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+                        
+                        try {
+                            await graphqlClient.mutation(GRAPHQL_QUERIES.CREATE_JIRA_CONNECTION, {
+                                input: {
+                                    projectId: createdProject.projectId,
+                                    name: projectData.jiraConnectionName,
+                                    jiraUrl: projectData.jiraUrl,
+                                    authenticationType: projectData.jiraAuthType,
+                                    projectKey: projectData.jiraProjectKey,
+                                    username: projectData.jiraUsername,
+                                    credential: projectData.jiraCredential
+                                }
+                            });
+                        } catch (jiraErr) {
+                            console.error('Failed to create JIRA connection:', jiraErr);
+                            // Don't fail the whole operation, just notify
+                            alert(`Project created successfully, but JIRA connection failed: ${jiraErr.message}`);
+                        }
+                    }
+                    
                     setShowCreateModal(false);
                     fetchProjects();
                 } catch (err) {
@@ -5891,6 +5926,37 @@
                                                             onClick={(e) => {
                                                                 e.preventDefault();
                                                                 e.stopPropagation();
+                                                                console.log('Settings button clicked for project:', project.projectId);
+                                                                window.location.hash = `/project/${project.projectId}/settings`;
+                                                            }}
+                                                            title="Project Settings"
+                                                            style={{
+                                                                background: 'var(--bg-secondary)',
+                                                                border: '1px solid var(--border-light)',
+                                                                borderRadius: 'var(--radius-md)',
+                                                                padding: '0.5rem 0.75rem',
+                                                                cursor: 'pointer',
+                                                                color: 'var(--text-secondary)',
+                                                                transition: 'all 0.2s ease',
+                                                                fontSize: '0.875rem'
+                                                            }}
+                                                            onMouseEnter={(e) => {
+                                                                e.target.style.background = 'var(--secondary)';
+                                                                e.target.style.color = 'white';
+                                                                e.target.style.borderColor = 'var(--secondary)';
+                                                            }}
+                                                            onMouseLeave={(e) => {
+                                                                e.target.style.background = 'var(--bg-secondary)';
+                                                                e.target.style.color = 'var(--text-secondary)';
+                                                                e.target.style.borderColor = 'var(--border-light)';
+                                                            }}
+                                                        >
+                                                            ⚙️
+                                                        </button>
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.preventDefault();
+                                                                e.stopPropagation();
                                                                 console.log('Edit button clicked for project:', project.id, project.name);
                                                                 setEditingProject(project);
                                                             }}
@@ -5964,7 +6030,7 @@
                     {/* Create/Edit Project Modal */}
                     {(showCreateModal || editingProject) && (
                         <ProjectModal
-                            project={editingProject}
+                            project={showCreateModal && !editingProject ? null : editingProject}
                             teams={userTeams}
                             isAdmin={isAdmin}
                             onSubmit={editingProject ? 
@@ -6141,12 +6207,22 @@
 
         // Project Modal Component
         function ProjectModal({ project, teams, isAdmin, onSubmit, onClose }) {
+            console.log('ProjectModal rendered with project:', project);
+            const [activeTab, setActiveTab] = useState('general');
             const [formData, setFormData] = useState({
                 name: project?.name || '',
                 description: project?.description || '',
                 team: project?.team || (teams.length > 0 ? teams[0] : ''),
                 repository: project?.repository || '',
-                defaultBranch: project?.defaultBranch || 'main'
+                defaultBranch: project?.defaultBranch || 'main',
+                // PM Connector fields
+                pmTool: 'none', // 'none', 'jira', 'aha'
+                jiraConnectionName: '',
+                jiraUrl: '',
+                jiraProjectKey: '',
+                jiraAuthType: 'api_token',
+                jiraUsername: '',
+                jiraCredential: ''
             });
 
             const handleSubmit = (e) => {
@@ -6155,7 +6231,38 @@
                     alert('Project name is required');
                     return;
                 }
-                onSubmit(formData);
+                
+                // Validate PM tool fields if enabled
+                if (formData.pmTool === 'jira') {
+                    if (!formData.jiraConnectionName.trim()) {
+                        alert('JIRA connection name is required');
+                        return;
+                    }
+                    if (!formData.jiraUrl.trim()) {
+                        alert('JIRA URL is required');
+                        return;
+                    }
+                    if (!formData.jiraProjectKey.trim()) {
+                        alert('JIRA project key is required');
+                        return;
+                    }
+                    if (!formData.jiraUsername.trim()) {
+                        alert(formData.jiraAuthType === 'api_token' ? 'Email address is required' : 'Username is required');
+                        return;
+                    }
+                    if (!formData.jiraCredential.trim()) {
+                        alert('Credential is required');
+                        return;
+                    }
+                }
+                
+                // When updating a project, don't send PM connector fields
+                if (project) {
+                    const { pmTool, jiraConnectionName, jiraUrl, jiraProjectKey, jiraAuthType, jiraUsername, jiraCredential, ...projectData } = formData;
+                    onSubmit(projectData);
+                } else {
+                    onSubmit(formData);
+                }
             };
 
             return (
@@ -6175,7 +6282,7 @@
                         background: 'var(--bg-primary)',
                         borderRadius: 'var(--radius-xl)',
                         padding: '2rem',
-                        maxWidth: '500px',
+                        maxWidth: '600px',
                         width: '90%',
                         maxHeight: '90vh',
                         overflow: 'auto',
@@ -6185,11 +6292,58 @@
                             {project ? 'Edit Project' : 'Create New Project'}
                         </h3>
                         
+                        {/* Tab Navigation */}
+                        <div style={{
+                                display: 'flex',
+                                borderBottom: '2px solid var(--border-color)',
+                                marginBottom: '2rem'
+                            }}>
+                                <button
+                                    type="button"
+                                    onClick={() => setActiveTab('general')}
+                                    style={{
+                                        padding: '0.75rem 1.5rem',
+                                        background: 'none',
+                                        border: 'none',
+                                        borderBottom: activeTab === 'general' ? '2px solid var(--primary)' : '2px solid transparent',
+                                        color: activeTab === 'general' ? 'var(--primary)' : 'var(--text-secondary)',
+                                        cursor: 'pointer',
+                                        fontWeight: activeTab === 'general' ? '600' : '400',
+                                        marginBottom: '-2px',
+                                        transition: 'all 0.2s ease'
+                                    }}
+                                >
+                                    General
+                                </button>
+                                {!project && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setActiveTab('pm-connector')}
+                                        style={{
+                                            padding: '0.75rem 1.5rem',
+                                            background: 'none',
+                                            border: 'none',
+                                            borderBottom: activeTab === 'pm-connector' ? '2px solid var(--primary)' : '2px solid transparent',
+                                            color: activeTab === 'pm-connector' ? 'var(--primary)' : 'var(--text-secondary)',
+                                            cursor: 'pointer',
+                                            fontWeight: activeTab === 'pm-connector' ? '600' : '400',
+                                            marginBottom: '-2px',
+                                            transition: 'all 0.2s ease'
+                                        }}
+                                    >
+                                        PM Connector
+                                    </button>
+                                )}
+                        </div>
+                        
                         <form onSubmit={handleSubmit}>
-                            <div style={{marginBottom: '1rem'}}>
-                                <label style={{display: 'block', marginBottom: '0.5rem', fontWeight: '500'}}>
-                                    Project Name *
-                                </label>
+                            {/* General Tab Content */}
+                            {activeTab === 'general' && (
+                                <div>
+                                    <div style={{marginBottom: '1rem'}}>
+                                        <label style={{display: 'block', marginBottom: '0.5rem', fontWeight: '500'}}>
+                                            Project Name *
+                                        </label>
                                 <input
                                     type="text"
                                     value={formData.name}
@@ -6290,8 +6444,217 @@
                                     }}
                                 />
                             </div>
+                                </div>
+                            )}
+
+                            {/* PM Connector Tab Content - Only show when creating new project */}
+                            {activeTab === 'pm-connector' && !project && (
+                                <div>
+                                    <div style={{marginBottom: '1.5rem'}}>
+                                        <label style={{display: 'block', marginBottom: '0.5rem', fontWeight: '500'}}>
+                                            Project Management Tool
+                                        </label>
+                                        <select
+                                            value={formData.pmTool}
+                                            onChange={(e) => setFormData({...formData, pmTool: e.target.value})}
+                                            style={{
+                                                width: '100%',
+                                                padding: '0.75rem',
+                                                border: '1px solid var(--border-color)',
+                                                borderRadius: 'var(--radius-md)',
+                                                background: 'var(--bg-secondary)',
+                                                color: 'var(--text-primary)',
+                                                cursor: 'pointer'
+                                            }}
+                                        >
+                                            <option value="none">None</option>
+                                            <option value="jira">JIRA</option>
+                                            <option value="aha">Aha!</option>
+                                        </select>
+                                        <p style={{
+                                            marginTop: '0.5rem',
+                                            fontSize: '0.875rem',
+                                            color: 'var(--text-secondary)'
+                                        }}>
+                                            Connect your project management tool to automatically create issues from test failures
+                                        </p>
+                                    </div>
+
+                                    {/* JIRA Configuration */}
+                                    {formData.pmTool === 'jira' && (
+                                        <div style={{
+                                            padding: '1.5rem',
+                                            background: 'var(--bg-secondary)',
+                                            borderRadius: 'var(--radius-lg)',
+                                            border: '1px solid var(--border-color)'
+                                        }}>
+                                            <h4 style={{marginBottom: '1rem', color: 'var(--primary)'}}>JIRA Configuration</h4>
+                                            
+                                            <div style={{marginBottom: '1rem'}}>
+                                                <label style={{display: 'block', marginBottom: '0.5rem', fontWeight: '500'}}>
+                                                    Connection Name *
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={formData.jiraConnectionName}
+                                                    onChange={(e) => setFormData({...formData, jiraConnectionName: e.target.value})}
+                                                    placeholder="Production JIRA"
+                                                    style={{
+                                                        width: '100%',
+                                                        padding: '0.75rem',
+                                                        border: '1px solid var(--border-color)',
+                                                        borderRadius: 'var(--radius-md)',
+                                                        background: 'var(--bg-primary)',
+                                                        color: 'var(--text-primary)'
+                                                    }}
+                                                />
+                                            </div>
+
+                                            <div style={{marginBottom: '1rem'}}>
+                                                <label style={{display: 'block', marginBottom: '0.5rem', fontWeight: '500'}}>
+                                                    JIRA URL *
+                                                </label>
+                                                <input
+                                                    type="url"
+                                                    value={formData.jiraUrl}
+                                                    onChange={(e) => setFormData({...formData, jiraUrl: e.target.value})}
+                                                    placeholder="https://mycompany.atlassian.net"
+                                                    style={{
+                                                        width: '100%',
+                                                        padding: '0.75rem',
+                                                        border: '1px solid var(--border-color)',
+                                                        borderRadius: 'var(--radius-md)',
+                                                        background: 'var(--bg-primary)',
+                                                        color: 'var(--text-primary)'
+                                                    }}
+                                                />
+                                            </div>
+
+                                            <div style={{marginBottom: '1rem'}}>
+                                                <label style={{display: 'block', marginBottom: '0.5rem', fontWeight: '500'}}>
+                                                    JIRA Project Key *
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={formData.jiraProjectKey}
+                                                    onChange={(e) => setFormData({...formData, jiraProjectKey: e.target.value.toUpperCase()})}
+                                                    placeholder="PROJ"
+                                                    style={{
+                                                        width: '100%',
+                                                        padding: '0.75rem',
+                                                        border: '1px solid var(--border-color)',
+                                                        borderRadius: 'var(--radius-md)',
+                                                        background: 'var(--bg-primary)',
+                                                        color: 'var(--text-primary)'
+                                                    }}
+                                                />
+                                            </div>
+
+                                            <div style={{marginBottom: '1rem'}}>
+                                                <label style={{display: 'block', marginBottom: '0.5rem', fontWeight: '500'}}>
+                                                    Authentication Type *
+                                                </label>
+                                                <select
+                                                    value={formData.jiraAuthType}
+                                                    onChange={(e) => setFormData({...formData, jiraAuthType: e.target.value})}
+                                                    style={{
+                                                        width: '100%',
+                                                        padding: '0.75rem',
+                                                        border: '1px solid var(--border-color)',
+                                                        borderRadius: 'var(--radius-md)',
+                                                        background: 'var(--bg-primary)',
+                                                        color: 'var(--text-primary)',
+                                                        cursor: 'pointer'
+                                                    }}
+                                                >
+                                                    <option value="api_token">API Token (Cloud)</option>
+                                                    <option value="pat">Personal Access Token (Data Center)</option>
+                                                    <option value="basic">Basic Auth (Server)</option>
+                                                </select>
+                                            </div>
+
+                                            <div style={{marginBottom: '1rem'}}>
+                                                <label style={{display: 'block', marginBottom: '0.5rem', fontWeight: '500'}}>
+                                                    {formData.jiraAuthType === 'api_token' ? 'Email Address' : 'Username'} *
+                                                </label>
+                                                <input
+                                                    type={formData.jiraAuthType === 'api_token' ? 'email' : 'text'}
+                                                    value={formData.jiraUsername}
+                                                    onChange={(e) => setFormData({...formData, jiraUsername: e.target.value})}
+                                                    placeholder={formData.jiraAuthType === 'api_token' ? 'user@example.com' : 'username'}
+                                                    style={{
+                                                        width: '100%',
+                                                        padding: '0.75rem',
+                                                        border: '1px solid var(--border-color)',
+                                                        borderRadius: 'var(--radius-md)',
+                                                        background: 'var(--bg-primary)',
+                                                        color: 'var(--text-primary)'
+                                                    }}
+                                                />
+                                            </div>
+
+                                            <div style={{marginBottom: '1rem'}}>
+                                                <label style={{display: 'block', marginBottom: '0.5rem', fontWeight: '500'}}>
+                                                    {formData.jiraAuthType === 'api_token' ? 'API Token' : 
+                                                     formData.jiraAuthType === 'pat' ? 'Personal Access Token' : 'Password'} *
+                                                </label>
+                                                <input
+                                                    type="password"
+                                                    value={formData.jiraCredential}
+                                                    onChange={(e) => setFormData({...formData, jiraCredential: e.target.value})}
+                                                    placeholder="••••••••••••"
+                                                    style={{
+                                                        width: '100%',
+                                                        padding: '0.75rem',
+                                                        border: '1px solid var(--border-color)',
+                                                        borderRadius: 'var(--radius-md)',
+                                                        background: 'var(--bg-primary)',
+                                                        color: 'var(--text-primary)'
+                                                    }}
+                                                />
+                                                {formData.jiraAuthType === 'api_token' && (
+                                                    <p style={{
+                                                        marginTop: '0.25rem',
+                                                        fontSize: '0.75rem',
+                                                        color: 'var(--text-secondary)'
+                                                    }}>
+                                                        Generate at: <a href="https://id.atlassian.com/manage-profile/security/api-tokens" 
+                                                                       target="_blank" 
+                                                                       rel="noopener noreferrer"
+                                                                       style={{color: 'var(--primary)'}}>
+                                                            Atlassian Account Settings
+                                                        </a>
+                                                    </p>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Aha! Not Supported Message */}
+                                    {formData.pmTool === 'aha' && (
+                                        <div style={{
+                                            padding: '2rem',
+                                            background: 'rgba(251, 191, 36, 0.1)',
+                                            borderRadius: 'var(--radius-lg)',
+                                            border: '1px solid rgba(251, 191, 36, 0.3)',
+                                            textAlign: 'center'
+                                        }}>
+                                            <i className="fas fa-info-circle" style={{
+                                                fontSize: '3rem',
+                                                color: '#f59e0b',
+                                                marginBottom: '1rem',
+                                                display: 'block'
+                                            }}></i>
+                                            <h4 style={{marginBottom: '0.5rem', color: 'var(--text-primary)'}}>Aha! Integration Coming Soon</h4>
+                                            <p style={{color: 'var(--text-secondary)', margin: 0}}>
+                                                Aha! integration is not supported at this time. Please check back in future releases.
+                                            </p>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                             
-                            <div style={{display: 'flex', gap: '0.75rem', justifyContent: 'flex-end'}}>
+                            <div style={{display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', marginTop: '1.5rem'}}>
                                 <button
                                     type="button"
                                     onClick={onClose}
@@ -6328,6 +6691,871 @@
             );
         }
 
+        // JIRA Connection Management Component
+        function JiraConnectionManager({ projectId }) {
+            const [connections, setConnections] = useState([]);
+            const [loading, setLoading] = useState(true);
+            const [showAddModal, setShowAddModal] = useState(false);
+            const [editingConnection, setEditingConnection] = useState(null);
+            const [testingConnection, setTestingConnection] = useState(null);
+
+            useEffect(() => {
+                fetchConnections();
+            }, [projectId]);
+
+            const fetchConnections = async () => {
+                try {
+                    setLoading(true);
+                    const data = await graphqlClient.query(GRAPHQL_QUERIES.GET_JIRA_CONNECTIONS, { projectId });
+                    setConnections(data.jiraConnections || []);
+                } catch (err) {
+                    console.error('Failed to fetch JIRA connections:', err);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            const handleAddConnection = () => {
+                setEditingConnection(null);
+                setShowAddModal(true);
+            };
+
+            const handleEditConnection = (connection) => {
+                setEditingConnection(connection);
+                setShowAddModal(true);
+            };
+
+            const handleTestConnection = async (connectionId) => {
+                try {
+                    setTestingConnection(connectionId);
+                    const result = await graphqlClient.mutation(GRAPHQL_QUERIES.TEST_JIRA_CONNECTION, { id: connectionId });
+                    if (result.testJiraConnection) {
+                        // Success - refresh to get updated status
+                        await fetchConnections();
+                        alert('Connection test successful!');
+                    }
+                } catch (err) {
+                    alert(`Connection test failed: ${err.message}`);
+                } finally {
+                    setTestingConnection(null);
+                }
+            };
+
+            const handleDeleteConnection = async (connectionId) => {
+                if (!confirm('Are you sure you want to remove this JIRA connection?')) {
+                    return;
+                }
+
+                try {
+                    await graphqlClient.mutation(GRAPHQL_QUERIES.DELETE_JIRA_CONNECTION, { id: connectionId });
+                    await fetchConnections();
+                } catch (err) {
+                    alert(`Failed to delete connection: ${err.message}`);
+                }
+            };
+
+            const getStatusBadge = (status) => {
+                const statusConfig = {
+                    pending: { color: '#6b7280', icon: '⏸️', text: 'Not Tested' },
+                    connected: { color: '#10b981', icon: '✓', text: 'Connected' },
+                    failed: { color: '#ef4444', icon: '✗', text: 'Failed' }
+                };
+
+                const config = statusConfig[status] || statusConfig.pending;
+
+                return (
+                    <span style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.25rem',
+                        padding: '0.25rem 0.75rem',
+                        borderRadius: 'var(--radius-full)',
+                        background: `${config.color}20`,
+                        color: config.color,
+                        fontSize: '0.875rem',
+                        fontWeight: '500'
+                    }}>
+                        <span>{config.icon}</span>
+                        {config.text}
+                    </span>
+                );
+            };
+
+            const getAuthTypeBadge = (authType) => {
+                const typeConfig = {
+                    api_token: { color: '#3b82f6', text: 'API Token' },
+                    oauth: { color: '#8b5cf6', text: 'OAuth' },
+                    personal_access_token: { color: '#f59e0b', text: 'PAT' }
+                };
+
+                const config = typeConfig[authType] || { color: '#6b7280', text: authType };
+
+                return (
+                    <span style={{
+                        padding: '0.125rem 0.5rem',
+                        borderRadius: 'var(--radius-sm)',
+                        background: `${config.color}15`,
+                        color: config.color,
+                        fontSize: '0.75rem',
+                        fontWeight: '600',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.025em'
+                    }}>
+                        {config.text}
+                    </span>
+                );
+            };
+
+            if (loading) {
+                return (
+                    <div style={{ padding: '2rem', textAlign: 'center' }}>
+                        <div className="loading-spinner"></div>
+                        <p style={{ marginTop: '1rem', color: 'var(--text-secondary)' }}>Loading JIRA connections...</p>
+                    </div>
+                );
+            }
+
+            return (
+                <div style={{ padding: '1.5rem' }}>
+                    <div style={{ 
+                        marginBottom: '1.5rem',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center'
+                    }}>
+                        <div>
+                            <h3 style={{ margin: 0, marginBottom: '0.25rem' }}>🔗 JIRA Connections</h3>
+                            <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
+                                Connect to JIRA to track test coverage for your requirements
+                            </p>
+                        </div>
+                        <button
+                            onClick={handleAddConnection}
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.5rem',
+                                padding: '0.5rem 1rem',
+                                border: 'none',
+                                borderRadius: 'var(--radius-md)',
+                                background: 'var(--primary)',
+                                color: 'white',
+                                cursor: 'pointer',
+                                fontWeight: '600',
+                                fontSize: '0.875rem'
+                            }}
+                        >
+                            <i className="fas fa-plus-circle"></i>
+                            Add JIRA Connection
+                        </button>
+                    </div>
+
+                    {connections.length === 0 ? (
+                        <div style={{
+                            padding: '3rem',
+                            textAlign: 'center',
+                            background: 'var(--bg-tertiary)',
+                            borderRadius: 'var(--radius-lg)',
+                            border: '2px dashed var(--border-color)'
+                        }}>
+                            <div style={{ fontSize: '3rem', marginBottom: '1rem', opacity: 0.3 }}>🔌</div>
+                            <h4 style={{ margin: 0, marginBottom: '0.5rem' }}>No JIRA Connections</h4>
+                            <p style={{ margin: 0, marginBottom: '1.5rem', color: 'var(--text-secondary)' }}>
+                                Connect your JIRA instance to enable test coverage tracking
+                            </p>
+                            <button
+                                onClick={handleAddConnection}
+                                style={{
+                                    padding: '0.75rem 1.5rem',
+                                    border: 'none',
+                                    borderRadius: 'var(--radius-md)',
+                                    background: 'var(--primary)',
+                                    color: 'white',
+                                    cursor: 'pointer',
+                                    fontWeight: '600'
+                                }}
+                            >
+                                Add Your First Connection
+                            </button>
+                        </div>
+                    ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                            {connections.map(connection => (
+                                <div key={connection.id} style={{
+                                    padding: '1.5rem',
+                                    background: 'var(--bg-surface)',
+                                    borderRadius: 'var(--radius-lg)',
+                                    border: '1px solid var(--border-color)',
+                                    boxShadow: 'var(--shadow-sm)'
+                                }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                        <div style={{ flex: 1 }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '0.75rem' }}>
+                                                <h4 style={{ margin: 0, fontSize: '1.125rem' }}>{connection.name}</h4>
+                                                {getStatusBadge(connection.status)}
+                                                {getAuthTypeBadge(connection.authenticationType)}
+                                                {connection.isActive && (
+                                                    <span style={{
+                                                        padding: '0.125rem 0.5rem',
+                                                        borderRadius: 'var(--radius-sm)',
+                                                        background: 'var(--success)15',
+                                                        color: 'var(--success)',
+                                                        fontSize: '0.75rem',
+                                                        fontWeight: '600'
+                                                    }}>
+                                                        ACTIVE
+                                                    </span>
+                                                )}
+                                            </div>
+                                            
+                                            <div style={{ 
+                                                display: 'grid', 
+                                                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                                                gap: '1rem',
+                                                marginBottom: '1rem'
+                                            }}>
+                                                <div>
+                                                    <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>JIRA URL</span>
+                                                    <p style={{ margin: '0.25rem 0 0 0', fontFamily: 'var(--font-mono)', fontSize: '0.875rem' }}>
+                                                        <a href={connection.jiraUrl} target="_blank" rel="noopener noreferrer" style={{
+                                                            color: 'var(--primary)',
+                                                            textDecoration: 'none'
+                                                        }}>
+                                                            {connection.jiraUrl}
+                                                        </a>
+                                                    </p>
+                                                </div>
+                                                <div>
+                                                    <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Project Key</span>
+                                                    <p style={{ margin: '0.25rem 0 0 0', fontWeight: '600' }}>{connection.projectKey}</p>
+                                                </div>
+                                                <div>
+                                                    <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Username</span>
+                                                    <p style={{ margin: '0.25rem 0 0 0' }}>{connection.username}</p>
+                                                </div>
+                                                <div>
+                                                    <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Last Tested</span>
+                                                    <p style={{ margin: '0.25rem 0 0 0' }}>
+                                                        {connection.lastTestedAt ? formatDate(new Date(connection.lastTestedAt)) : 'Never'}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                            <button
+                                                onClick={() => handleTestConnection(connection.id)}
+                                                disabled={testingConnection === connection.id}
+                                                style={{
+                                                    padding: '0.5rem',
+                                                    border: '1px solid var(--border-color)',
+                                                    borderRadius: 'var(--radius-md)',
+                                                    background: 'var(--bg-secondary)',
+                                                    color: 'var(--text-primary)',
+                                                    cursor: testingConnection === connection.id ? 'not-allowed' : 'pointer',
+                                                    opacity: testingConnection === connection.id ? 0.6 : 1
+                                                }}
+                                                title="Test Connection"
+                                            >
+                                                {testingConnection === connection.id ? (
+                                                    <i className="fas fa-spinner fa-spin"></i>
+                                                ) : (
+                                                    <i className="fas fa-flask"></i>
+                                                )}
+                                            </button>
+                                            <button
+                                                onClick={() => handleEditConnection(connection)}
+                                                style={{
+                                                    padding: '0.5rem',
+                                                    border: '1px solid var(--border-color)',
+                                                    borderRadius: 'var(--radius-md)',
+                                                    background: 'var(--bg-secondary)',
+                                                    color: 'var(--text-primary)',
+                                                    cursor: 'pointer'
+                                                }}
+                                                title="Edit Connection"
+                                            >
+                                                <i className="fas fa-edit"></i>
+                                            </button>
+                                            <button
+                                                onClick={() => handleDeleteConnection(connection.id)}
+                                                style={{
+                                                    padding: '0.5rem',
+                                                    border: '1px solid var(--error)30',
+                                                    borderRadius: 'var(--radius-md)',
+                                                    background: 'var(--error)10',
+                                                    color: 'var(--error)',
+                                                    cursor: 'pointer'
+                                                }}
+                                                title="Remove Connection"
+                                            >
+                                                <i className="fas fa-trash"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    {showAddModal && (
+                        <JiraConnectionModal
+                            projectId={projectId}
+                            connection={editingConnection}
+                            onClose={() => {
+                                setShowAddModal(false);
+                                setEditingConnection(null);
+                            }}
+                            onSuccess={() => {
+                                setShowAddModal(false);
+                                setEditingConnection(null);
+                                fetchConnections();
+                            }}
+                        />
+                    )}
+                </div>
+            );
+        }
+
+        // JIRA Connection Modal Component
+        function JiraConnectionModal({ projectId, connection, onClose, onSuccess }) {
+            const [formData, setFormData] = useState({
+                name: connection?.name || '',
+                jiraUrl: connection?.jiraUrl || '',
+                authenticationType: connection?.authenticationType || 'api_token',
+                projectKey: connection?.projectKey || '',
+                username: connection?.username || '',
+                credential: ''
+            });
+            const [loading, setLoading] = useState(false);
+            const [errors, setErrors] = useState({});
+            const [showPassword, setShowPassword] = useState(false);
+
+            const validateForm = () => {
+                const newErrors = {};
+                
+                if (!formData.name.trim()) {
+                    newErrors.name = 'Connection name is required';
+                }
+                
+                if (!formData.jiraUrl.trim()) {
+                    newErrors.jiraUrl = 'JIRA URL is required';
+                } else if (!formData.jiraUrl.match(/^https?:\/\/.+/)) {
+                    newErrors.jiraUrl = 'Please enter a valid URL';
+                }
+                
+                if (!formData.projectKey.trim()) {
+                    newErrors.projectKey = 'Project key is required';
+                }
+                
+                if (!formData.username.trim()) {
+                    newErrors.username = 'Username is required';
+                }
+                
+                if (!connection && !formData.credential.trim()) {
+                    newErrors.credential = 'API token is required';
+                }
+                
+                setErrors(newErrors);
+                return Object.keys(newErrors).length === 0;
+            };
+
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                
+                if (!validateForm()) {
+                    return;
+                }
+
+                try {
+                    setLoading(true);
+                    
+                    if (connection) {
+                        // Update existing connection
+                        await graphqlClient.mutation(GRAPHQL_QUERIES.UPDATE_JIRA_CONNECTION, {
+                            id: connection.id,
+                            input: {
+                                name: formData.name,
+                                jiraUrl: formData.jiraUrl,
+                                projectKey: formData.projectKey
+                            }
+                        });
+                        
+                        // Update credentials if provided
+                        if (formData.credential) {
+                            await graphqlClient.mutation(GRAPHQL_QUERIES.UPDATE_JIRA_CREDENTIALS, {
+                                id: connection.id,
+                                input: {
+                                    authenticationType: formData.authenticationType,
+                                    username: formData.username,
+                                    credential: formData.credential
+                                }
+                            });
+                        }
+                    } else {
+                        // Create new connection
+                        await graphqlClient.mutation(GRAPHQL_QUERIES.CREATE_JIRA_CONNECTION, {
+                            input: {
+                                projectId,
+                                name: formData.name,
+                                jiraUrl: formData.jiraUrl,
+                                authenticationType: formData.authenticationType,
+                                projectKey: formData.projectKey,
+                                username: formData.username,
+                                credential: formData.credential
+                            }
+                        });
+                    }
+                    
+                    onSuccess();
+                } catch (err) {
+                    alert(`Failed to save connection: ${err.message}`);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            return (
+                <div style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    background: 'rgba(0, 0, 0, 0.5)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 1000
+                }}>
+                    <div style={{
+                        background: 'var(--bg-surface)',
+                        borderRadius: 'var(--radius-lg)',
+                        width: '90%',
+                        maxWidth: '600px',
+                        maxHeight: '90vh',
+                        overflow: 'auto',
+                        boxShadow: 'var(--shadow-xl)'
+                    }}>
+                        <div style={{
+                            padding: '1.5rem',
+                            borderBottom: '1px solid var(--border-color)',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center'
+                        }}>
+                            <h3 style={{ margin: 0 }}>
+                                {connection ? 'Edit' : 'Add'} JIRA Connection
+                            </h3>
+                            <button
+                                onClick={onClose}
+                                style={{
+                                    background: 'none',
+                                    border: 'none',
+                                    fontSize: '1.25rem',
+                                    color: 'var(--text-secondary)',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                ×
+                            </button>
+                        </div>
+
+                        <form onSubmit={handleSubmit} style={{ padding: '1.5rem' }}>
+                            <div style={{ marginBottom: '1.5rem' }}>
+                                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
+                                    Connection Name <span style={{ color: 'var(--error)' }}>*</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    value={formData.name}
+                                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                    placeholder="Production JIRA"
+                                    style={{
+                                        width: '100%',
+                                        padding: '0.75rem',
+                                        border: `1px solid ${errors.name ? 'var(--error)' : 'var(--border-color)'}`,
+                                        borderRadius: 'var(--radius-md)',
+                                        background: 'var(--bg-secondary)',
+                                        color: 'var(--text-primary)'
+                                    }}
+                                />
+                                {errors.name && (
+                                    <p style={{ margin: '0.25rem 0 0 0', color: 'var(--error)', fontSize: '0.875rem' }}>
+                                        {errors.name}
+                                    </p>
+                                )}
+                            </div>
+
+                            <div style={{ marginBottom: '1.5rem' }}>
+                                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
+                                    JIRA URL <span style={{ color: 'var(--error)' }}>*</span>
+                                </label>
+                                <input
+                                    type="url"
+                                    value={formData.jiraUrl}
+                                    onChange={(e) => setFormData({ ...formData, jiraUrl: e.target.value })}
+                                    placeholder="https://company.atlassian.net"
+                                    style={{
+                                        width: '100%',
+                                        padding: '0.75rem',
+                                        border: `1px solid ${errors.jiraUrl ? 'var(--error)' : 'var(--border-color)'}`,
+                                        borderRadius: 'var(--radius-md)',
+                                        background: 'var(--bg-secondary)',
+                                        color: 'var(--text-primary)'
+                                    }}
+                                />
+                                {errors.jiraUrl && (
+                                    <p style={{ margin: '0.25rem 0 0 0', color: 'var(--error)', fontSize: '0.875rem' }}>
+                                        {errors.jiraUrl}
+                                    </p>
+                                )}
+                            </div>
+
+                            <div style={{ marginBottom: '1.5rem' }}>
+                                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
+                                    Authentication Type <span style={{ color: 'var(--error)' }}>*</span>
+                                </label>
+                                <select
+                                    value={formData.authenticationType}
+                                    onChange={(e) => setFormData({ ...formData, authenticationType: e.target.value })}
+                                    style={{
+                                        width: '100%',
+                                        padding: '0.75rem',
+                                        border: '1px solid var(--border-color)',
+                                        borderRadius: 'var(--radius-md)',
+                                        background: 'var(--bg-secondary)',
+                                        color: 'var(--text-primary)'
+                                    }}
+                                >
+                                    <option value="api_token">API Token (Recommended)</option>
+                                    <option value="oauth">OAuth</option>
+                                    <option value="personal_access_token">Personal Access Token</option>
+                                </select>
+                                <p style={{ margin: '0.5rem 0 0 0', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
+                                    {formData.authenticationType === 'api_token' && 'Use API tokens for JIRA Cloud. Generate one from your Atlassian account settings.'}
+                                    {formData.authenticationType === 'oauth' && 'OAuth tokens from your JIRA OAuth app.'}
+                                    {formData.authenticationType === 'personal_access_token' && 'Personal Access Tokens for JIRA Server/Data Center.'}
+                                </p>
+                            </div>
+
+                            <div style={{ marginBottom: '1.5rem' }}>
+                                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
+                                    Project Key <span style={{ color: 'var(--error)' }}>*</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    value={formData.projectKey}
+                                    onChange={(e) => setFormData({ ...formData, projectKey: e.target.value.toUpperCase() })}
+                                    placeholder="PROJ"
+                                    style={{
+                                        width: '100%',
+                                        padding: '0.75rem',
+                                        border: `1px solid ${errors.projectKey ? 'var(--error)' : 'var(--border-color)'}`,
+                                        borderRadius: 'var(--radius-md)',
+                                        background: 'var(--bg-secondary)',
+                                        color: 'var(--text-primary)',
+                                        textTransform: 'uppercase'
+                                    }}
+                                />
+                                {errors.projectKey && (
+                                    <p style={{ margin: '0.25rem 0 0 0', color: 'var(--error)', fontSize: '0.875rem' }}>
+                                        {errors.projectKey}
+                                    </p>
+                                )}
+                            </div>
+
+                            <div style={{ marginBottom: '1.5rem' }}>
+                                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
+                                    Username/Email <span style={{ color: 'var(--error)' }}>*</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    value={formData.username}
+                                    onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                                    placeholder="user@company.com"
+                                    style={{
+                                        width: '100%',
+                                        padding: '0.75rem',
+                                        border: `1px solid ${errors.username ? 'var(--error)' : 'var(--border-color)'}`,
+                                        borderRadius: 'var(--radius-md)',
+                                        background: 'var(--bg-secondary)',
+                                        color: 'var(--text-primary)'
+                                    }}
+                                />
+                                {errors.username && (
+                                    <p style={{ margin: '0.25rem 0 0 0', color: 'var(--error)', fontSize: '0.875rem' }}>
+                                        {errors.username}
+                                    </p>
+                                )}
+                            </div>
+
+                            <div style={{ marginBottom: '1.5rem' }}>
+                                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
+                                    {formData.authenticationType === 'api_token' ? 'API Token' : 
+                                     formData.authenticationType === 'oauth' ? 'OAuth Token' : 
+                                     'Personal Access Token'} 
+                                    {!connection && <span style={{ color: 'var(--error)' }}> *</span>}
+                                </label>
+                                <div style={{ position: 'relative' }}>
+                                    <input
+                                        type={showPassword ? 'text' : 'password'}
+                                        value={formData.credential}
+                                        onChange={(e) => setFormData({ ...formData, credential: e.target.value })}
+                                        placeholder={connection ? 'Leave blank to keep existing' : 'Enter your token'}
+                                        style={{
+                                            width: '100%',
+                                            padding: '0.75rem',
+                                            paddingRight: '3rem',
+                                            border: `1px solid ${errors.credential ? 'var(--error)' : 'var(--border-color)'}`,
+                                            borderRadius: 'var(--radius-md)',
+                                            background: 'var(--bg-secondary)',
+                                            color: 'var(--text-primary)'
+                                        }}
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowPassword(!showPassword)}
+                                        style={{
+                                            position: 'absolute',
+                                            right: '0.75rem',
+                                            top: '50%',
+                                            transform: 'translateY(-50%)',
+                                            background: 'none',
+                                            border: 'none',
+                                            color: 'var(--text-secondary)',
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        <i className={`fas fa-${showPassword ? 'eye-slash' : 'eye'}`}></i>
+                                    </button>
+                                </div>
+                                {errors.credential && (
+                                    <p style={{ margin: '0.25rem 0 0 0', color: 'var(--error)', fontSize: '0.875rem' }}>
+                                        {errors.credential}
+                                    </p>
+                                )}
+                            </div>
+
+                            <div style={{
+                                padding: '1rem',
+                                background: 'var(--info)10',
+                                borderRadius: 'var(--radius-md)',
+                                marginBottom: '1.5rem'
+                            }}>
+                                <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--info)' }}>
+                                    <strong>Security Note:</strong> Your credentials are encrypted before storage and are only used to connect to your JIRA instance.
+                                </p>
+                            </div>
+
+                            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+                                <button
+                                    type="button"
+                                    onClick={onClose}
+                                    disabled={loading}
+                                    style={{
+                                        padding: '0.75rem 1.5rem',
+                                        border: '1px solid var(--border-color)',
+                                        borderRadius: 'var(--radius-md)',
+                                        background: 'transparent',
+                                        color: 'var(--text-primary)',
+                                        cursor: loading ? 'not-allowed' : 'pointer',
+                                        fontWeight: '500',
+                                        opacity: loading ? 0.6 : 1
+                                    }}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={loading}
+                                    style={{
+                                        padding: '0.75rem 1.5rem',
+                                        border: 'none',
+                                        borderRadius: 'var(--radius-md)',
+                                        background: 'var(--primary)',
+                                        color: 'white',
+                                        cursor: loading ? 'not-allowed' : 'pointer',
+                                        fontWeight: '600',
+                                        opacity: loading ? 0.8 : 1,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '0.5rem'
+                                    }}
+                                >
+                                    {loading && <i className="fas fa-spinner fa-spin"></i>}
+                                    {connection ? 'Update' : 'Create'} Connection
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            );
+        }
+
+        // Project Settings Component
+        function ProjectSettings() {
+            const { route } = useRouter();
+            const { isManager, isAdmin } = useAuth();
+            const [project, setProject] = useState(null);
+            const [loading, setLoading] = useState(true);
+            const [activeTab, setActiveTab] = useState('general');
+
+            // Extract project ID from route (format: /project/:projectId/settings)
+            const projectId = route.split('/')[2];
+
+            useEffect(() => {
+                if (projectId) {
+                    fetchProject();
+                }
+            }, [projectId]);
+
+            const fetchProject = async () => {
+                try {
+                    const data = await graphqlClient.query(GRAPHQL_QUERIES.GET_PROJECT_DETAILS, { projectId });
+                    setProject(data.projectByProjectId);
+                } catch (err) {
+                    console.error('Failed to fetch project:', err);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            if (loading) {
+                return (
+                    <div className="page-container">
+                        <div style={{ padding: '2rem', textAlign: 'center' }}>
+                            <div className="loading-spinner"></div>
+                        </div>
+                    </div>
+                );
+            }
+
+            if (!project) {
+                return (
+                    <div className="page-container">
+                        <div style={{ padding: '2rem', textAlign: 'center' }}>
+                            <h2>Project not found</h2>
+                        </div>
+                    </div>
+                );
+            }
+
+            if (!isManager && !isAdmin) {
+                return <AccessDenied />;
+            }
+
+            const tabs = [
+                { id: 'general', label: '⚙️ General', icon: 'fas fa-cog' },
+                { id: 'integrations', label: '🔗 Integrations', icon: 'fas fa-plug' },
+                { id: 'team', label: '👥 Team', icon: 'fas fa-users' },
+                { id: 'notifications', label: '🔔 Notifications', icon: 'fas fa-bell' }
+            ];
+
+            return (
+                <div className="page-container">
+                    <div className="page-header">
+                        <div>
+                            <h1>{project.name} Settings</h1>
+                            <p>Configure project settings and integrations</p>
+                        </div>
+                    </div>
+
+                    <div style={{
+                        display: 'flex',
+                        gap: '2rem',
+                        marginTop: '2rem'
+                    }}>
+                        {/* Sidebar with tabs */}
+                        <div style={{
+                            width: '250px',
+                            flexShrink: 0
+                        }}>
+                            <nav style={{
+                                background: 'var(--bg-surface)',
+                                borderRadius: 'var(--radius-lg)',
+                                padding: '0.5rem',
+                                boxShadow: 'var(--shadow-sm)'
+                            }}>
+                                {tabs.map(tab => (
+                                    <button
+                                        key={tab.id}
+                                        onClick={() => setActiveTab(tab.id)}
+                                        style={{
+                                            width: '100%',
+                                            padding: '0.75rem 1rem',
+                                            border: 'none',
+                                            borderRadius: 'var(--radius-md)',
+                                            background: activeTab === tab.id ? 'var(--primary)15' : 'transparent',
+                                            color: activeTab === tab.id ? 'var(--primary)' : 'var(--text-primary)',
+                                            cursor: 'pointer',
+                                            textAlign: 'left',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '0.75rem',
+                                            fontWeight: activeTab === tab.id ? '600' : '400',
+                                            marginBottom: '0.25rem'
+                                        }}
+                                    >
+                                        <i className={tab.icon}></i>
+                                        {tab.label}
+                                    </button>
+                                ))}
+                            </nav>
+                        </div>
+
+                        {/* Content area */}
+                        <div style={{
+                            flex: 1,
+                            background: 'var(--bg-surface)',
+                            borderRadius: 'var(--radius-lg)',
+                            boxShadow: 'var(--shadow-sm)',
+                            overflow: 'hidden'
+                        }}>
+                            {activeTab === 'general' && (
+                                <div style={{ padding: '2rem' }}>
+                                    <h2>General Settings</h2>
+                                    <p>Configure basic project settings</p>
+                                    {/* General settings form would go here */}
+                                </div>
+                            )}
+
+                            {activeTab === 'integrations' && (
+                                <div>
+                                    <div style={{
+                                        padding: '2rem',
+                                        borderBottom: '1px solid var(--border-color)'
+                                    }}>
+                                        <h2 style={{ margin: 0, marginBottom: '0.5rem' }}>Integrations</h2>
+                                        <p style={{ margin: 0, color: 'var(--text-secondary)' }}>
+                                            Connect external tools and services to enhance your testing workflow
+                                        </p>
+                                    </div>
+                                    <JiraConnectionManager projectId={projectId} />
+                                </div>
+                            )}
+
+                            {activeTab === 'team' && (
+                                <div style={{ padding: '2rem' }}>
+                                    <h2>Team Management</h2>
+                                    <p>Manage team members and permissions</p>
+                                    {/* Team management would go here */}
+                                </div>
+                            )}
+
+                            {activeTab === 'notifications' && (
+                                <div style={{ padding: '2rem' }}>
+                                    <h2>Notification Settings</h2>
+                                    <p>Configure how and when you receive notifications</p>
+                                    {/* Notification settings would go here */}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
         // Main App component
         function FernPlatform() {
             const { route, navigate } = useRouter();
@@ -6357,6 +7585,11 @@
 
             const renderPage = () => {
                 const { user, isAdmin, isManager } = useAuth();
+                
+                // Check if it's a project settings route
+                if (route.startsWith('/project/') && route.endsWith('/settings')) {
+                    return <ProjectSettings />;
+                }
                 
                 switch (route) {
                     case '/test-summaries':

@@ -25,3 +25,11 @@ bin/
 
 # Environment-specific deployment files
 fern-platform-atmos-dev.yaml
+
+# Test and debug files
+test-jira-ui.html
+acceptance/test_config.json
+deployments/mock-jira*.yaml
+mock-jira/
+EOF < /dev/null
+bin/fern-platform

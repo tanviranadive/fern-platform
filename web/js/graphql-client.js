@@ -355,6 +355,95 @@ const QUERIES = {
                 favorites
             }
         }
+    `,
+    
+    // JIRA Connection queries
+    GET_JIRA_CONNECTIONS: `
+        query GetJiraConnections($projectId: String!) {
+            jiraConnections(projectId: $projectId) {
+                id
+                projectId
+                name
+                jiraUrl
+                authenticationType
+                projectKey
+                username
+                status
+                isActive
+                lastTestedAt
+                createdAt
+                updatedAt
+            }
+        }
+    `,
+    
+    CREATE_JIRA_CONNECTION: `
+        mutation CreateJiraConnection($input: CreateJiraConnectionInput!) {
+            createJiraConnection(input: $input) {
+                id
+                projectId
+                name
+                jiraUrl
+                authenticationType
+                projectKey
+                username
+                status
+                isActive
+                lastTestedAt
+                createdAt
+                updatedAt
+            }
+        }
+    `,
+    
+    UPDATE_JIRA_CONNECTION: `
+        mutation UpdateJiraConnection($id: ID!, $input: UpdateJiraConnectionInput!) {
+            updateJiraConnection(id: $id, input: $input) {
+                id
+                projectId
+                name
+                jiraUrl
+                authenticationType
+                projectKey
+                username
+                status
+                isActive
+                lastTestedAt
+                createdAt
+                updatedAt
+            }
+        }
+    `,
+    
+    UPDATE_JIRA_CREDENTIALS: `
+        mutation UpdateJiraCredentials($id: ID!, $input: UpdateJiraCredentialsInput!) {
+            updateJiraCredentials(id: $id, input: $input) {
+                id
+                projectId
+                name
+                jiraUrl
+                authenticationType
+                projectKey
+                username
+                status
+                isActive
+                lastTestedAt
+                createdAt
+                updatedAt
+            }
+        }
+    `,
+    
+    TEST_JIRA_CONNECTION: `
+        mutation TestJiraConnection($id: ID!) {
+            testJiraConnection(id: $id)
+        }
+    `,
+    
+    DELETE_JIRA_CONNECTION: `
+        mutation DeleteJiraConnection($id: ID!) {
+            deleteJiraConnection(id: $id)
+        }
     `
 };
 
