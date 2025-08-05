@@ -106,8 +106,8 @@ func (h *DomainHandler) RegisterRoutes(router *gin.Engine) {
 				managerRoutes.DELETE("/projects/:id", h.deleteProject)
 
 				// JIRA connections
-				managerRoutes.GET("/projects/:projectId/jira-connections", h.getJiraConnections)
-				managerRoutes.POST("/projects/:projectId/jira-connections", h.createJiraConnection)
+				managerRoutes.GET("/projects/:id/jira-connections", h.getJiraConnections)
+				managerRoutes.POST("/projects/:id/jira-connections", h.createJiraConnection)
 				managerRoutes.PUT("/jira-connections/:connectionId", h.updateJiraConnection)
 				managerRoutes.PUT("/jira-connections/:connectionId/credentials", h.updateJiraCredentials)
 				managerRoutes.POST("/jira-connections/:connectionId/test", h.testJiraConnection)
@@ -715,7 +715,7 @@ func (h *DomainHandler) convertProjectToAPI(p *projectsDomain.Project) gin.H {
 // JIRA Connection Handlers
 
 func (h *DomainHandler) getJiraConnections(c *gin.Context) {
-	projectID := c.Param("projectId")
+	projectID := c.Param("id")
 	
 	connections, err := h.jiraConnectionService.GetProjectConnections(c.Request.Context(), projectID)
 	if err != nil {
@@ -747,7 +747,7 @@ func (h *DomainHandler) getJiraConnections(c *gin.Context) {
 }
 
 func (h *DomainHandler) createJiraConnection(c *gin.Context) {
-	projectID := c.Param("projectId")
+	projectID := c.Param("id")
 
 	var req struct {
 		Name               string `json:"connectionName" binding:"required"`
