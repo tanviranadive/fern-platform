@@ -3,6 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <title>Fern Platform - Modern Test Intelligence</title>
     
     <!-- Favicon -->
@@ -12,7 +15,7 @@
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://d3js.org/d3.v7.min.js"></script>
-    <script src="/web/js/graphql-client.js?v=2"></script>
+    <script src="/web/js/graphql-client.js?v=3"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link href="/web/css/font-awesome.min.css" rel="stylesheet">
     
@@ -6209,6 +6212,11 @@
         function ProjectModal({ project, teams, isAdmin, onSubmit, onClose }) {
             console.log('ProjectModal rendered with project:', project);
             const [activeTab, setActiveTab] = useState('general');
+            const [jiraConnections, setJiraConnections] = useState([]);
+            const [loadingJira, setLoadingJira] = useState(false);
+            const [editingConnection, setEditingConnection] = useState(null);
+            const [showNewConnection, setShowNewConnection] = useState(false);
+            const [newConnectionData, setNewConnectionData] = useState({});
             const [formData, setFormData] = useState({
                 name: project?.name || '',
                 description: project?.description || '',
@@ -6224,6 +6232,167 @@
                 jiraUsername: '',
                 jiraCredential: ''
             });
+
+            // Load JIRA connections when editing a project
+            useEffect(() => {
+                if (project && project.projectId && activeTab === 'pm-connector') {
+                    fetchJiraConnections();
+                }
+            }, [project, activeTab]);
+
+            const fetchJiraConnections = async () => {
+                if (!project?.projectId) return;
+                
+                setLoadingJira(true);
+                try {
+                    const data = await graphqlClient.query(GRAPHQL_QUERIES.GET_JIRA_CONNECTIONS, {
+                        projectId: project.projectId
+                    });
+                    setJiraConnections(data.jiraConnections || []);
+                } catch (err) {
+                    console.error('Error loading JIRA connections:', err);
+                } finally {
+                    setLoadingJira(false);
+                }
+            };
+
+            const handleCreateJiraConnection = async () => {
+                if (!project?.projectId) return;
+                
+                try {
+                    await graphqlClient.mutation(GRAPHQL_QUERIES.CREATE_JIRA_CONNECTION, {
+                        input: {
+                            projectId: project.projectId,
+                            name: formData.jiraConnectionName,
+                            jiraUrl: formData.jiraUrl,
+                            authenticationType: formData.jiraAuthType,
+                            projectKey: formData.jiraProjectKey,
+                            username: formData.jiraUsername,
+                            credential: formData.jiraCredential
+                        }
+                    });
+                    
+                    // Reset form
+                    setFormData({
+                        ...formData,
+                        jiraConnectionName: '',
+                        jiraUrl: '',
+                        jiraProjectKey: '',
+                        jiraUsername: '',
+                        jiraCredential: ''
+                    });
+                    setShowNewConnection(false);
+                    
+                    // Refresh connections
+                    await fetchJiraConnections();
+                    alert('JIRA connection created successfully!');
+                } catch (err) {
+                    console.error('Error creating JIRA connection:', err);
+                    alert('Failed to create JIRA connection: ' + err.message);
+                }
+            };
+
+            const handleUpdateJiraConnection = async (connectionId) => {
+                if (!editingConnection) return;
+                
+                try {
+                    await graphqlClient.mutation(GRAPHQL_QUERIES.UPDATE_JIRA_CONNECTION, {
+                        id: connectionId,
+                        input: {
+                            name: editingConnection.name,
+                            jiraUrl: editingConnection.jiraUrl,
+                            projectKey: editingConnection.projectKey
+                        }
+                    });
+                    
+                    if (editingConnection.credentialChanged) {
+                        await graphqlClient.mutation(GRAPHQL_QUERIES.UPDATE_JIRA_CREDENTIALS, {
+                            id: connectionId,
+                            input: {
+                                authenticationType: editingConnection.authenticationType,
+                                username: editingConnection.username,
+                                credential: editingConnection.credential
+                            }
+                        });
+                    }
+                    
+                    setEditingConnection(null);
+                    await fetchJiraConnections();
+                    alert('JIRA connection updated successfully!');
+                } catch (err) {
+                    console.error('Error updating JIRA connection:', err);
+                    alert('Failed to update JIRA connection: ' + err.message);
+                }
+            };
+
+            const handleTestJiraConnection = async (connectionId) => {
+                try {
+                    const result = await graphqlClient.mutation(GRAPHQL_QUERIES.TEST_JIRA_CONNECTION, {
+                        id: connectionId
+                    });
+                    
+                    if (result.testJiraConnection) {
+                        alert('Connection test successful!');
+                    } else {
+                        alert('Connection test failed. Please check your settings.');
+                    }
+                    
+                    await fetchJiraConnections();
+                } catch (err) {
+                    console.error('Error testing JIRA connection:', err);
+                    alert('Connection test failed: ' + err.message);
+                }
+            };
+
+            const handleDeleteJiraConnection = async (connectionId, connectionName) => {
+                if (!confirm(`Are you sure you want to delete the JIRA connection "${connectionName}"?`)) {
+                    return;
+                }
+                
+                try {
+                    await graphqlClient.mutation(GRAPHQL_QUERIES.DELETE_JIRA_CONNECTION, {
+                        id: connectionId
+                    });
+                    
+                    await fetchJiraConnections();
+                    alert('JIRA connection deleted successfully!');
+                } catch (err) {
+                    console.error('Error deleting JIRA connection:', err);
+                    alert('Failed to delete JIRA connection: ' + err.message);
+                }
+            };
+
+            const handleAddNewJiraConnection = async () => {
+                // Validate required fields
+                if (!newConnectionData.name || !newConnectionData.jiraUrl || 
+                    !newConnectionData.projectKey || !newConnectionData.username || 
+                    !newConnectionData.credential) {
+                    alert('Please fill in all required fields');
+                    return;
+                }
+                
+                try {
+                    const result = await graphqlClient.mutation(GRAPHQL_QUERIES.CREATE_JIRA_CONNECTION, {
+                        input: {
+                            projectId: project.projectId,
+                            name: newConnectionData.name,
+                            jiraUrl: newConnectionData.jiraUrl,
+                            authenticationType: newConnectionData.authenticationType || 'api_token',
+                            projectKey: newConnectionData.projectKey,
+                            username: newConnectionData.username,
+                            credential: newConnectionData.credential
+                        }
+                    });
+                    
+                    await fetchJiraConnections();
+                    setShowNewConnection(false);
+                    setNewConnectionData({});
+                    alert('JIRA connection added successfully!');
+                } catch (err) {
+                    console.error('Error creating JIRA connection:', err);
+                    alert('Failed to create JIRA connection: ' + err.message);
+                }
+            };
 
             const handleSubmit = (e) => {
                 e.preventDefault();
@@ -6315,25 +6484,23 @@
                                 >
                                     General
                                 </button>
-                                {!project && (
-                                    <button
-                                        type="button"
-                                        onClick={() => setActiveTab('pm-connector')}
-                                        style={{
-                                            padding: '0.75rem 1.5rem',
-                                            background: 'none',
-                                            border: 'none',
-                                            borderBottom: activeTab === 'pm-connector' ? '2px solid var(--primary)' : '2px solid transparent',
-                                            color: activeTab === 'pm-connector' ? 'var(--primary)' : 'var(--text-secondary)',
-                                            cursor: 'pointer',
-                                            fontWeight: activeTab === 'pm-connector' ? '600' : '400',
-                                            marginBottom: '-2px',
-                                            transition: 'all 0.2s ease'
-                                        }}
-                                    >
-                                        PM Connector
-                                    </button>
-                                )}
+                                <button
+                                    type="button"
+                                    onClick={() => setActiveTab('pm-connector')}
+                                    style={{
+                                        padding: '0.75rem 1.5rem',
+                                        background: 'none',
+                                        border: 'none',
+                                        borderBottom: activeTab === 'pm-connector' ? '2px solid var(--primary)' : '2px solid transparent',
+                                        color: activeTab === 'pm-connector' ? 'var(--primary)' : 'var(--text-secondary)',
+                                        cursor: 'pointer',
+                                        fontWeight: activeTab === 'pm-connector' ? '600' : '400',
+                                        marginBottom: '-2px',
+                                        transition: 'all 0.2s ease'
+                                    }}
+                                >
+                                    PM Connector
+                                </button>
                         </div>
                         
                         <form onSubmit={handleSubmit}>
@@ -6447,208 +6614,515 @@
                                 </div>
                             )}
 
-                            {/* PM Connector Tab Content - Only show when creating new project */}
-                            {activeTab === 'pm-connector' && !project && (
+                            {/* PM Connector Tab Content */}
+                            {activeTab === 'pm-connector' && (
                                 <div>
-                                    <div style={{marginBottom: '1.5rem'}}>
-                                        <label style={{display: 'block', marginBottom: '0.5rem', fontWeight: '500'}}>
-                                            Project Management Tool
-                                        </label>
-                                        <select
-                                            value={formData.pmTool}
-                                            onChange={(e) => setFormData({...formData, pmTool: e.target.value})}
-                                            style={{
-                                                width: '100%',
-                                                padding: '0.75rem',
-                                                border: '1px solid var(--border-color)',
-                                                borderRadius: 'var(--radius-md)',
-                                                background: 'var(--bg-secondary)',
-                                                color: 'var(--text-primary)',
-                                                cursor: 'pointer'
-                                            }}
-                                        >
-                                            <option value="none">None</option>
-                                            <option value="jira">JIRA</option>
-                                            <option value="aha">Aha!</option>
-                                        </select>
-                                        <p style={{
-                                            marginTop: '0.5rem',
-                                            fontSize: '0.875rem',
-                                            color: 'var(--text-secondary)'
-                                        }}>
-                                            Connect your project management tool to automatically create issues from test failures
-                                        </p>
-                                    </div>
-
-                                    {/* JIRA Configuration */}
-                                    {formData.pmTool === 'jira' && (
-                                        <div style={{
-                                            padding: '1.5rem',
-                                            background: 'var(--bg-secondary)',
-                                            borderRadius: 'var(--radius-lg)',
-                                            border: '1px solid var(--border-color)'
-                                        }}>
-                                            <h4 style={{marginBottom: '1rem', color: 'var(--primary)'}}>JIRA Configuration</h4>
-                                            
-                                            <div style={{marginBottom: '1rem'}}>
-                                                <label style={{display: 'block', marginBottom: '0.5rem', fontWeight: '500'}}>
-                                                    Connection Name *
-                                                </label>
-                                                <input
-                                                    type="text"
-                                                    value={formData.jiraConnectionName}
-                                                    onChange={(e) => setFormData({...formData, jiraConnectionName: e.target.value})}
-                                                    placeholder="Production JIRA"
-                                                    style={{
-                                                        width: '100%',
-                                                        padding: '0.75rem',
-                                                        border: '1px solid var(--border-color)',
-                                                        borderRadius: 'var(--radius-md)',
-                                                        background: 'var(--bg-primary)',
-                                                        color: 'var(--text-primary)'
-                                                    }}
-                                                />
+                                    {/* For editing existing projects, show existing connections */}
+                                    {project && (
+                                        <div>
+                                            <div style={{
+                                                marginBottom: '1.5rem'
+                                            }}>
+                                                <h4 style={{margin: 0, marginBottom: '0.25rem'}}>JIRA Connection</h4>
+                                                <p style={{margin: 0, fontSize: '0.875rem', color: 'var(--text-secondary)'}}>
+                                                    Configure JIRA integration for automatic issue creation from test failures
+                                                </p>
                                             </div>
 
-                                            <div style={{marginBottom: '1rem'}}>
-                                                <label style={{display: 'block', marginBottom: '0.5rem', fontWeight: '500'}}>
-                                                    JIRA URL *
-                                                </label>
-                                                <input
-                                                    type="url"
-                                                    value={formData.jiraUrl}
-                                                    onChange={(e) => setFormData({...formData, jiraUrl: e.target.value})}
-                                                    placeholder="https://mycompany.atlassian.net"
-                                                    style={{
-                                                        width: '100%',
-                                                        padding: '0.75rem',
-                                                        border: '1px solid var(--border-color)',
-                                                        borderRadius: 'var(--radius-md)',
-                                                        background: 'var(--bg-primary)',
-                                                        color: 'var(--text-primary)'
-                                                    }}
-                                                />
-                                            </div>
-
-                                            <div style={{marginBottom: '1rem'}}>
-                                                <label style={{display: 'block', marginBottom: '0.5rem', fontWeight: '500'}}>
-                                                    JIRA Project Key *
-                                                </label>
-                                                <input
-                                                    type="text"
-                                                    value={formData.jiraProjectKey}
-                                                    onChange={(e) => setFormData({...formData, jiraProjectKey: e.target.value.toUpperCase()})}
-                                                    placeholder="PROJ"
-                                                    style={{
-                                                        width: '100%',
-                                                        padding: '0.75rem',
-                                                        border: '1px solid var(--border-color)',
-                                                        borderRadius: 'var(--radius-md)',
-                                                        background: 'var(--bg-primary)',
-                                                        color: 'var(--text-primary)'
-                                                    }}
-                                                />
-                                            </div>
-
-                                            <div style={{marginBottom: '1rem'}}>
-                                                <label style={{display: 'block', marginBottom: '0.5rem', fontWeight: '500'}}>
-                                                    Authentication Type *
-                                                </label>
-                                                <select
-                                                    value={formData.jiraAuthType}
-                                                    onChange={(e) => setFormData({...formData, jiraAuthType: e.target.value})}
-                                                    style={{
-                                                        width: '100%',
-                                                        padding: '0.75rem',
-                                                        border: '1px solid var(--border-color)',
-                                                        borderRadius: 'var(--radius-md)',
-                                                        background: 'var(--bg-primary)',
-                                                        color: 'var(--text-primary)',
-                                                        cursor: 'pointer'
-                                                    }}
-                                                >
-                                                    <option value="api_token">API Token (Cloud)</option>
-                                                    <option value="pat">Personal Access Token (Data Center)</option>
-                                                    <option value="basic">Basic Auth (Server)</option>
-                                                </select>
-                                            </div>
-
-                                            <div style={{marginBottom: '1rem'}}>
-                                                <label style={{display: 'block', marginBottom: '0.5rem', fontWeight: '500'}}>
-                                                    {formData.jiraAuthType === 'api_token' ? 'Email Address' : 'Username'} *
-                                                </label>
-                                                <input
-                                                    type={formData.jiraAuthType === 'api_token' ? 'email' : 'text'}
-                                                    value={formData.jiraUsername}
-                                                    onChange={(e) => setFormData({...formData, jiraUsername: e.target.value})}
-                                                    placeholder={formData.jiraAuthType === 'api_token' ? 'user@example.com' : 'username'}
-                                                    style={{
-                                                        width: '100%',
-                                                        padding: '0.75rem',
-                                                        border: '1px solid var(--border-color)',
-                                                        borderRadius: 'var(--radius-md)',
-                                                        background: 'var(--bg-primary)',
-                                                        color: 'var(--text-primary)'
-                                                    }}
-                                                />
-                                            </div>
-
-                                            <div style={{marginBottom: '1rem'}}>
-                                                <label style={{display: 'block', marginBottom: '0.5rem', fontWeight: '500'}}>
-                                                    {formData.jiraAuthType === 'api_token' ? 'API Token' : 
-                                                     formData.jiraAuthType === 'pat' ? 'Personal Access Token' : 'Password'} *
-                                                </label>
-                                                <input
-                                                    type="password"
-                                                    value={formData.jiraCredential}
-                                                    onChange={(e) => setFormData({...formData, jiraCredential: e.target.value})}
-                                                    placeholder="••••••••••••"
-                                                    style={{
-                                                        width: '100%',
-                                                        padding: '0.75rem',
-                                                        border: '1px solid var(--border-color)',
-                                                        borderRadius: 'var(--radius-md)',
-                                                        background: 'var(--bg-primary)',
-                                                        color: 'var(--text-primary)'
-                                                    }}
-                                                />
-                                                {formData.jiraAuthType === 'api_token' && (
-                                                    <p style={{
-                                                        marginTop: '0.25rem',
-                                                        fontSize: '0.75rem',
-                                                        color: 'var(--text-secondary)'
-                                                    }}>
-                                                        Generate at: <a href="https://id.atlassian.com/manage-profile/security/api-tokens" 
-                                                                       target="_blank" 
-                                                                       rel="noopener noreferrer"
-                                                                       style={{color: 'var(--primary)'}}>
-                                                            Atlassian Account Settings
-                                                        </a>
+                                            {loadingJira ? (
+                                                <div style={{textAlign: 'center', padding: '2rem'}}>
+                                                    <div className="spinner"></div>
+                                                    <p style={{marginTop: '1rem', color: 'var(--text-secondary)'}}>Loading connection...</p>
+                                                </div>
+                                            ) : jiraConnections.length === 0 && !showNewConnection ? (
+                                                <div style={{
+                                                    textAlign: 'center',
+                                                    padding: '3rem',
+                                                    background: 'var(--bg-secondary)',
+                                                    borderRadius: 'var(--radius-lg)',
+                                                    border: '1px dashed var(--border-color)'
+                                                }}>
+                                                    <i className="fab fa-jira" style={{
+                                                        fontSize: '3rem',
+                                                        color: 'var(--text-secondary)',
+                                                        marginBottom: '1rem',
+                                                        display: 'block'
+                                                    }}></i>
+                                                    <p style={{color: 'var(--text-secondary)', marginBottom: '1rem'}}>
+                                                        No JIRA connection configured
                                                     </p>
-                                                )}
-                                            </div>
-                                        </div>
-                                    )}
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setShowNewConnection(true)}
+                                                        style={{
+                                                            padding: '0.5rem 1rem',
+                                                            background: 'var(--primary)',
+                                                            color: 'white',
+                                                            border: 'none',
+                                                            borderRadius: 'var(--radius-md)',
+                                                            cursor: 'pointer',
+                                                            fontSize: '0.875rem',
+                                                            fontWeight: '500'
+                                                        }}
+                                                    >
+                                                        Connect to JIRA
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <div>
+                                                    {/* Show existing connection or new connection form */}
+                                                    {jiraConnections.length > 0 && !showNewConnection ? (
+                                                        // Show the single existing connection
+                                                        (() => {
+                                                            const conn = jiraConnections[0]; // Only show first connection
+                                                            return (
+                                                        <div key={conn.id} style={{
+                                                            padding: '1.5rem',
+                                                            background: 'var(--bg-secondary)',
+                                                            borderRadius: 'var(--radius-lg)',
+                                                            border: '1px solid var(--border-color)'
+                                                        }}>
+                                                            {editingConnection?.id === conn.id ? (
+                                                                // Edit mode
+                                                                <div>
+                                                                    <div style={{marginBottom: '1rem'}}>
+                                                                        <input
+                                                                            type="text"
+                                                                            value={editingConnection.name}
+                                                                            onChange={(e) => setEditingConnection({...editingConnection, name: e.target.value})}
+                                                                            placeholder="Connection Name"
+                                                                            style={{
+                                                                                width: '100%',
+                                                                                padding: '0.5rem',
+                                                                                border: '1px solid var(--border-color)',
+                                                                                borderRadius: 'var(--radius-md)',
+                                                                                background: 'var(--bg-primary)',
+                                                                                color: 'var(--text-primary)',
+                                                                                marginBottom: '0.5rem'
+                                                                            }}
+                                                                        />
+                                                                        <input
+                                                                            type="url"
+                                                                            value={editingConnection.jiraUrl}
+                                                                            onChange={(e) => setEditingConnection({...editingConnection, jiraUrl: e.target.value})}
+                                                                            placeholder="JIRA URL"
+                                                                            style={{
+                                                                                width: '100%',
+                                                                                padding: '0.5rem',
+                                                                                border: '1px solid var(--border-color)',
+                                                                                borderRadius: 'var(--radius-md)',
+                                                                                background: 'var(--bg-primary)',
+                                                                                color: 'var(--text-primary)',
+                                                                                marginBottom: '0.5rem'
+                                                                            }}
+                                                                        />
+                                                                        <input
+                                                                            type="text"
+                                                                            value={editingConnection.projectKey}
+                                                                            onChange={(e) => setEditingConnection({...editingConnection, projectKey: e.target.value.toUpperCase()})}
+                                                                            placeholder="Project Key"
+                                                                            style={{
+                                                                                width: '100%',
+                                                                                padding: '0.5rem',
+                                                                                border: '1px solid var(--border-color)',
+                                                                                borderRadius: 'var(--radius-md)',
+                                                                                background: 'var(--bg-primary)',
+                                                                                color: 'var(--text-primary)'
+                                                                            }}
+                                                                        />
+                                                                    </div>
+                                                                    <div style={{display: 'flex', gap: '0.5rem'}}>
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => handleUpdateJiraConnection(conn.id)}
+                                                                            style={{
+                                                                                padding: '0.5rem 1rem',
+                                                                                background: 'var(--success)',
+                                                                                color: 'white',
+                                                                                border: 'none',
+                                                                                borderRadius: 'var(--radius-md)',
+                                                                                cursor: 'pointer',
+                                                                                fontSize: '0.875rem'
+                                                                            }}
+                                                                        >
+                                                                            Save
+                                                                        </button>
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => setEditingConnection(null)}
+                                                                            style={{
+                                                                                padding: '0.5rem 1rem',
+                                                                                background: 'var(--bg-tertiary)',
+                                                                                color: 'var(--text-primary)',
+                                                                                border: '1px solid var(--border-color)',
+                                                                                borderRadius: 'var(--radius-md)',
+                                                                                cursor: 'pointer',
+                                                                                fontSize: '0.875rem'
+                                                                            }}
+                                                                        >
+                                                                            Cancel
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
+                                                            ) : (
+                                                                // View mode
+                                                                <div>
+                                                                    <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'start'}}>
+                                                                        <div style={{flex: 1}}>
+                                                                            <div style={{display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem'}}>
+                                                                                <i className="fab fa-jira" style={{fontSize: '2rem', color: '#0052CC'}}></i>
+                                                                                <div>
+                                                                                    <h5 style={{margin: 0, fontSize: '1.125rem', fontWeight: '600'}}>
+                                                                                        {conn.name}
+                                                                                    </h5>
+                                                                                    <div style={{display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.25rem'}}>
+                                                                                        {conn.status === 'connected' && (
+                                                                                            <span style={{
+                                                                                                fontSize: '0.75rem',
+                                                                                                padding: '0.125rem 0.5rem',
+                                                                                                background: 'rgba(52, 211, 153, 0.1)',
+                                                                                                color: '#10b981',
+                                                                                                borderRadius: 'var(--radius-md)',
+                                                                                                fontWeight: '500'
+                                                                                            }}>
+                                                                                                <i className="fas fa-check-circle" style={{marginRight: '0.25rem', fontSize: '0.625rem'}}></i>
+                                                                                                Connected
+                                                                                            </span>
+                                                                                        )}
+                                                                                        {conn.status === 'failed' && (
+                                                                                            <span style={{
+                                                                                                fontSize: '0.75rem',
+                                                                                                padding: '0.125rem 0.5rem',
+                                                                                                background: 'rgba(239, 68, 68, 0.1)',
+                                                                                                color: '#ef4444',
+                                                                                                borderRadius: 'var(--radius-md)',
+                                                                                                fontWeight: '500'
+                                                                                            }}>
+                                                                                                <i className="fas fa-exclamation-circle" style={{marginRight: '0.25rem', fontSize: '0.625rem'}}></i>
+                                                                                                Connection Failed
+                                                                                            </span>
+                                                                                        )}
+                                                                                    </div>
+                                                                                </div>
+                                                                            </div>
+                                                                            
+                                                                            <div style={{
+                                                                                display: 'grid',
+                                                                                gridTemplateColumns: 'auto 1fr',
+                                                                                gap: '0.5rem 1rem',
+                                                                                fontSize: '0.875rem',
+                                                                                marginBottom: '1rem'
+                                                                            }}>
+                                                                                <span style={{color: 'var(--text-secondary)'}}>URL:</span>
+                                                                                <span style={{color: 'var(--text-primary)', fontFamily: 'monospace'}}>{conn.jiraUrl}</span>
+                                                                                
+                                                                                <span style={{color: 'var(--text-secondary)'}}>Project:</span>
+                                                                                <span style={{color: 'var(--text-primary)', fontWeight: '600'}}>{conn.projectKey}</span>
+                                                                                
+                                                                                <span style={{color: 'var(--text-secondary)'}}>Auth Type:</span>
+                                                                                <span style={{color: 'var(--text-primary)'}}>
+                                                                                    {conn.authenticationType === 'api_token' ? 'API Token' : 
+                                                                                     conn.authenticationType === 'pat' ? 'Personal Access Token' : 'Basic Auth'}
+                                                                                </span>
+                                                                                
+                                                                                <span style={{color: 'var(--text-secondary)'}}>Username:</span>
+                                                                                <span style={{color: 'var(--text-primary)'}}>{conn.username}</span>
+                                                                            </div>
+                                                                        </div>
+                                                                        <div style={{display: 'flex', gap: '0.5rem', flexDirection: 'column'}}>
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => handleTestJiraConnection(conn.id)}
+                                                                                title="Test Connection"
+                                                                                style={{
+                                                                                    padding: '0.5rem 1rem',
+                                                                                    background: 'var(--bg-tertiary)',
+                                                                                    color: 'var(--text-primary)',
+                                                                                    border: '1px solid var(--border-color)',
+                                                                                    borderRadius: 'var(--radius-md)',
+                                                                                    cursor: 'pointer',
+                                                                                    fontSize: '0.875rem',
+                                                                                    fontWeight: '500',
+                                                                                    display: 'flex',
+                                                                                    alignItems: 'center',
+                                                                                    gap: '0.5rem',
+                                                                                    whiteSpace: 'nowrap'
+                                                                                }}
+                                                                            >
+                                                                                <i className="fas fa-plug"></i>
+                                                                                Test Connection
+                                                                            </button>
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => setEditingConnection(conn)}
+                                                                                title="Edit Connection"
+                                                                                style={{
+                                                                                    padding: '0.5rem 1rem',
+                                                                                    background: 'var(--bg-tertiary)',
+                                                                                    color: 'var(--text-primary)',
+                                                                                    border: '1px solid var(--border-color)',
+                                                                                    borderRadius: 'var(--radius-md)',
+                                                                                    cursor: 'pointer',
+                                                                                    fontSize: '0.875rem',
+                                                                                    fontWeight: '500',
+                                                                                    display: 'flex',
+                                                                                    alignItems: 'center',
+                                                                                    gap: '0.5rem',
+                                                                                    whiteSpace: 'nowrap'
+                                                                                }}
+                                                                            >
+                                                                                <i className="fas fa-edit"></i>
+                                                                                Edit Connection
+                                                                            </button>
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => handleDeleteJiraConnection(conn.id, conn.name)}
+                                                                                title="Delete Connection"
+                                                                                style={{
+                                                                                    padding: '0.5rem 1rem',
+                                                                                    background: 'rgba(239, 68, 68, 0.1)',
+                                                                                    color: 'var(--error)',
+                                                                                    border: '1px solid rgba(239, 68, 68, 0.2)',
+                                                                                    borderRadius: 'var(--radius-md)',
+                                                                                    cursor: 'pointer',
+                                                                                    fontSize: '0.875rem',
+                                                                                    fontWeight: '500',
+                                                                                    display: 'flex',
+                                                                                    alignItems: 'center',
+                                                                                    gap: '0.5rem',
+                                                                                    whiteSpace: 'nowrap'
+                                                                                }}
+                                                                            >
+                                                                                <i className="fas fa-trash"></i>
+                                                                                Delete Connection
+                                                                            </button>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                            );
+                                                        })()
+                                                    ) : null}
 
-                                    {/* Aha! Not Supported Message */}
-                                    {formData.pmTool === 'aha' && (
-                                        <div style={{
-                                            padding: '2rem',
-                                            background: 'rgba(251, 191, 36, 0.1)',
-                                            borderRadius: 'var(--radius-lg)',
-                                            border: '1px solid rgba(251, 191, 36, 0.3)',
-                                            textAlign: 'center'
-                                        }}>
-                                            <i className="fas fa-info-circle" style={{
-                                                fontSize: '3rem',
-                                                color: '#f59e0b',
-                                                marginBottom: '1rem',
-                                                display: 'block'
-                                            }}></i>
-                                            <h4 style={{marginBottom: '0.5rem', color: 'var(--text-primary)'}}>Aha! Integration Coming Soon</h4>
-                                            <p style={{color: 'var(--text-secondary)', margin: 0}}>
-                                                Aha! integration is not supported at this time. Please check back in future releases.
-                                            </p>
+                                                    {/* New connection form - only show if no existing connection */}
+                                                    {showNewConnection && jiraConnections.length === 0 && (
+                                                        <div style={{
+                                                            padding: '1.5rem',
+                                                            background: 'var(--bg-secondary)',
+                                                            borderRadius: 'var(--radius-lg)',
+                                                            border: '2px solid var(--primary)'
+                                                        }}>
+                                                            <h4 style={{marginTop: 0, marginBottom: '1rem', color: 'var(--primary)'}}>Configure JIRA Connection</h4>
+                                                            
+                                                            <div style={{marginBottom: '1rem'}}>
+                                                                <label style={{display: 'block', marginBottom: '0.5rem', fontWeight: '500'}}>
+                                                                    Connection Name *
+                                                                </label>
+                                                                <input
+                                                                    type="text"
+                                                                    value={newConnectionData.name || ''}
+                                                                    onChange={(e) => setNewConnectionData({...newConnectionData, name: e.target.value})}
+                                                                    placeholder="Production JIRA"
+                                                                    style={{
+                                                                        width: '100%',
+                                                                        padding: '0.75rem',
+                                                                        border: '1px solid var(--border-color)',
+                                                                        borderRadius: 'var(--radius-md)',
+                                                                        background: 'var(--bg-primary)',
+                                                                        color: 'var(--text-primary)'
+                                                                    }}
+                                                                />
+                                                            </div>
+
+                                                            <div style={{marginBottom: '1rem'}}>
+                                                                <label style={{display: 'block', marginBottom: '0.5rem', fontWeight: '500'}}>
+                                                                    JIRA URL *
+                                                                </label>
+                                                                <input
+                                                                    type="url"
+                                                                    value={newConnectionData.jiraUrl || ''}
+                                                                    onChange={(e) => setNewConnectionData({...newConnectionData, jiraUrl: e.target.value})}
+                                                                    placeholder="https://mycompany.atlassian.net"
+                                                                    style={{
+                                                                        width: '100%',
+                                                                        padding: '0.75rem',
+                                                                        border: '1px solid var(--border-color)',
+                                                                        borderRadius: 'var(--radius-md)',
+                                                                        background: 'var(--bg-primary)',
+                                                                        color: 'var(--text-primary)'
+                                                                    }}
+                                                                />
+                                                            </div>
+
+                                                            <div style={{marginBottom: '1rem'}}>
+                                                                <label style={{display: 'block', marginBottom: '0.5rem', fontWeight: '500'}}>
+                                                                    JIRA Project Key *
+                                                                </label>
+                                                                <input
+                                                                    type="text"
+                                                                    value={newConnectionData.projectKey || ''}
+                                                                    onChange={(e) => setNewConnectionData({...newConnectionData, projectKey: e.target.value.toUpperCase()})}
+                                                                    placeholder="PROJ"
+                                                                    style={{
+                                                                        width: '100%',
+                                                                        padding: '0.75rem',
+                                                                        border: '1px solid var(--border-color)',
+                                                                        borderRadius: 'var(--radius-md)',
+                                                                        background: 'var(--bg-primary)',
+                                                                        color: 'var(--text-primary)'
+                                                                    }}
+                                                                />
+                                                            </div>
+
+                                                            <div style={{marginBottom: '1rem'}}>
+                                                                <label style={{display: 'block', marginBottom: '0.5rem', fontWeight: '500'}}>
+                                                                    Authentication Type *
+                                                                </label>
+                                                                <select
+                                                                    value={newConnectionData.authenticationType || 'api_token'}
+                                                                    onChange={(e) => setNewConnectionData({...newConnectionData, authenticationType: e.target.value})}
+                                                                    style={{
+                                                                        width: '100%',
+                                                                        padding: '0.75rem',
+                                                                        border: '1px solid var(--border-color)',
+                                                                        borderRadius: 'var(--radius-md)',
+                                                                        background: 'var(--bg-primary)',
+                                                                        color: 'var(--text-primary)',
+                                                                        cursor: 'pointer'
+                                                                    }}
+                                                                >
+                                                                    <option value="api_token">API Token (Cloud)</option>
+                                                                    <option value="personal_access_token">Personal Access Token (Data Center)</option>
+                                                                    <option value="basic">Basic Auth (Server)</option>
+                                                                </select>
+                                                            </div>
+
+                                                            <div style={{marginBottom: '1rem'}}>
+                                                                <label style={{display: 'block', marginBottom: '0.5rem', fontWeight: '500'}}>
+                                                                    {newConnectionData.authenticationType === 'api_token' ? 'Email Address' : 'Username'} *
+                                                                </label>
+                                                                <input
+                                                                    type={newConnectionData.authenticationType === 'api_token' ? 'email' : 'text'}
+                                                                    value={newConnectionData.username || ''}
+                                                                    onChange={(e) => setNewConnectionData({...newConnectionData, username: e.target.value})}
+                                                                    placeholder={newConnectionData.authenticationType === 'api_token' ? 'user@example.com' : 'username'}
+                                                                    style={{
+                                                                        width: '100%',
+                                                                        padding: '0.75rem',
+                                                                        border: '1px solid var(--border-color)',
+                                                                        borderRadius: 'var(--radius-md)',
+                                                                        background: 'var(--bg-primary)',
+                                                                        color: 'var(--text-primary)'
+                                                                    }}
+                                                                />
+                                                            </div>
+
+                                                            <div style={{marginBottom: '1rem'}}>
+                                                                <label style={{display: 'block', marginBottom: '0.5rem', fontWeight: '500'}}>
+                                                                    {newConnectionData.authenticationType === 'api_token' ? 'API Token' : 
+                                                                     newConnectionData.authenticationType === 'personal_access_token' ? 'Personal Access Token' : 'Password'} *
+                                                                </label>
+                                                                <input
+                                                                    type="password"
+                                                                    value={newConnectionData.credential || ''}
+                                                                    onChange={(e) => setNewConnectionData({...newConnectionData, credential: e.target.value})}
+                                                                    placeholder="••••••••••••"
+                                                                    style={{
+                                                                        width: '100%',
+                                                                        padding: '0.75rem',
+                                                                        border: '1px solid var(--border-color)',
+                                                                        borderRadius: 'var(--radius-md)',
+                                                                        background: 'var(--bg-primary)',
+                                                                        color: 'var(--text-primary)'
+                                                                    }}
+                                                                />
+                                                                {newConnectionData.authenticationType === 'api_token' && (
+                                                                    <p style={{
+                                                                        marginTop: '0.25rem',
+                                                                        fontSize: '0.75rem',
+                                                                        color: 'var(--text-secondary)'
+                                                                    }}>
+                                                                        Generate at: <a href="https://id.atlassian.com/manage-profile/security/api-tokens" 
+                                                                                       target="_blank" 
+                                                                                       rel="noopener noreferrer"
+                                                                                       style={{color: 'var(--primary)'}}>
+                                                                            Atlassian Account Settings
+                                                                        </a>
+                                                                    </p>
+                                                                )}
+                                                            </div>
+
+                                                            <div style={{display: 'flex', gap: '0.75rem', justifyContent: 'flex-end'}}>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        setShowNewConnection(false);
+                                                                        setNewConnectionData({});
+                                                                    }}
+                                                                    style={{
+                                                                        padding: '0.5rem 1rem',
+                                                                        border: '1px solid var(--border-color)',
+                                                                        borderRadius: 'var(--radius-md)',
+                                                                        background: 'transparent',
+                                                                        color: 'var(--text-primary)',
+                                                                        cursor: 'pointer',
+                                                                        fontWeight: '500'
+                                                                    }}
+                                                                >
+                                                                    Cancel
+                                                                </button>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={handleAddNewJiraConnection}
+                                                                    style={{
+                                                                        padding: '0.5rem 1rem',
+                                                                        border: 'none',
+                                                                        borderRadius: 'var(--radius-md)',
+                                                                        background: 'var(--primary)',
+                                                                        color: 'white',
+                                                                        cursor: 'pointer',
+                                                                        fontWeight: '600'
+                                                                    }}
+                                                                >
+                                                                    Save Connection
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                    
+                                                    {/* Show message if trying to add second connection */}
+                                                    {showNewConnection && jiraConnections.length > 0 && (
+                                                        <div style={{
+                                                            padding: '1.5rem',
+                                                            background: 'rgba(245, 158, 11, 0.1)',
+                                                            borderRadius: 'var(--radius-lg)',
+                                                            border: '1px solid rgba(245, 158, 11, 0.3)'
+                                                        }}>
+                                                            <p style={{margin: 0, color: 'var(--warning)', display: 'flex', alignItems: 'center', gap: '0.5rem'}}>
+                                                                <i className="fas fa-info-circle"></i>
+                                                                This project already has a JIRA connection. Please delete the existing connection first if you want to add a new one.
+                                                            </p>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setShowNewConnection(false)}
+                                                                style={{
+                                                                    marginTop: '1rem',
+                                                                    padding: '0.5rem 1rem',
+                                                                    border: '1px solid var(--border-color)',
+                                                                    borderRadius: 'var(--radius-md)',
+                                                                    background: 'transparent',
+                                                                    color: 'var(--text-primary)',
+                                                                    cursor: 'pointer',
+                                                                    fontWeight: '500'
+                                                                }}
+                                                            >
+                                                                Close
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
                                         </div>
                                     )}
                                 </div>
