@@ -18,7 +18,6 @@ import (
 	tagsApp "github.com/guidewire-oss/fern-platform/internal/domains/tags/application"
 	testingApp "github.com/guidewire-oss/fern-platform/internal/domains/testing/application"
 	testingDomain "github.com/guidewire-oss/fern-platform/internal/domains/testing/domain"
-	"github.com/guidewire-oss/fern-platform/pkg/config"
 	"github.com/guidewire-oss/fern-platform/pkg/logging"
 	"github.com/google/uuid"
 )
@@ -32,7 +31,6 @@ type DomainHandler struct {
 	jiraConnectionService *integrations.JiraConnectionService
 	authMiddleware        *interfaces.AuthMiddlewareAdapter
 	logger                *logging.Logger
-	authConfig            *config.AuthConfig
 }
 
 // NewDomainHandler creates a new domain handler
