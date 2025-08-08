@@ -63,6 +63,7 @@ deploy-all: ## Complete automated deployment (k3d + prerequisites + build + depl
 	@$(MAKE) -f Makefile.k8s check-or-create-cluster
 	@$(MAKE) -f Makefile.k8s check-and-install-prerequisites
 	@$(MAKE) -f Makefile.k8s build-and-load-image
+	@$(MAKE) -f Makefile.k8s mock-jira-deploy
 	@$(MAKE) -f Makefile.k8s deploy-and-verify
 	@echo ""
 	@echo "🎉 Fern Platform deployment completed successfully!"
@@ -143,6 +144,16 @@ check-install-cnpg: ## Check if CloudNativePG is installed, install if not
 		helm upgrade --install cnpg --namespace cnpg-system --create-namespace cnpg/cloudnative-pg --wait --timeout=10m; \
 		echo "✅ CloudNativePG installed successfully"; \
 	fi
+
+mock-jira-deploy: ## Build and deploy mock-jira service
+	@echo "🎭 Building and deploying mock-jira service..."
+	@echo "📦 Building mock-jira Docker image..."
+	@cd mock-jira && docker build -t mock-jira:latest .
+	@echo "📥 Importing mock-jira image into k3d cluster..."
+	@k3d image import mock-jira:latest -c fern-platform
+	@echo "☸️ Deploying mock-jira to Kubernetes..."
+	@kubectl apply -f deployments/mock-jira-deployment.yaml
+	@echo "✅ Mock-jira deployed successfully"
 
 build-and-load-image: ## Build Docker image directly and load into k3d cluster
 	@echo "🐳 Building and loading Docker image..."
