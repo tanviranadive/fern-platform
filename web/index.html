@@ -1487,6 +1487,85 @@
             font-size: 0.75rem;
             font-weight: 600;
         }
+
+        /* Field Mapping Styles */
+        .field-mapping-modal {
+            animation: modalSlideIn 0.3s ease-out;
+        }
+
+        @keyframes modalSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .dragging {
+            opacity: 0.5;
+            cursor: grabbing !important;
+        }
+
+        .drag-over {
+            background: var(--primary)10 !important;
+            border-color: var(--primary) !important;
+            transform: scale(1.02);
+        }
+
+        .field-card {
+            transition: all 0.2s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .field-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, var(--primary)05 0%, transparent 100%);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+        }
+
+        .field-card:hover::before {
+            opacity: 1;
+        }
+
+        .mapping-line {
+            stroke: var(--primary);
+            stroke-width: 2;
+            fill: none;
+            stroke-dasharray: 5,5;
+            animation: dash 20s linear infinite;
+        }
+
+        @keyframes dash {
+            to {
+                stroke-dashoffset: -100;
+            }
+        }
+
+        .pulse-icon {
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+            50% {
+                transform: scale(1.1);
+                opacity: 0.8;
+            }
+        }
     </style>
 </head>
 <body>
@@ -6445,6 +6524,8 @@
             const [showAddModal, setShowAddModal] = useState(false);
             const [editingConnection, setEditingConnection] = useState(null);
             const [testingConnection, setTestingConnection] = useState(null);
+            const [showFieldMapping, setShowFieldMapping] = useState(false);
+            const [mappingConnection, setMappingConnection] = useState(null);
 
             useEffect(() => {
                 fetchConnections();
@@ -6499,6 +6580,11 @@
                 } catch (err) {
                     alert(`Failed to delete connection: ${err.message}`);
                 }
+            };
+
+            const handleFieldMapping = (connection) => {
+                setMappingConnection(connection);
+                setShowFieldMapping(true);
             };
 
             const getStatusBadge = (status) => {
@@ -6799,6 +6885,29 @@
                                                 )}
                                             </button>
                                             <button
+                                                onClick={() => handleFieldMapping(connection)}
+                                                className="action-button"
+                                                style={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '0.5rem',
+                                                    padding: '0.5rem 1rem',
+                                                    border: '1px solid var(--primary)',
+                                                    borderRadius: 'var(--radius-md)',
+                                                    background: 'var(--primary)10',
+                                                    color: 'var(--primary)',
+                                                    cursor: 'pointer',
+                                                    fontSize: '0.875rem',
+                                                    fontWeight: '500',
+                                                    justifyContent: 'center',
+                                                    transition: 'all 0.2s ease'
+                                                }}
+                                                title="Configure Field Mapping"
+                                            >
+                                                <i className="fas fa-project-diagram"></i>
+                                                Configure Mapping
+                                            </button>
+                                            <button
                                                 onClick={() => handleEditConnection(connection)}
                                                 className="action-button"
                                                 style={{
@@ -6819,7 +6928,7 @@
                                                 title="Edit Connection"
                                             >
                                                 <i className="fas fa-edit"></i>
-                                                Edit Connection
+                                                Edit
                                             </button>
                                             <button
                                                 onClick={() => handleDeleteConnection(connection.id)}
@@ -6863,6 +6972,20 @@
                                 setShowAddModal(false);
                                 setEditingConnection(null);
                                 fetchConnections();
+                            }}
+                        />
+                    )}
+
+                    {showFieldMapping && mappingConnection && (
+                        <FieldMappingModal
+                            connection={mappingConnection}
+                            onClose={() => {
+                                setShowFieldMapping(false);
+                                setMappingConnection(null);
+                            }}
+                            onSuccess={() => {
+                                setShowFieldMapping(false);
+                                setMappingConnection(null);
                             }}
                         />
                     )}
@@ -7241,6 +7364,568 @@
                                 </button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            );
+        }
+
+        // Field Mapping Modal Component - Beautiful drag-and-drop interface
+        function FieldMappingModal({ connection, onClose, onSuccess }) {
+            const [jiraFields, setJiraFields] = useState([]);
+            const [fernFields] = useState([
+                { id: 'requirement_id', name: 'Requirement ID', type: 'text', required: true, description: 'Unique identifier for the requirement' },
+                { id: 'title', name: 'Title', type: 'text', required: true, description: 'Brief title of the requirement' },
+                { id: 'description', name: 'Description', type: 'richtext', required: false, description: 'Detailed requirement description' },
+                { id: 'type', name: 'Type', type: 'select', required: false, description: 'Type of requirement (Epic, Story, Bug, etc.)' },
+                { id: 'parent_requirement', name: 'Parent Requirement', type: 'reference', required: false, description: 'Link to parent epic or story' },
+                { id: 'release', name: 'Release', type: 'text', required: false, description: 'Target release or fix version' },
+                { id: 'status', name: 'Status', type: 'select', required: false, description: 'Current workflow status' },
+                { id: 'tags', name: 'Tags', type: 'multivalue', required: false, description: 'Labels or categories' },
+                { id: 'priority', name: 'Priority', type: 'select', required: false, description: 'Priority level' },
+                { id: 'component', name: 'Component', type: 'text', required: false, description: 'Component or module' }
+            ]);
+            const [mappings, setMappings] = useState({});
+            const [loading, setLoading] = useState(true);
+            const [saving, setSaving] = useState(false);
+            const [draggingField, setDraggingField] = useState(null);
+            const [hoveredField, setHoveredField] = useState(null);
+            const [selectedMapping, setSelectedMapping] = useState(null);
+
+            useEffect(() => {
+                fetchJiraFields();
+                loadExistingMappings();
+            }, []);
+
+            const fetchJiraFields = async () => {
+                try {
+                    // Simulated JIRA fields - in production, fetch from JIRA API
+                    const fields = [
+                        { id: 'issuekey', name: 'Issue Key', type: 'text', custom: false, example: 'PROJ-123' },
+                        { id: 'summary', name: 'Summary', type: 'text', custom: false, example: 'Add user authentication' },
+                        { id: 'description', name: 'Description', type: 'richtext', custom: false, example: 'As a user, I want to...' },
+                        { id: 'issuetype', name: 'Issue Type', type: 'select', custom: false, example: 'Story' },
+                        { id: 'status', name: 'Status', type: 'select', custom: false, example: 'In Progress' },
+                        { id: 'priority', name: 'Priority', type: 'select', custom: false, example: 'High' },
+                        { id: 'assignee', name: 'Assignee', type: 'user', custom: false, example: 'john.doe@company.com' },
+                        { id: 'reporter', name: 'Reporter', type: 'user', custom: false, example: 'jane.smith@company.com' },
+                        { id: 'fixVersions', name: 'Fix Version/s', type: 'multivalue', custom: false, example: 'v2.0, v2.1' },
+                        { id: 'components', name: 'Component/s', type: 'multivalue', custom: false, example: 'Backend, API' },
+                        { id: 'labels', name: 'Labels', type: 'multivalue', custom: false, example: 'feature, backend' },
+                        { id: 'epic', name: 'Epic Link', type: 'reference', custom: false, example: 'PROJ-100' },
+                        { id: 'customfield_10001', name: 'Story Points', type: 'number', custom: true, example: '5' },
+                        { id: 'customfield_10002', name: 'Sprint', type: 'text', custom: true, example: 'Sprint 42' },
+                        { id: 'customfield_10003', name: 'Customer', type: 'text', custom: true, example: 'Acme Corp' }
+                    ];
+                    setJiraFields(fields);
+                } catch (err) {
+                    console.error('Failed to fetch JIRA fields:', err);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            const loadExistingMappings = async () => {
+                try {
+                    // Load existing mappings - in production, fetch from backend
+                    const existingMappings = {
+                        'requirement_id': 'issuekey',
+                        'title': 'summary',
+                        'description': 'description',
+                        'type': 'issuetype',
+                        'parent_requirement': 'epic',
+                        'release': 'fixVersions',
+                        'tags': 'labels'
+                    };
+                    setMappings(existingMappings);
+                } catch (err) {
+                    console.error('Failed to load mappings:', err);
+                }
+            };
+
+            const handleDragStart = (e, field, sourceType) => {
+                setDraggingField({ field, sourceType });
+                e.dataTransfer.effectAllowed = 'link';
+            };
+
+            const handleDragOver = (e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'link';
+            };
+
+            const handleDrop = (e, targetField, targetType) => {
+                e.preventDefault();
+                
+                if (!draggingField) return;
+                
+                const { field: sourceField, sourceType } = draggingField;
+                
+                // Create mapping based on drag direction
+                if (sourceType === 'jira' && targetType === 'fern') {
+                    setMappings(prev => ({ ...prev, [targetField.id]: sourceField.id }));
+                } else if (sourceType === 'fern' && targetType === 'jira') {
+                    setMappings(prev => ({ ...prev, [sourceField.id]: targetField.id }));
+                }
+                
+                setDraggingField(null);
+                setHoveredField(null);
+            };
+
+            const removeMapping = (fernFieldId) => {
+                setMappings(prev => {
+                    const updated = { ...prev };
+                    delete updated[fernFieldId];
+                    return updated;
+                });
+            };
+
+            const getFieldTypeIcon = (type) => {
+                const icons = {
+                    text: '📝',
+                    richtext: '📄',
+                    select: '📋',
+                    multivalue: '🏷️',
+                    reference: '🔗',
+                    number: '🔢',
+                    user: '👤'
+                };
+                return icons[type] || '📌';
+            };
+
+            const isCompatible = (jiraType, fernType) => {
+                const compatibilityMap = {
+                    text: ['text', 'richtext'],
+                    richtext: ['text', 'richtext'],
+                    select: ['select', 'text'],
+                    multivalue: ['multivalue', 'text'],
+                    reference: ['reference', 'text'],
+                    number: ['number', 'text'],
+                    user: ['user', 'text']
+                };
+                return compatibilityMap[jiraType]?.includes(fernType) || false;
+            };
+
+            const handleSave = async () => {
+                // Validate required fields are mapped
+                const unmappedRequired = fernFields
+                    .filter(f => f.required && !mappings[f.id])
+                    .map(f => f.name);
+                
+                if (unmappedRequired.length > 0) {
+                    alert(`Please map these required fields: ${unmappedRequired.join(', ')}`);
+                    return;
+                }
+
+                try {
+                    setSaving(true);
+                    // Save mappings to backend
+                    console.log('Saving mappings:', mappings);
+                    // await graphqlClient.mutation(SAVE_FIELD_MAPPINGS, { connectionId: connection.id, mappings });
+                    onSuccess();
+                } catch (err) {
+                    alert(`Failed to save mappings: ${err.message}`);
+                } finally {
+                    setSaving(false);
+                }
+            };
+
+            return (
+                <div style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    background: 'rgba(0, 0, 0, 0.7)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 1000,
+                    backdropFilter: 'blur(4px)'
+                }}>
+                    <div style={{
+                        background: 'var(--bg-surface)',
+                        borderRadius: 'var(--radius-xl)',
+                        width: '90%',
+                        maxWidth: '1200px',
+                        height: '85vh',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        overflow: 'hidden',
+                        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
+                    }}>
+                        {/* Header */}
+                        <div style={{
+                            padding: '1.5rem 2rem',
+                            borderBottom: '1px solid var(--border-light)',
+                            background: 'var(--bg-secondary)',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center'
+                        }}>
+                            <div>
+                                <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: '700' }}>
+                                    Configure Field Mapping
+                                </h2>
+                                <p style={{ margin: '0.25rem 0 0 0', color: 'var(--text-secondary)' }}>
+                                    Drag JIRA fields to Fern fields to create mappings for {connection.name}
+                                </p>
+                            </div>
+                            <button
+                                onClick={onClose}
+                                style={{
+                                    background: 'none',
+                                    border: 'none',
+                                    fontSize: '1.5rem',
+                                    color: 'var(--text-secondary)',
+                                    cursor: 'pointer',
+                                    padding: '0.5rem',
+                                    borderRadius: 'var(--radius-md)',
+                                    transition: 'all 0.2s ease'
+                                }}
+                                onMouseEnter={(e) => {
+                                    e.target.style.background = 'var(--bg-tertiary)';
+                                    e.target.style.color = 'var(--text-primary)';
+                                }}
+                                onMouseLeave={(e) => {
+                                    e.target.style.background = 'none';
+                                    e.target.style.color = 'var(--text-secondary)';
+                                }}
+                            >
+                                ✕
+                            </button>
+                        </div>
+
+                        {/* Main Content */}
+                        <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+                            {/* JIRA Fields Column */}
+                            <div style={{ 
+                                flex: 1, 
+                                padding: '1.5rem',
+                                borderRight: '1px solid var(--border-light)',
+                                overflowY: 'auto'
+                            }}>
+                                <h3 style={{ 
+                                    margin: '0 0 1rem 0', 
+                                    fontSize: '1.125rem', 
+                                    fontWeight: '600',
+                                    color: 'var(--text-primary)' 
+                                }}>
+                                    <i className="fas fa-th-list" style={{ marginRight: '0.5rem', color: 'var(--primary)' }}></i>
+                                    JIRA Fields
+                                </h3>
+                                
+                                {loading ? (
+                                    <div style={{ textAlign: 'center', padding: '2rem' }}>
+                                        <i className="fas fa-spinner fa-spin" style={{ fontSize: '2rem', color: 'var(--primary)' }}></i>
+                                    </div>
+                                ) : (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                        {jiraFields.map(field => {
+                                            const isMapped = Object.values(mappings).includes(field.id);
+                                            return (
+                                                <div
+                                                    key={field.id}
+                                                    draggable={!isMapped}
+                                                    onDragStart={(e) => handleDragStart(e, field, 'jira')}
+                                                    style={{
+                                                        padding: '1rem',
+                                                        background: isMapped ? 'var(--bg-tertiary)' : 'var(--bg-elevated)',
+                                                        border: `2px solid ${isMapped ? 'var(--border-medium)' : 'var(--border-light)'}`,
+                                                        borderRadius: 'var(--radius-lg)',
+                                                        cursor: isMapped ? 'default' : 'grab',
+                                                        opacity: isMapped ? 0.6 : 1,
+                                                        transition: 'all 0.2s ease',
+                                                        transform: draggingField?.field.id === field.id ? 'scale(1.05)' : 'scale(1)',
+                                                        boxShadow: draggingField?.field.id === field.id ? 'var(--shadow-lg)' : 'var(--shadow-sm)'
+                                                    }}
+                                                    onMouseEnter={(e) => {
+                                                        if (!isMapped) {
+                                                            e.currentTarget.style.transform = 'translateY(-2px)';
+                                                            e.currentTarget.style.boxShadow = 'var(--shadow-md)';
+                                                        }
+                                                    }}
+                                                    onMouseLeave={(e) => {
+                                                        if (!isMapped && draggingField?.field.id !== field.id) {
+                                                            e.currentTarget.style.transform = 'translateY(0)';
+                                                            e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
+                                                        }
+                                                    }}
+                                                >
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                                        <span style={{ fontSize: '1.25rem' }}>{getFieldTypeIcon(field.type)}</span>
+                                                        <div style={{ flex: 1 }}>
+                                                            <div style={{ fontWeight: '600', marginBottom: '0.25rem' }}>
+                                                                {field.name}
+                                                                {field.custom && (
+                                                                    <span style={{
+                                                                        marginLeft: '0.5rem',
+                                                                        fontSize: '0.75rem',
+                                                                        background: 'var(--primary)20',
+                                                                        color: 'var(--primary)',
+                                                                        padding: '0.125rem 0.5rem',
+                                                                        borderRadius: 'var(--radius-sm)',
+                                                                        fontWeight: '500'
+                                                                    }}>Custom</span>
+                                                                )}
+                                                            </div>
+                                                            <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
+                                                                {field.id} • {field.type}
+                                                            </div>
+                                                            {field.example && (
+                                                                <div style={{ 
+                                                                    fontSize: '0.75rem', 
+                                                                    color: 'var(--text-tertiary)',
+                                                                    marginTop: '0.25rem',
+                                                                    fontStyle: 'italic'
+                                                                }}>
+                                                                    Example: {field.example}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        {isMapped && (
+                                                            <i className="fas fa-check-circle" style={{ color: 'var(--success)' }}></i>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Mapping Visualization */}
+                            <div style={{ 
+                                width: '200px', 
+                                padding: '1.5rem',
+                                background: 'var(--bg-secondary)',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                            }}>
+                                <div style={{ textAlign: 'center', marginBottom: '1rem' }}>
+                                    <i className="fas fa-exchange-alt" style={{ 
+                                        fontSize: '2rem', 
+                                        color: 'var(--primary)',
+                                        marginBottom: '0.5rem',
+                                        display: 'block'
+                                    }}></i>
+                                    <p style={{ 
+                                        fontSize: '0.875rem', 
+                                        color: 'var(--text-secondary)',
+                                        margin: 0 
+                                    }}>
+                                        Drag fields to map
+                                    </p>
+                                </div>
+                                
+                                {/* Visual connection lines would be rendered here with SVG */}
+                                <div style={{ 
+                                    fontSize: '0.75rem', 
+                                    color: 'var(--text-tertiary)',
+                                    textAlign: 'center',
+                                    marginTop: '2rem'
+                                }}>
+                                    <div style={{ marginBottom: '0.5rem' }}>
+                                        <span style={{ color: 'var(--success)' }}>✓</span> Compatible types
+                                    </div>
+                                    <div>
+                                        <span style={{ color: 'var(--warning)' }}>⚠</span> Type mismatch
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Fern Fields Column */}
+                            <div style={{ 
+                                flex: 1, 
+                                padding: '1.5rem',
+                                borderLeft: '1px solid var(--border-light)',
+                                overflowY: 'auto'
+                            }}>
+                                <h3 style={{ 
+                                    margin: '0 0 1rem 0', 
+                                    fontSize: '1.125rem', 
+                                    fontWeight: '600',
+                                    color: 'var(--text-primary)' 
+                                }}>
+                                    <i className="fas fa-database" style={{ marginRight: '0.5rem', color: 'var(--primary)' }}></i>
+                                    Fern Fields
+                                </h3>
+                                
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                    {fernFields.map(field => {
+                                        const mappedJiraFieldId = mappings[field.id];
+                                        const mappedJiraField = jiraFields.find(f => f.id === mappedJiraFieldId);
+                                        
+                                        return (
+                                            <div
+                                                key={field.id}
+                                                onDragOver={handleDragOver}
+                                                onDrop={(e) => handleDrop(e, field, 'fern')}
+                                                style={{
+                                                    padding: '1rem',
+                                                    background: hoveredField === field.id ? 'var(--primary)10' : 'var(--bg-elevated)',
+                                                    border: `2px dashed ${hoveredField === field.id ? 'var(--primary)' : (mappedJiraField ? 'var(--success)' : 'var(--border-light)')}`,
+                                                    borderRadius: 'var(--radius-lg)',
+                                                    transition: 'all 0.2s ease',
+                                                    position: 'relative'
+                                                }}
+                                                onDragEnter={() => setHoveredField(field.id)}
+                                                onDragLeave={() => setHoveredField(null)}
+                                            >
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                                    <span style={{ fontSize: '1.25rem' }}>{getFieldTypeIcon(field.type)}</span>
+                                                    <div style={{ flex: 1 }}>
+                                                        <div style={{ fontWeight: '600', marginBottom: '0.25rem' }}>
+                                                            {field.name}
+                                                            {field.required && (
+                                                                <span style={{
+                                                                    marginLeft: '0.5rem',
+                                                                    color: 'var(--error)',
+                                                                    fontSize: '0.875rem'
+                                                                }}>*</span>
+                                                            )}
+                                                        </div>
+                                                        <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
+                                                            {field.description}
+                                                        </div>
+                                                        {mappedJiraField && (
+                                                            <div style={{
+                                                                marginTop: '0.5rem',
+                                                                padding: '0.5rem',
+                                                                background: 'var(--success)10',
+                                                                borderRadius: 'var(--radius-md)',
+                                                                fontSize: '0.875rem',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                gap: '0.5rem'
+                                                            }}>
+                                                                <i className="fas fa-link" style={{ color: 'var(--success)' }}></i>
+                                                                <span style={{ fontWeight: '500' }}>{mappedJiraField.name}</span>
+                                                                <button
+                                                                    onClick={() => removeMapping(field.id)}
+                                                                    style={{
+                                                                        marginLeft: 'auto',
+                                                                        background: 'none',
+                                                                        border: 'none',
+                                                                        color: 'var(--text-secondary)',
+                                                                        cursor: 'pointer',
+                                                                        padding: '0.25rem',
+                                                                        borderRadius: 'var(--radius-sm)',
+                                                                        fontSize: '0.75rem'
+                                                                    }}
+                                                                    onMouseEnter={(e) => {
+                                                                        e.target.style.background = 'var(--error)20';
+                                                                        e.target.style.color = 'var(--error)';
+                                                                    }}
+                                                                    onMouseLeave={(e) => {
+                                                                        e.target.style.background = 'none';
+                                                                        e.target.style.color = 'var(--text-secondary)';
+                                                                    }}
+                                                                >
+                                                                    <i className="fas fa-times"></i>
+                                                                </button>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Footer */}
+                        <div style={{
+                            padding: '1.5rem 2rem',
+                            borderTop: '1px solid var(--border-light)',
+                            background: 'var(--bg-secondary)',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center'
+                        }}>
+                            <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
+                                {Object.keys(mappings).length} of {fernFields.filter(f => f.required).length} required fields mapped
+                            </div>
+                            <div style={{ display: 'flex', gap: '0.75rem' }}>
+                                <button
+                                    onClick={() => setMappings({})}
+                                    style={{
+                                        padding: '0.75rem 1.5rem',
+                                        border: '1px solid var(--border-medium)',
+                                        borderRadius: 'var(--radius-md)',
+                                        background: 'transparent',
+                                        color: 'var(--text-secondary)',
+                                        cursor: 'pointer',
+                                        fontWeight: '500',
+                                        transition: 'all 0.2s ease'
+                                    }}
+                                    onMouseEnter={(e) => {
+                                        e.target.style.background = 'var(--bg-tertiary)';
+                                        e.target.style.borderColor = 'var(--error)';
+                                        e.target.style.color = 'var(--error)';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        e.target.style.background = 'transparent';
+                                        e.target.style.borderColor = 'var(--border-medium)';
+                                        e.target.style.color = 'var(--text-secondary)';
+                                    }}
+                                >
+                                    Clear All
+                                </button>
+                                <button
+                                    onClick={onClose}
+                                    disabled={saving}
+                                    style={{
+                                        padding: '0.75rem 1.5rem',
+                                        border: '1px solid var(--border-medium)',
+                                        borderRadius: 'var(--radius-md)',
+                                        background: 'transparent',
+                                        color: 'var(--text-primary)',
+                                        cursor: saving ? 'not-allowed' : 'pointer',
+                                        fontWeight: '500',
+                                        opacity: saving ? 0.6 : 1,
+                                        transition: 'all 0.2s ease'
+                                    }}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleSave}
+                                    disabled={saving || Object.keys(mappings).length === 0}
+                                    style={{
+                                        padding: '0.75rem 2rem',
+                                        border: 'none',
+                                        borderRadius: 'var(--radius-md)',
+                                        background: 'var(--primary)',
+                                        color: 'white',
+                                        cursor: saving || Object.keys(mappings).length === 0 ? 'not-allowed' : 'pointer',
+                                        fontWeight: '600',
+                                        opacity: saving || Object.keys(mappings).length === 0 ? 0.6 : 1,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '0.5rem',
+                                        transition: 'all 0.2s ease'
+                                    }}
+                                    onMouseEnter={(e) => {
+                                        if (!saving && Object.keys(mappings).length > 0) {
+                                            e.target.style.background = 'var(--primary-dark)';
+                                            e.target.style.transform = 'translateY(-1px)';
+                                            e.target.style.boxShadow = 'var(--shadow-md)';
+                                        }
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        e.target.style.background = 'var(--primary)';
+                                        e.target.style.transform = 'translateY(0)';
+                                        e.target.style.boxShadow = 'none';
+                                    }}
+                                >
+                                    {saving && <i className="fas fa-spinner fa-spin"></i>}
+                                    Save Mapping Configuration
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             );
