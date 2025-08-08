@@ -15,7 +15,7 @@
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://d3js.org/d3.v7.min.js"></script>
-    <script src="/web/js/graphql-client.js?v=3"></script>
+    <script src="/web/js/graphql-client.js?v=5"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link href="/web/css/font-awesome.min.css" rel="stylesheet">
     
@@ -1495,6 +1495,9 @@
     <script type="text/babel">
         // Destructure React hooks at the top level
         const { useState, useEffect, useRef } = React;
+        
+        // Make GraphQL queries available globally
+        const GRAPHQL_QUERIES = window.GRAPHQL_QUERIES;
 
         // User preferences management system
         function useUserPreferences() {
@@ -7253,6 +7256,9 @@
 
             // Extract project ID from route (format: /project/:projectId/settings)
             const projectId = route.split('/')[2];
+            
+            console.log('ProjectSettings component - Route:', route);
+            console.log('ProjectSettings component - Extracted projectId:', projectId);
 
             useEffect(() => {
                 if (projectId) {
@@ -7262,10 +7268,16 @@
 
             const fetchProject = async () => {
                 try {
-                    const data = await graphqlClient.query(GRAPHQL_QUERIES.GET_PROJECT_DETAILS, { projectId });
+                    console.log('Fetching project with ID:', projectId);
+                    console.log('Route:', route);
+                    console.log('GraphQL client:', window.graphqlClient);
+                    console.log('GraphQL queries:', GRAPHQL_QUERIES.GET_PROJECT_DETAILS);
+                    const data = await window.graphqlClient.query(GRAPHQL_QUERIES.GET_PROJECT_DETAILS, { projectId });
+                    console.log('Project data received:', data);
                     setProject(data.projectByProjectId);
                 } catch (err) {
                     console.error('Failed to fetch project:', err);
+                    console.error('Error details:', err.message);
                 } finally {
                     setLoading(false);
                 }
