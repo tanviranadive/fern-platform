@@ -1573,7 +1573,7 @@
 
     <script type="text/babel">
         // Destructure React hooks at the top level
-        const { useState, useEffect, useRef } = React;
+        const { useState, useEffect, useRef, useCallback } = React;
         
         // Make GraphQL queries available globally
         const GRAPHQL_QUERIES = window.GRAPHQL_QUERIES;
@@ -6556,6 +6556,7 @@
             const handleTestConnection = async (connectionId) => {
                 try {
                     setTestingConnection(connectionId);
+                    console.log('Testing connection:', connectionId);
                     const result = await graphqlClient.mutation(GRAPHQL_QUERIES.TEST_JIRA_CONNECTION, { id: connectionId });
                     if (result.testJiraConnection) {
                         // Success - refresh to get updated status
@@ -6563,6 +6564,7 @@
                         alert('Connection test successful!');
                     }
                 } catch (err) {
+                    console.error('Connection test error:', err);
                     alert(`Connection test failed: ${err.message}`);
                 } finally {
                     setTestingConnection(null);
@@ -6904,7 +6906,7 @@
                                                 }}
                                                 title="Configure Field Mapping"
                                             >
-                                                <i className="fas fa-project-diagram"></i>
+                                                <span style={{ marginRight: '0.5rem' }}>🎯</span>
                                                 Configure Mapping
                                             </button>
                                             <button
@@ -7369,8 +7371,12 @@
             );
         }
 
-        // Field Mapping Modal Component - Beautiful drag-and-drop interface
+        // Field Mapping Modal Component - Visual connection interface with SVG lines
         function FieldMappingModal({ connection, onClose, onSuccess }) {
+            // Refs for measuring field positions
+            const containerRef = useRef(null);
+            const jiraFieldRefs = useRef({});
+            const fernFieldRefs = useRef({});
             const [jiraFields, setJiraFields] = useState([]);
             const [fernFields] = useState([
                 { id: 'requirement_id', name: 'Requirement ID', type: 'text', required: true, description: 'Unique identifier for the requirement' },
@@ -7387,9 +7393,11 @@
             const [mappings, setMappings] = useState({});
             const [loading, setLoading] = useState(true);
             const [saving, setSaving] = useState(false);
-            const [draggingField, setDraggingField] = useState(null);
-            const [hoveredField, setHoveredField] = useState(null);
-            const [selectedMapping, setSelectedMapping] = useState(null);
+            const [draggingFrom, setDraggingFrom] = useState(null);
+            const [dragLine, setDragLine] = useState(null);
+            const [connectionLines, setConnectionLines] = useState([]);
+            const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+            const svgRef = useRef(null);
 
             useEffect(() => {
                 fetchJiraFields();
@@ -7442,33 +7450,124 @@
                 }
             };
 
-            const handleDragStart = (e, field, sourceType) => {
-                setDraggingField({ field, sourceType });
-                e.dataTransfer.effectAllowed = 'link';
-            };
+            // Update connection lines on scroll, resize, or mapping changes
+            const updateConnectionLines = useCallback(() => {
+                if (!containerRef.current) return;
+                
+                const lines = [];
+                const containerRect = containerRef.current.getBoundingClientRect();
+                
+                Object.entries(mappings).forEach(([fernFieldId, jiraFieldId]) => {
+                    const jiraEl = jiraFieldRefs.current[jiraFieldId];
+                    const fernEl = fernFieldRefs.current[fernFieldId];
+                    
+                    if (jiraEl && fernEl) {
+                        const jiraRect = jiraEl.getBoundingClientRect();
+                        const fernRect = fernEl.getBoundingClientRect();
+                        
+                        lines.push({
+                            id: `${jiraFieldId}-${fernFieldId}`,
+                            x1: jiraRect.right - containerRect.left,
+                            y1: jiraRect.top + jiraRect.height / 2 - containerRect.top,
+                            x2: fernRect.left - containerRect.left,
+                            y2: fernRect.top + fernRect.height / 2 - containerRect.top,
+                            jiraFieldId,
+                            fernFieldId
+                        });
+                    }
+                });
+                setConnectionLines(lines);
+            }, [mappings]);
 
-            const handleDragOver = (e) => {
-                e.preventDefault();
-                e.dataTransfer.dropEffect = 'link';
-            };
-
-            const handleDrop = (e, targetField, targetType) => {
-                e.preventDefault();
+            // Update lines when mappings change or on scroll/resize
+            useEffect(() => {
+                updateConnectionLines();
                 
-                if (!draggingField) return;
+                // Add scroll listeners to both columns
+                const handleScroll = () => {
+                    requestAnimationFrame(updateConnectionLines);
+                };
                 
-                const { field: sourceField, sourceType } = draggingField;
+                // Add resize observer for dynamic updates
+                const resizeObserver = new ResizeObserver(() => {
+                    requestAnimationFrame(updateConnectionLines);
+                });
                 
-                // Create mapping based on drag direction
-                if (sourceType === 'jira' && targetType === 'fern') {
-                    setMappings(prev => ({ ...prev, [targetField.id]: sourceField.id }));
-                } else if (sourceType === 'fern' && targetType === 'jira') {
-                    setMappings(prev => ({ ...prev, [sourceField.id]: targetField.id }));
+                const container = containerRef.current;
+                if (container) {
+                    // Observe the container for size changes
+                    resizeObserver.observe(container);
+                    
+                    // Add scroll listeners
+                    const scrollElements = container.querySelectorAll('[data-scrollable]');
+                    scrollElements.forEach(el => {
+                        el.addEventListener('scroll', handleScroll, { passive: true });
+                    });
+                    
+                    // Also listen to window resize
+                    window.addEventListener('resize', handleScroll);
+                    
+                    return () => {
+                        resizeObserver.disconnect();
+                        scrollElements.forEach(el => {
+                            el.removeEventListener('scroll', handleScroll);
+                        });
+                        window.removeEventListener('resize', handleScroll);
+                    };
                 }
-                
-                setDraggingField(null);
-                setHoveredField(null);
+            }, [mappings, updateConnectionLines]);
+
+            // Track mouse position for drag line
+            const handleMouseMove = (e) => {
+                if (draggingFrom && containerRef.current) {
+                    const containerRect = containerRef.current.getBoundingClientRect();
+                    setMousePos({
+                        x: e.clientX - containerRect.left,
+                        y: e.clientY - containerRect.top
+                    });
+                }
             };
+
+            // Start dragging from JIRA field
+            const handleDragStart = (e, field) => {
+                if (Object.values(mappings).includes(field.id)) return;
+                
+                const jiraEl = jiraFieldRefs.current[field.id];
+                if (jiraEl && containerRef.current) {
+                    const containerRect = containerRef.current.getBoundingClientRect();
+                    const jiraRect = jiraEl.getBoundingClientRect();
+                    
+                    setDraggingFrom({
+                        field,
+                        startX: jiraRect.right - containerRect.left,
+                        startY: jiraRect.top + jiraRect.height / 2 - containerRect.top
+                    });
+                    
+                    // Prevent default drag behavior
+                    e.preventDefault();
+                }
+            };
+
+            // Complete connection on drop
+            const handleDrop = (fernField) => {
+                if (!draggingFrom || mappings[fernField.id]) return;
+                
+                // Create mapping
+                setMappings(prev => ({ ...prev, [fernField.id]: draggingFrom.field.id }));
+                setDraggingFrom(null);
+            };
+
+            // Cancel drag on mouse up
+            useEffect(() => {
+                const handleMouseUp = () => {
+                    if (draggingFrom) {
+                        setDraggingFrom(null);
+                    }
+                };
+                
+                window.addEventListener('mouseup', handleMouseUp);
+                return () => window.removeEventListener('mouseup', handleMouseUp);
+            }, [draggingFrom]);
 
             const removeMapping = (fernFieldId) => {
                 setMappings(prev => {
@@ -7480,13 +7579,15 @@
 
             const getFieldTypeIcon = (type) => {
                 const icons = {
-                    text: '📝',
+                    text: '✏️',
                     richtext: '📄',
-                    select: '📋',
+                    select: '▼',
                     multivalue: '🏷️',
                     reference: '🔗',
-                    number: '🔢',
-                    user: '👤'
+                    number: '#️⃣',
+                    user: '👤',
+                    date: '📅',
+                    boolean: '☑️'
                 };
                 return icons[type] || '📌';
             };
@@ -7567,7 +7668,7 @@
                                     Configure Field Mapping
                                 </h2>
                                 <p style={{ margin: '0.25rem 0 0 0', color: 'var(--text-secondary)' }}>
-                                    Drag JIRA fields to Fern fields to create mappings for {connection.name}
+                                    Click JIRA fields and connect them to Fern fields for {connection.name}
                                 </p>
                             </div>
                             <button
@@ -7595,243 +7696,387 @@
                             </button>
                         </div>
 
-                        {/* Main Content */}
-                        <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-                            {/* JIRA Fields Column */}
-                            <div style={{ 
-                                flex: 1, 
-                                padding: '1.5rem',
-                                borderRight: '1px solid var(--border-light)',
-                                overflowY: 'auto'
-                            }}>
-                                <h3 style={{ 
-                                    margin: '0 0 1rem 0', 
-                                    fontSize: '1.125rem', 
-                                    fontWeight: '600',
-                                    color: 'var(--text-primary)' 
-                                }}>
-                                    <i className="fas fa-th-list" style={{ marginRight: '0.5rem', color: 'var(--primary)' }}></i>
-                                    JIRA Fields
-                                </h3>
+                        {/* Main Content with Visual Connections */}
+                        <div 
+                            ref={containerRef} 
+                            onMouseMove={handleMouseMove}
+                            style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+                            {/* SVG Overlay for Connection Lines */}
+                            <svg 
+                                ref={svgRef}
+                                style={{
+                                    position: 'absolute',
+                                    top: 0,
+                                    left: 0,
+                                    width: '100%',
+                                    height: '100%',
+                                    pointerEvents: 'none',
+                                    zIndex: 10
+                                }}
+                            >
+                                <defs>
+                                    <marker
+                                        id="arrowhead"
+                                        markerWidth="10"
+                                        markerHeight="7"
+                                        refX="9"
+                                        refY="3.5"
+                                        orient="auto"
+                                    >
+                                        <polygon
+                                            points="0 0, 10 3.5, 0 7"
+                                            fill="var(--primary)"
+                                        />
+                                    </marker>
+                                </defs>
                                 
-                                {loading ? (
-                                    <div style={{ textAlign: 'center', padding: '2rem' }}>
-                                        <i className="fas fa-spinner fa-spin" style={{ fontSize: '2rem', color: 'var(--primary)' }}></i>
+                                {/* Draw existing connections */}
+                                {connectionLines.map(line => {
+                                    const midX = (line.x1 + line.x2) / 2;
+                                    const controlPoint1X = line.x1 + (midX - line.x1) * 0.7;
+                                    const controlPoint2X = line.x2 - (line.x2 - midX) * 0.7;
+                                    
+                                    return (
+                                        <g key={line.id}>
+                                            {/* Connection line with gradient */}
+                                            <defs>
+                                                <linearGradient id={`gradient-${line.id}`} x1="0%" y1="0%" x2="100%" y2="0%">
+                                                    <stop offset="0%" stopColor="var(--primary)" stopOpacity="0.8" />
+                                                    <stop offset="100%" stopColor="var(--success)" stopOpacity="0.8" />
+                                                </linearGradient>
+                                            </defs>
+                                            <path
+                                                d={`M ${line.x1} ${line.y1} C ${controlPoint1X} ${line.y1}, ${controlPoint2X} ${line.y2}, ${line.x2} ${line.y2}`}
+                                                stroke={`url(#gradient-${line.id})`}
+                                                strokeWidth="3"
+                                                fill="none"
+                                                opacity="0.8"
+                                                markerEnd="url(#arrowhead)"
+                                            />
+                                            {/* Connection points */}
+                                            <circle cx={line.x1} cy={line.y1} r="5" fill="var(--primary)" opacity="0.8" />
+                                            <circle cx={line.x2} cy={line.y2} r="5" fill="var(--success)" opacity="0.8" />
+                                        </g>
+                                    );
+                                })}
+                                
+                                {/* Draw line while dragging */}
+                                {draggingFrom && (
+                                    <g>
+                                        <path
+                                            d={`M ${draggingFrom.startX} ${draggingFrom.startY} Q ${(draggingFrom.startX + mousePos.x) / 2} ${(draggingFrom.startY + mousePos.y) / 2}, ${mousePos.x} ${mousePos.y}`}
+                                            stroke="var(--primary)"
+                                            strokeWidth="3"
+                                            fill="none"
+                                            strokeDasharray="5,5"
+                                            opacity="0.6"
+                                            className="drag-line"
+                                        />
+                                        <circle cx={draggingFrom.startX} cy={draggingFrom.startY} r="5" fill="var(--primary)" />
+                                        <circle cx={mousePos.x} cy={mousePos.y} r="4" fill="var(--primary)" opacity="0.6" />
+                                    </g>
+                                )}
+                            </svg>
+
+                            <div style={{ display: 'flex', height: '100%' }}>
+                                {/* JIRA Fields Column */}
+                                <div 
+                                    data-scrollable
+                                    style={{ 
+                                        flex: 1, 
+                                        padding: '1.5rem',
+                                        overflowY: 'auto'
+                                    }}>
+                                    <h3 style={{ 
+                                        margin: '0 0 1rem 0', 
+                                        fontSize: '1.125rem', 
+                                        fontWeight: '600',
+                                        color: 'var(--text-primary)' 
+                                    }}>
+                                        <span style={{ marginRight: '0.5rem', fontSize: '1.25rem' }}>🎯</span>
+                                        JIRA Fields
+                                    </h3>
+                                    
+                                    {loading ? (
+                                        <div style={{ textAlign: 'center', padding: '2rem' }}>
+                                            <span style={{ fontSize: '2rem' }}>⏳</span>
+                                        </div>
+                                    ) : (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                            {jiraFields.map(field => {
+                                                const isMapped = Object.values(mappings).includes(field.id);
+                                                const isDragging = draggingFrom?.field.id === field.id;
+                                                
+                                                return (
+                                                    <div
+                                                        key={field.id}
+                                                        ref={el => jiraFieldRefs.current[field.id] = el}
+                                                        onMouseDown={(e) => handleDragStart(e, field)}
+                                                        style={{
+                                                            padding: '1rem',
+                                                            background: isDragging ? 'var(--primary)20' : (isMapped ? 'var(--bg-tertiary)' : 'var(--bg-elevated)'),
+                                                            border: `2px solid ${isDragging ? 'var(--primary)' : (isMapped ? 'var(--success)' : 'var(--border-light)')}`,
+                                                            borderRadius: 'var(--radius-lg)',
+                                                            cursor: isMapped ? 'default' : 'grab',
+                                                            opacity: isMapped ? 0.7 : 1,
+                                                            transition: 'all 0.2s ease',
+                                                            position: 'relative',
+                                                            userSelect: 'none'
+                                                        }}
+                                                        onMouseEnter={(e) => {
+                                                            if (!isMapped) {
+                                                                e.currentTarget.style.transform = 'translateX(4px)';
+                                                                e.currentTarget.style.boxShadow = 'var(--shadow-md)';
+                                                            }
+                                                        }}
+                                                        onMouseLeave={(e) => {
+                                                            if (!isMapped && !isSelected) {
+                                                                e.currentTarget.style.transform = 'translateX(0)';
+                                                                e.currentTarget.style.boxShadow = 'none';
+                                                            }
+                                                        }}
+                                                    >
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                                            <span style={{ fontSize: '1.25rem' }}>{getFieldTypeIcon(field.type)}</span>
+                                                            <div style={{ flex: 1 }}>
+                                                                <div style={{ fontWeight: '600', marginBottom: '0.25rem' }}>
+                                                                    {field.name}
+                                                                    {field.custom && (
+                                                                        <span style={{
+                                                                            marginLeft: '0.5rem',
+                                                                            fontSize: '0.75rem',
+                                                                            background: 'var(--primary)20',
+                                                                            color: 'var(--primary)',
+                                                                            padding: '0.125rem 0.5rem',
+                                                                            borderRadius: 'var(--radius-sm)',
+                                                                            fontWeight: '500'
+                                                                        }}>Custom</span>
+                                                                    )}
+                                                                </div>
+                                                                <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
+                                                                    {field.id} • {field.type}
+                                                                </div>
+                                                                {field.example && (
+                                                                    <div style={{ 
+                                                                        fontSize: '0.75rem', 
+                                                                        color: 'var(--text-tertiary)',
+                                                                        marginTop: '0.25rem',
+                                                                        fontStyle: 'italic'
+                                                                    }}>
+                                                                        Example: {field.example}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                            {isMapped && (
+                                                                <span style={{ fontSize: '1.25rem', color: 'var(--success)' }}>✓</span>
+                                                            )}
+                                                            {!isMapped && (
+                                                                <div style={{
+                                                                    position: 'absolute',
+                                                                    right: '-10px',
+                                                                    top: '50%',
+                                                                    transform: 'translateY(-50%)',
+                                                                    width: '20px',
+                                                                    height: '20px',
+                                                                    borderRadius: '50%',
+                                                                    background: 'var(--bg-surface)',
+                                                                    border: '2px solid var(--border-light)',
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    justifyContent: 'center'
+                                                                }}>
+                                                                    <div style={{
+                                                                        width: '8px',
+                                                                        height: '8px',
+                                                                        borderRadius: '50%',
+                                                                        background: isDragging ? 'var(--primary)' : 'var(--border-medium)'
+                                                                    }} />
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Instructions in the middle */}
+                                <div style={{ 
+                                    width: '200px', 
+                                    padding: '2rem 1rem',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    textAlign: 'center'
+                                }}>
+                                    <div style={{ marginBottom: '2rem' }}>
+                                        <span style={{ fontSize: '3rem', display: 'block', marginBottom: '1rem' }}>🔗</span>
+                                        <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '1rem', fontWeight: '600' }}>Drag & Connect</h4>
+                                        <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', margin: 0 }}>
+                                            1. Press and hold a JIRA field<br/>
+                                            2. Drag to a Fern field<br/>
+                                            3. Release to create connection!
+                                        </p>
                                     </div>
-                                ) : (
+                                    
+                                    {draggingFrom && (
+                                        <div style={{
+                                            padding: '1rem',
+                                            background: 'var(--primary)10',
+                                            borderRadius: 'var(--radius-md)',
+                                            border: '1px solid var(--primary)30'
+                                        }}>
+                                            <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--primary)' }}>
+                                                <strong>🖱️ Drag to a Fern field to connect:</strong><br/>
+                                                {draggingFrom.field.name}
+                                            </p>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Fern Fields Column */}
+                                <div 
+                                    data-scrollable
+                                    style={{ 
+                                        flex: 1, 
+                                        padding: '1.5rem',
+                                        overflowY: 'auto'
+                                    }}>
+                                    <h3 style={{ 
+                                        margin: '0 0 1rem 0', 
+                                        fontSize: '1.125rem', 
+                                        fontWeight: '600',
+                                        color: 'var(--text-primary)' 
+                                    }}>
+                                        <span style={{ marginRight: '0.5rem', fontSize: '1.25rem' }}>🌿</span>
+                                        Fern Fields
+                                    </h3>
+                                    
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                                        {jiraFields.map(field => {
-                                            const isMapped = Object.values(mappings).includes(field.id);
+                                        {fernFields.map(field => {
+                                            const mappedJiraFieldId = mappings[field.id];
+                                            const mappedJiraField = jiraFields.find(f => f.id === mappedJiraFieldId);
+                                            const isDragTarget = draggingFrom && !mappedJiraField;
+                                            
                                             return (
                                                 <div
                                                     key={field.id}
-                                                    draggable={!isMapped}
-                                                    onDragStart={(e) => handleDragStart(e, field, 'jira')}
+                                                    ref={el => fernFieldRefs.current[field.id] = el}
+                                                    onMouseUp={() => {
+                                                        if (draggingFrom && !mappings[field.id]) {
+                                                            handleDrop(field);
+                                                        }
+                                                    }}
+                                                    onMouseEnter={() => {
+                                                        if (draggingFrom && !mappings[field.id]) {
+                                                            // Visual feedback when hovering while dragging
+                                                            const el = fernFieldRefs.current[field.id];
+                                                            if (el) {
+                                                                el.style.border = '2px dashed var(--primary)';
+                                                                el.style.background = 'var(--primary)20';
+                                                                el.style.transform = 'translateX(-4px)';
+                                                            }
+                                                        }
+                                                    }}
+                                                    onMouseLeave={() => {
+                                                        if (draggingFrom && !mappings[field.id]) {
+                                                            const el = fernFieldRefs.current[field.id];
+                                                            if (el) {
+                                                                el.style.border = '2px solid var(--border-light)';
+                                                                el.style.background = 'var(--bg-elevated)';
+                                                                el.style.transform = 'translateX(0)';
+                                                            }
+                                                        }
+                                                    }}
                                                     style={{
                                                         padding: '1rem',
-                                                        background: isMapped ? 'var(--bg-tertiary)' : 'var(--bg-elevated)',
-                                                        border: `2px solid ${isMapped ? 'var(--border-medium)' : 'var(--border-light)'}`,
+                                                        background: mappedJiraField ? 'var(--bg-tertiary)' : 'var(--bg-elevated)',
+                                                        border: `2px solid ${mappedJiraField ? 'var(--success)' : 'var(--border-light)'}`,
                                                         borderRadius: 'var(--radius-lg)',
-                                                        cursor: isMapped ? 'default' : 'grab',
-                                                        opacity: isMapped ? 0.6 : 1,
+                                                        cursor: 'default',
                                                         transition: 'all 0.2s ease',
-                                                        transform: draggingField?.field.id === field.id ? 'scale(1.05)' : 'scale(1)',
-                                                        boxShadow: draggingField?.field.id === field.id ? 'var(--shadow-lg)' : 'var(--shadow-sm)'
-                                                    }}
-                                                    onMouseEnter={(e) => {
-                                                        if (!isMapped) {
-                                                            e.currentTarget.style.transform = 'translateY(-2px)';
-                                                            e.currentTarget.style.boxShadow = 'var(--shadow-md)';
-                                                        }
-                                                    }}
-                                                    onMouseLeave={(e) => {
-                                                        if (!isMapped && draggingField?.field.id !== field.id) {
-                                                            e.currentTarget.style.transform = 'translateY(0)';
-                                                            e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
-                                                        }
+                                                        position: 'relative'
                                                     }}
                                                 >
+                                                    {isDragTarget && (
+                                                        <span style={{
+                                                            position: 'absolute',
+                                                            left: '-8px',
+                                                            top: '50%',
+                                                            transform: 'translateY(-50%)',
+                                                            width: '16px',
+                                                            height: '16px',
+                                                            borderRadius: '50%',
+                                                            background: 'var(--bg-surface)',
+                                                            border: '2px solid var(--primary)',
+                                                            animation: 'pulse 1s infinite'
+                                                        }}></span>
+                                                    )}
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                                                         <span style={{ fontSize: '1.25rem' }}>{getFieldTypeIcon(field.type)}</span>
                                                         <div style={{ flex: 1 }}>
                                                             <div style={{ fontWeight: '600', marginBottom: '0.25rem' }}>
                                                                 {field.name}
-                                                                {field.custom && (
+                                                                {field.required && (
                                                                     <span style={{
                                                                         marginLeft: '0.5rem',
-                                                                        fontSize: '0.75rem',
-                                                                        background: 'var(--primary)20',
-                                                                        color: 'var(--primary)',
-                                                                        padding: '0.125rem 0.5rem',
-                                                                        borderRadius: 'var(--radius-sm)',
-                                                                        fontWeight: '500'
-                                                                    }}>Custom</span>
+                                                                        color: 'var(--error)',
+                                                                        fontSize: '0.875rem'
+                                                                    }}>*</span>
                                                                 )}
                                                             </div>
                                                             <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-                                                                {field.id} • {field.type}
+                                                                {field.description}
                                                             </div>
-                                                            {field.example && (
-                                                                <div style={{ 
-                                                                    fontSize: '0.75rem', 
-                                                                    color: 'var(--text-tertiary)',
-                                                                    marginTop: '0.25rem',
-                                                                    fontStyle: 'italic'
+                                                            {mappedJiraField && (
+                                                                <div style={{
+                                                                    marginTop: '0.5rem',
+                                                                    padding: '0.5rem',
+                                                                    background: 'var(--success)10',
+                                                                    borderRadius: 'var(--radius-md)',
+                                                                    fontSize: '0.875rem',
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    gap: '0.5rem'
                                                                 }}>
-                                                                    Example: {field.example}
+                                                                    <span style={{ color: 'var(--success)' }}>🔗</span>
+                                                                    <span style={{ fontWeight: '500' }}>{mappedJiraField.name}</span>
+                                                                    <button
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            removeMapping(field.id);
+                                                                        }}
+                                                                        style={{
+                                                                            marginLeft: 'auto',
+                                                                            background: 'none',
+                                                                            border: 'none',
+                                                                            color: 'var(--text-secondary)',
+                                                                            cursor: 'pointer',
+                                                                            padding: '0.25rem',
+                                                                            borderRadius: 'var(--radius-sm)',
+                                                                            fontSize: '0.75rem'
+                                                                        }}
+                                                                        onMouseEnter={(e) => {
+                                                                            e.target.style.background = 'var(--error)20';
+                                                                            e.target.style.color = 'var(--error)';
+                                                                        }}
+                                                                        onMouseLeave={(e) => {
+                                                                            e.target.style.background = 'none';
+                                                                            e.target.style.color = 'var(--text-secondary)';
+                                                                        }}
+                                                                    >
+                                                                        ✕
+                                                                    </button>
                                                                 </div>
                                                             )}
                                                         </div>
-                                                        {isMapped && (
-                                                            <i className="fas fa-check-circle" style={{ color: 'var(--success)' }}></i>
-                                                        )}
                                                     </div>
                                                 </div>
                                             );
                                         })}
                                     </div>
-                                )}
-                            </div>
-
-                            {/* Mapping Visualization */}
-                            <div style={{ 
-                                width: '200px', 
-                                padding: '1.5rem',
-                                background: 'var(--bg-secondary)',
-                                display: 'flex',
-                                flexDirection: 'column',
-                                alignItems: 'center',
-                                justifyContent: 'center'
-                            }}>
-                                <div style={{ textAlign: 'center', marginBottom: '1rem' }}>
-                                    <i className="fas fa-exchange-alt" style={{ 
-                                        fontSize: '2rem', 
-                                        color: 'var(--primary)',
-                                        marginBottom: '0.5rem',
-                                        display: 'block'
-                                    }}></i>
-                                    <p style={{ 
-                                        fontSize: '0.875rem', 
-                                        color: 'var(--text-secondary)',
-                                        margin: 0 
-                                    }}>
-                                        Drag fields to map
-                                    </p>
-                                </div>
-                                
-                                {/* Visual connection lines would be rendered here with SVG */}
-                                <div style={{ 
-                                    fontSize: '0.75rem', 
-                                    color: 'var(--text-tertiary)',
-                                    textAlign: 'center',
-                                    marginTop: '2rem'
-                                }}>
-                                    <div style={{ marginBottom: '0.5rem' }}>
-                                        <span style={{ color: 'var(--success)' }}>✓</span> Compatible types
-                                    </div>
-                                    <div>
-                                        <span style={{ color: 'var(--warning)' }}>⚠</span> Type mismatch
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Fern Fields Column */}
-                            <div style={{ 
-                                flex: 1, 
-                                padding: '1.5rem',
-                                borderLeft: '1px solid var(--border-light)',
-                                overflowY: 'auto'
-                            }}>
-                                <h3 style={{ 
-                                    margin: '0 0 1rem 0', 
-                                    fontSize: '1.125rem', 
-                                    fontWeight: '600',
-                                    color: 'var(--text-primary)' 
-                                }}>
-                                    <i className="fas fa-database" style={{ marginRight: '0.5rem', color: 'var(--primary)' }}></i>
-                                    Fern Fields
-                                </h3>
-                                
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                                    {fernFields.map(field => {
-                                        const mappedJiraFieldId = mappings[field.id];
-                                        const mappedJiraField = jiraFields.find(f => f.id === mappedJiraFieldId);
-                                        
-                                        return (
-                                            <div
-                                                key={field.id}
-                                                onDragOver={handleDragOver}
-                                                onDrop={(e) => handleDrop(e, field, 'fern')}
-                                                style={{
-                                                    padding: '1rem',
-                                                    background: hoveredField === field.id ? 'var(--primary)10' : 'var(--bg-elevated)',
-                                                    border: `2px dashed ${hoveredField === field.id ? 'var(--primary)' : (mappedJiraField ? 'var(--success)' : 'var(--border-light)')}`,
-                                                    borderRadius: 'var(--radius-lg)',
-                                                    transition: 'all 0.2s ease',
-                                                    position: 'relative'
-                                                }}
-                                                onDragEnter={() => setHoveredField(field.id)}
-                                                onDragLeave={() => setHoveredField(null)}
-                                            >
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                                    <span style={{ fontSize: '1.25rem' }}>{getFieldTypeIcon(field.type)}</span>
-                                                    <div style={{ flex: 1 }}>
-                                                        <div style={{ fontWeight: '600', marginBottom: '0.25rem' }}>
-                                                            {field.name}
-                                                            {field.required && (
-                                                                <span style={{
-                                                                    marginLeft: '0.5rem',
-                                                                    color: 'var(--error)',
-                                                                    fontSize: '0.875rem'
-                                                                }}>*</span>
-                                                            )}
-                                                        </div>
-                                                        <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-                                                            {field.description}
-                                                        </div>
-                                                        {mappedJiraField && (
-                                                            <div style={{
-                                                                marginTop: '0.5rem',
-                                                                padding: '0.5rem',
-                                                                background: 'var(--success)10',
-                                                                borderRadius: 'var(--radius-md)',
-                                                                fontSize: '0.875rem',
-                                                                display: 'flex',
-                                                                alignItems: 'center',
-                                                                gap: '0.5rem'
-                                                            }}>
-                                                                <i className="fas fa-link" style={{ color: 'var(--success)' }}></i>
-                                                                <span style={{ fontWeight: '500' }}>{mappedJiraField.name}</span>
-                                                                <button
-                                                                    onClick={() => removeMapping(field.id)}
-                                                                    style={{
-                                                                        marginLeft: 'auto',
-                                                                        background: 'none',
-                                                                        border: 'none',
-                                                                        color: 'var(--text-secondary)',
-                                                                        cursor: 'pointer',
-                                                                        padding: '0.25rem',
-                                                                        borderRadius: 'var(--radius-sm)',
-                                                                        fontSize: '0.75rem'
-                                                                    }}
-                                                                    onMouseEnter={(e) => {
-                                                                        e.target.style.background = 'var(--error)20';
-                                                                        e.target.style.color = 'var(--error)';
-                                                                    }}
-                                                                    onMouseLeave={(e) => {
-                                                                        e.target.style.background = 'none';
-                                                                        e.target.style.color = 'var(--text-secondary)';
-                                                                    }}
-                                                                >
-                                                                    <i className="fas fa-times"></i>
-                                                                </button>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
                                 </div>
                             </div>
                         </div>
@@ -7993,18 +8238,31 @@
             }
 
             const tabs = [
-                { id: 'general', label: '⚙️ General', icon: 'fas fa-cog' },
-                { id: 'integrations', label: '🔗 Integrations', icon: 'fas fa-plug' },
-                { id: 'team', label: '👥 Team', icon: 'fas fa-users' },
-                { id: 'notifications', label: '🔔 Notifications', icon: 'fas fa-bell' }
+                { id: 'general', label: 'General', emoji: '⚙️' },
+                { id: 'integrations', label: 'Integrations', emoji: '🔗' },
+                { id: 'team', label: 'Team', emoji: '👥' },
+                { id: 'notifications', label: 'Notifications', emoji: '🔔' }
             ];
 
             return (
                 <div className="page-container">
-                    <div className="page-header">
+                    <div className="page-header" style={{
+                        borderBottom: '1px solid var(--border-light)',
+                        paddingBottom: '1.5rem',
+                        marginBottom: '2rem'
+                    }}>
                         <div>
-                            <h1>{project.name} Settings</h1>
-                            <p>Configure project settings and integrations</p>
+                            <h1 style={{
+                                fontSize: '1.875rem',
+                                fontWeight: '700',
+                                letterSpacing: '-0.025em',
+                                marginBottom: '0.5rem'
+                            }}>{project.name} Settings</h1>
+                            <p style={{
+                                fontSize: '1rem',
+                                color: 'var(--text-secondary)',
+                                margin: 0
+                            }}>Configure project settings and integrations</p>
                         </div>
                     </div>
 
@@ -8021,8 +8279,9 @@
                             <nav style={{
                                 background: 'var(--bg-surface)',
                                 borderRadius: 'var(--radius-lg)',
-                                padding: '0.5rem',
-                                boxShadow: 'var(--shadow-sm)'
+                                padding: '0.75rem',
+                                boxShadow: 'var(--shadow-sm)',
+                                border: '1px solid var(--border-light)'
                             }}>
                                 {tabs.map(tab => (
                                     <button
@@ -8030,22 +8289,66 @@
                                         onClick={() => setActiveTab(tab.id)}
                                         style={{
                                             width: '100%',
-                                            padding: '0.75rem 1rem',
+                                            padding: '0.875rem 1.25rem',
                                             border: 'none',
                                             borderRadius: 'var(--radius-md)',
-                                            background: activeTab === tab.id ? 'var(--primary)15' : 'transparent',
-                                            color: activeTab === tab.id ? 'var(--primary)' : 'var(--text-primary)',
+                                            background: activeTab === tab.id ? 'var(--primary)' : 'transparent',
+                                            color: activeTab === tab.id ? 'white' : 'var(--text-primary)',
                                             cursor: 'pointer',
                                             textAlign: 'left',
                                             display: 'flex',
                                             alignItems: 'center',
-                                            gap: '0.75rem',
-                                            fontWeight: activeTab === tab.id ? '600' : '400',
-                                            marginBottom: '0.25rem'
+                                            gap: '0.875rem',
+                                            fontSize: '0.9375rem',
+                                            fontWeight: activeTab === tab.id ? '600' : '500',
+                                            marginBottom: '0.375rem',
+                                            transition: 'all 0.2s ease',
+                                            position: 'relative',
+                                            overflow: 'hidden'
+                                        }}
+                                        onMouseEnter={(e) => {
+                                            if (activeTab !== tab.id) {
+                                                e.currentTarget.style.background = 'var(--bg-secondary)';
+                                                e.currentTarget.style.transform = 'translateX(4px)';
+                                            }
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            if (activeTab !== tab.id) {
+                                                e.currentTarget.style.background = 'transparent';
+                                                e.currentTarget.style.transform = 'translateX(0)';
+                                            }
                                         }}
                                     >
-                                        <i className={tab.icon}></i>
-                                        {tab.label}
+                                        <span style={{
+                                            fontSize: '1.25rem',
+                                            width: '28px',
+                                            height: '28px',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            borderRadius: '8px',
+                                            background: activeTab === tab.id ? 'rgba(255,255,255,0.2)' : 'var(--bg-tertiary)',
+                                            transition: 'all 0.2s ease'
+                                        }}>
+                                            {tab.emoji}
+                                        </span>
+                                        <span style={{
+                                            letterSpacing: '-0.01em'
+                                        }}>
+                                            {tab.label}
+                                        </span>
+                                        {activeTab === tab.id && (
+                                            <div style={{
+                                                position: 'absolute',
+                                                left: 0,
+                                                top: '50%',
+                                                transform: 'translateY(-50%)',
+                                                width: '4px',
+                                                height: '60%',
+                                                background: 'white',
+                                                borderRadius: '0 2px 2px 0'
+                                            }}></div>
+                                        )}
                                     </button>
                                 ))}
                             </nav>
@@ -8057,12 +8360,21 @@
                             background: 'var(--bg-surface)',
                             borderRadius: 'var(--radius-lg)',
                             boxShadow: 'var(--shadow-sm)',
-                            overflow: 'hidden'
+                            overflow: 'hidden',
+                            border: '1px solid var(--border-light)'
                         }}>
                             {activeTab === 'general' && (
                                 <div style={{ padding: '2rem' }}>
-                                    <h2>General Settings</h2>
-                                    <p>Configure basic project settings</p>
+                                    <h2 style={{
+                                        fontSize: '1.5rem',
+                                        fontWeight: '600',
+                                        letterSpacing: '-0.02em',
+                                        marginBottom: '0.5rem'
+                                    }}>General Settings</h2>
+                                    <p style={{
+                                        color: 'var(--text-secondary)',
+                                        fontSize: '0.9375rem'
+                                    }}>Configure basic project settings</p>
                                     {/* General settings form would go here */}
                                 </div>
                             )}
@@ -8073,8 +8385,18 @@
                                         padding: '2rem',
                                         borderBottom: '1px solid var(--border-color)'
                                     }}>
-                                        <h2 style={{ margin: 0, marginBottom: '0.5rem' }}>Integrations</h2>
-                                        <p style={{ margin: 0, color: 'var(--text-secondary)' }}>
+                                        <h2 style={{ 
+                                            margin: 0, 
+                                            marginBottom: '0.5rem',
+                                            fontSize: '1.5rem',
+                                            fontWeight: '600',
+                                            letterSpacing: '-0.02em'
+                                        }}>Integrations</h2>
+                                        <p style={{ 
+                                            margin: 0, 
+                                            color: 'var(--text-secondary)',
+                                            fontSize: '0.9375rem'
+                                        }}>
                                             Connect external tools and services to enhance your testing workflow
                                         </p>
                                     </div>
@@ -8084,16 +8406,32 @@
 
                             {activeTab === 'team' && (
                                 <div style={{ padding: '2rem' }}>
-                                    <h2>Team Management</h2>
-                                    <p>Manage team members and permissions</p>
+                                    <h2 style={{
+                                        fontSize: '1.5rem',
+                                        fontWeight: '600',
+                                        letterSpacing: '-0.02em',
+                                        marginBottom: '0.5rem'
+                                    }}>Team Management</h2>
+                                    <p style={{
+                                        color: 'var(--text-secondary)',
+                                        fontSize: '0.9375rem'
+                                    }}>Manage team members and permissions</p>
                                     {/* Team management would go here */}
                                 </div>
                             )}
 
                             {activeTab === 'notifications' && (
                                 <div style={{ padding: '2rem' }}>
-                                    <h2>Notification Settings</h2>
-                                    <p>Configure how and when you receive notifications</p>
+                                    <h2 style={{
+                                        fontSize: '1.5rem',
+                                        fontWeight: '600',
+                                        letterSpacing: '-0.02em',
+                                        marginBottom: '0.5rem'
+                                    }}>Notification Settings</h2>
+                                    <p style={{
+                                        color: 'var(--text-secondary)',
+                                        fontSize: '0.9375rem'
+                                    }}>Configure how and when you receive notifications</p>
                                     {/* Notification settings would go here */}
                                 </div>
                             )}

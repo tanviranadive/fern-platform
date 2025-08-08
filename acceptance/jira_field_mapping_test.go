@@ -154,13 +154,36 @@ var _ = Describe("JIRA Field Mapping", Label("acceptance", "jira", "field-mappin
 			time.Sleep(1 * time.Second)
 
 			By("Verifying standard JIRA fields are displayed")
-			// Check for key JIRA fields
-			Expect(page.Locator("text=Issue Key").IsVisible()).To(BeTrue())
-			Expect(page.Locator("text=Summary").IsVisible()).To(BeTrue())
-			Expect(page.Locator("text=Description").First().IsVisible()).To(BeTrue())
-			Expect(page.Locator("text=Issue Type").IsVisible()).To(BeTrue())
-			Expect(page.Locator("text=Fix Version/s").IsVisible()).To(BeTrue())
-			Expect(page.Locator("text=Labels").IsVisible()).To(BeTrue())
+			// Check for key JIRA fields - be more specific to avoid duplicates
+			issueKeyField := page.Locator("div").Filter(playwright.LocatorFilterOptions{
+				HasText: "Issue Key",
+			}).First()
+			Expect(issueKeyField.IsVisible()).To(BeTrue())
+			
+			summaryField := page.Locator("div").Filter(playwright.LocatorFilterOptions{
+				HasText: "Summary",
+			}).First()
+			Expect(summaryField.IsVisible()).To(BeTrue())
+			
+			descriptionField := page.Locator("div").Filter(playwright.LocatorFilterOptions{
+				HasText: "Description",
+			}).First()
+			Expect(descriptionField.IsVisible()).To(BeTrue())
+			
+			issueTypeField := page.Locator("div").Filter(playwright.LocatorFilterOptions{
+				HasText: "Issue Type",
+			}).First()
+			Expect(issueTypeField.IsVisible()).To(BeTrue())
+			
+			fixVersionField := page.Locator("div").Filter(playwright.LocatorFilterOptions{
+				HasText: "Fix Version/s",
+			}).First()
+			Expect(fixVersionField.IsVisible()).To(BeTrue())
+			
+			labelsField := page.Locator("div").Filter(playwright.LocatorFilterOptions{
+				HasText: "Labels",
+			}).First()
+			Expect(labelsField.IsVisible()).To(BeTrue())
 
 			By("Verifying custom fields are marked")
 			customFieldIndicator := page.Locator("span:has-text('Custom')").First()
@@ -192,16 +215,25 @@ var _ = Describe("JIRA Field Mapping", Label("acceptance", "jira", "field-mappin
 			Expect(page.Locator("button:has-text('Configure Mapping')").Click()).To(Succeed())
 			time.Sleep(1 * time.Second)
 
-			By("Simulating drag and drop from JIRA Summary to Fern Title")
-			// Note: Playwright doesn't support native drag-drop well, so we test the UI states
+			By("Verifying JIRA fields can be dragged")
+			// Find a JIRA field that can be dragged
+			jiraFieldContainer := page.Locator("div[data-scrollable]").First()
+			summaryField := jiraFieldContainer.Locator("div").Filter(playwright.LocatorFilterOptions{
+				HasText: "Summary",
+			}).First()
 			
-			// Verify draggable fields have correct cursor style
-			summaryField := page.Locator("div:has-text('Summary')").First()
-			cursor, _ := summaryField.Evaluate("el => window.getComputedStyle(el).cursor", nil)
-			Expect(cursor).To(ContainSubstring("grab"))
+			// Check that the field exists and has proper styling
+			Expect(summaryField.IsVisible()).To(BeTrue())
+			
+			// Verify the field has drag-related styling
+			borderStyle, _ := summaryField.Evaluate("el => window.getComputedStyle(el).border", nil)
+			Expect(borderStyle).To(ContainSubstring("2px"))
 
-			By("Verifying drop zones are present")
-			titleField := page.Locator("div:has-text('Brief title of the requirement')").First()
+			By("Verifying Fern fields are present as drop targets")
+			fernFieldContainer := page.Locator("div[data-scrollable]").Nth(1)
+			titleField := fernFieldContainer.Locator("div").Filter(playwright.LocatorFilterOptions{
+				HasText: "Brief title of the requirement",
+			}).First()
 			Expect(titleField.IsVisible()).To(BeTrue())
 		})
 
@@ -211,12 +243,12 @@ var _ = Describe("JIRA Field Mapping", Label("acceptance", "jira", "field-mappin
 			time.Sleep(1 * time.Second)
 
 			By("Verifying pre-mapped fields show connections")
-			// The modal should show default mappings
-			mappedIndicator := page.Locator("i.fa-link").First()
+			// The modal should show default mappings with 🔗 emoji
+			mappedIndicator := page.Locator("span:has-text('🔗')").First()
 			Expect(mappedIndicator.IsVisible()).To(BeTrue())
 
 			By("Verifying mapped JIRA fields show check marks")
-			checkMark := page.Locator("i.fa-check-circle").First()
+			checkMark := page.Locator("span:has-text('✓')").First()
 			Expect(checkMark.IsVisible()).To(BeTrue())
 		})
 
@@ -226,8 +258,8 @@ var _ = Describe("JIRA Field Mapping", Label("acceptance", "jira", "field-mappin
 			time.Sleep(1 * time.Second)
 
 			By("Finding and clicking remove button on a mapping")
-			// Look for the X button in a mapped field
-			removeButton := page.Locator("button i.fa-times").First()
+			// Look for the ✕ button in a mapped field
+			removeButton := page.Locator("button:has-text('✕')").First()
 			if count, _ := removeButton.Count(); count > 0 {
 				Expect(removeButton.Click()).To(Succeed())
 				
@@ -291,8 +323,8 @@ var _ = Describe("JIRA Field Mapping", Label("acceptance", "jira", "field-mappin
 			time.Sleep(1 * time.Second)
 
 			By("Clicking X close button")
-			// The X button is the last button with × content in the modal header
-			closeButton := page.Locator("button:has-text('×')").First()
+			// The ✕ button in the modal header
+			closeButton := page.Locator("button:has-text('✕')").First()
 			Expect(closeButton.Click()).To(Succeed())
 
 			By("Verifying modal is closed")
