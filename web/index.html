@@ -6578,27 +6578,27 @@
                                     : 'Your project is connected to JIRA for requirement tracking'}
                             </p>
                         </div>
-                        {connections.length === 0 && (
-                            <button
-                                onClick={handleAddConnection}
-                                style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '0.5rem',
-                                    padding: '0.5rem 1rem',
-                                    border: 'none',
-                                    borderRadius: 'var(--radius-md)',
-                                    background: 'var(--primary)',
-                                    color: 'white',
-                                    cursor: 'pointer',
-                                    fontWeight: '600',
-                                    fontSize: '0.875rem'
-                                }}
-                            >
-                                <i className="fas fa-plus-circle"></i>
-                                Add JIRA Connection
-                            </button>
-                        )}
+                        <button
+                            onClick={handleAddConnection}
+                            disabled={connections.length > 0}
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.5rem',
+                                padding: '0.5rem 1rem',
+                                border: 'none',
+                                borderRadius: 'var(--radius-md)',
+                                background: connections.length > 0 ? 'var(--bg-tertiary)' : 'var(--primary)',
+                                color: connections.length > 0 ? 'var(--text-secondary)' : 'white',
+                                cursor: connections.length > 0 ? 'not-allowed' : 'pointer',
+                                fontWeight: '600',
+                                fontSize: '0.875rem',
+                                opacity: connections.length > 0 ? 0.6 : 1
+                            }}
+                        >
+                            <i className="fas fa-plus-circle"></i>
+                            Add JIRA Connection
+                        </button>
                     </div>
 
                     {connections.length === 0 ? (
@@ -6981,7 +6981,7 @@
                     justifyContent: 'center',
                     zIndex: 1000
                 }}>
-                    <div style={{
+                    <div className="modal" style={{
                         background: 'var(--bg-surface)',
                         borderRadius: 'var(--radius-lg)',
                         width: '90%',
@@ -7023,7 +7023,7 @@
                                     type="text"
                                     value={formData.name}
                                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                    placeholder="Production JIRA"
+                                    placeholder="Production JIRA Connection"
                                     style={{
                                         width: '100%',
                                         padding: '0.75rem',
