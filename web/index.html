@@ -6558,10 +6558,15 @@
                     setTestingConnection(connectionId);
                     console.log('Testing connection:', connectionId);
                     const result = await graphqlClient.mutation(GRAPHQL_QUERIES.TEST_JIRA_CONNECTION, { id: connectionId });
-                    if (result.testJiraConnection) {
+                    // Check if the test was successful (true), not just if it exists
+                    if (result.testJiraConnection === true) {
                         // Success - refresh to get updated status
                         await fetchConnections();
                         alert('Connection test successful!');
+                    } else {
+                        // Test returned false - connection failed
+                        await fetchConnections();
+                        alert('Connection test failed. Please check your credentials and JIRA configuration.');
                     }
                 } catch (err) {
                     console.error('Connection test error:', err);
@@ -7041,6 +7046,10 @@
             const handleSubmit = async (e) => {
                 e.preventDefault();
                 
+                if (loading) {
+                    return; // Prevent double submission
+                }
+                
                 if (!validateForm()) {
                     return;
                 }
@@ -7087,7 +7096,14 @@
                     
                     onSuccess();
                 } catch (err) {
-                    alert(`Failed to save connection: ${err.message}`);
+                    // Check if it's a duplicate connection error
+                    if (err.message && err.message.includes('already has a JIRA connection')) {
+                        alert('This project already has a JIRA connection. Please refresh the page to see the existing connection.');
+                        onClose(); // Close the modal
+                        window.location.reload(); // Refresh to show current state
+                    } else {
+                        alert(`Failed to save connection: ${err.message}`);
+                    }
                 } finally {
                     setLoading(false);
                 }

@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"strings"
 	"time"
 
@@ -179,6 +180,8 @@ func (j *JiraConnection) UpdateCredentials(authType AuthenticationType, username
 
 // TestConnection tests the JIRA connection
 func (j *JiraConnection) TestConnection(ctx context.Context, client JiraClient) error {
+	log.Printf("[JiraConnection] Testing connection for ID: %s, URL: %s", j.id, j.jiraURL)
+	
 	err := client.TestConnection(ctx, j.jiraURL, j.username, j.encryptedCredential, j.authenticationType)
 	now := time.Now()
 	j.lastTestedAt = &now
@@ -186,10 +189,12 @@ func (j *JiraConnection) TestConnection(ctx context.Context, client JiraClient) 
 
 	if err != nil {
 		j.status = ConnectionStatusFailed
+		log.Printf("[JiraConnection] Test failed for %s: %v", j.jiraURL, err)
 		return fmt.Errorf("connection test failed: %w", err)
 	}
 
 	j.status = ConnectionStatusConnected
+	log.Printf("[JiraConnection] Test successful for %s, status updated to Connected", j.jiraURL)
 	return nil
 }
 

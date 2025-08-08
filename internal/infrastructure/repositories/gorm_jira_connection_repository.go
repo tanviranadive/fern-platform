@@ -111,7 +111,20 @@ func (r *GormJiraConnectionRepository) toModel(conn *integrations.JiraConnection
 		IsActive:            snapshot.IsActive,
 		LastTestedAt:        snapshot.LastTestedAt,
 	}
-	// Note: ID, CreatedAt, UpdatedAt are managed by GORM
+	
+	// CRITICAL: Set the ID to ensure updates work correctly
+	// Convert string ID to uint (assuming numeric IDs)
+	if id := snapshot.ID; id != "" {
+		var numericID uint
+		if _, err := fmt.Sscanf(id, "%d", &numericID); err == nil {
+			model.ID = numericID
+		}
+	}
+	
+	// Set timestamps if they exist
+	model.CreatedAt = snapshot.CreatedAt
+	model.UpdatedAt = snapshot.UpdatedAt
+	
 	return model
 }
 

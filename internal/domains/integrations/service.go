@@ -3,6 +3,7 @@ package integrations
 import (
 	"context"
 	"fmt"
+	"log"
 )
 
 // JiraConnectionService handles JIRA connection operations
@@ -23,6 +24,19 @@ func NewJiraConnectionService(repo JiraConnectionRepository, jiraClient JiraClie
 
 // CreateConnection creates a new JIRA connection
 func (s *JiraConnectionService) CreateConnection(ctx context.Context, projectID, name, jiraURL string, authType AuthenticationType, projectKey, username, credential string) (*JiraConnection, error) {
+	// Check if a connection already exists for this project
+	existingConnections, err := s.repo.FindByProjectID(ctx, projectID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check existing connections: %w", err)
+	}
+	
+	// Check for any non-deleted connections
+	// Since we use soft deletion with deleted_at timestamp, we only need to check
+	// if any active connections exist (the repository should filter out deleted ones)
+	if len(existingConnections) > 0 {
+		return nil, fmt.Errorf("project already has a JIRA connection")
+	}
+	
 	// Create the connection
 	conn, err := NewJiraConnection(projectID, name, jiraURL, authType, projectKey, username, credential)
 	if err != nil {
@@ -101,25 +115,42 @@ func (s *JiraConnectionService) TestConnection(ctx context.Context, connectionID
 		return fmt.Errorf("failed to find connection: %w", err)
 	}
 
+	// Log connection details (without sensitive info)
+	log.Printf("[JiraConnectionService] Testing connection ID: %s, URL: %s, Project: %s, Username: %s", 
+		connectionID, conn.jiraURL, conn.projectKey, conn.username)
+
 	// Decrypt the credential
 	decrypted, err := DecryptCredential(conn.encryptedCredential, s.encryptionKey)
 	if err != nil {
+		log.Printf("[JiraConnectionService] Failed to decrypt credential: %v", err)
 		return fmt.Errorf("failed to decrypt credential: %w", err)
 	}
 
-	// Create a temporary connection with decrypted credential for testing
-	testConn := *conn
-	testConn.encryptedCredential = decrypted
-
+	// Save the original encrypted credential
+	originalEncrypted := conn.GetEncryptedCredentialDirect()
+	
+	// Temporarily set the decrypted credential for testing
+	conn.encryptedCredential = decrypted
+	
 	// Test the connection
-	if err := testConn.TestConnection(ctx, s.jiraClient); err != nil {
-		// Save the failed status
-		s.repo.Update(ctx, &testConn)
+	log.Printf("[JiraConnectionService] Calling TestConnection on JIRA client for URL: %s", conn.jiraURL)
+	err = conn.TestConnection(ctx, s.jiraClient)
+	
+	// CRITICAL: Restore the original encrypted credential before saving
+	conn.encryptedCredential = originalEncrypted
+	
+	// Now save with the original encrypted credential
+	if err != nil {
+		log.Printf("[JiraConnectionService] Test failed for %s: %v", conn.jiraURL, err)
+		updateErr := s.repo.Update(ctx, conn)
+		if updateErr != nil {
+			log.Printf("[JiraConnectionService] Failed to update connection after test failure: %v", updateErr)
+		}
 		return err
 	}
-
-	// Save the successful status
-	return s.repo.Update(ctx, &testConn)
+	
+	log.Printf("[JiraConnectionService] Test successful for %s, updating connection", conn.jiraURL)
+	return s.repo.Update(ctx, conn)
 }
 
 // ActivateConnection activates a JIRA connection

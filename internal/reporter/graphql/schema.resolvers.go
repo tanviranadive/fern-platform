@@ -403,29 +403,36 @@ func (r *mutationResolver) TestJiraConnection(ctx context.Context, id string) (b
 	// Check if user can manage the connection
 	user, err := getCurrentUser(ctx)
 	if err != nil || user == nil {
+		r.logger.Errorf("TestJiraConnection: unauthorized user")
 		return false, fmt.Errorf("unauthorized")
 	}
 
 	connection, err := r.jiraConnectionService.GetConnection(ctx, id)
 	if err != nil {
+		r.logger.Errorf("TestJiraConnection: connection not found: %v", err)
 		return false, fmt.Errorf("connection not found")
 	}
 
 	project, err := r.projectService.GetProject(ctx, projectsDomain.ProjectID(connection.ProjectID()))
 	if err != nil {
+		r.logger.Errorf("TestJiraConnection: project not found: %v", err)
 		return false, fmt.Errorf("project not found")
 	}
 
 	// Check if user has manager permissions for this project
 	permissions, err := r.projectService.GetUserPermissions(ctx, project.ProjectID(), user.UserID)
 	if err != nil || len(permissions) == 0 {
+		r.logger.Errorf("TestJiraConnection: forbidden for user %s on project %s", user.UserID, project.ProjectID())
 		return false, fmt.Errorf("forbidden")
 	}
 
+	r.logger.Infof("Testing JIRA connection %s for project %s", id, project.ProjectID())
 	if err := r.jiraConnectionService.TestConnection(ctx, id); err != nil {
-		return false, err
+		r.logger.Errorf("TestJiraConnection failed: %v", err)
+		return false, nil  // Return false but no error so GraphQL returns the boolean
 	}
 
+	r.logger.Infof("TestJiraConnection successful for connection %s", id)
 	return true, nil
 }
 
