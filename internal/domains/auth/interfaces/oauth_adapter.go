@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/guidewire-oss/fern-platform/internal/domains/auth/application"
 	"github.com/guidewire-oss/fern-platform/pkg/config"
 	"github.com/guidewire-oss/fern-platform/pkg/logging"
@@ -115,6 +116,15 @@ func (a *OAuthAdapter) ExchangeCodeForToken(code string, codeVerifier string) (*
 
 // GetUserInfo retrieves user information from OAuth provider
 func (a *OAuthAdapter) GetUserInfo(accessToken string) (*application.UserInfo, error) {
+	a.logger.Debug("Fetching user info from: " + a.config.OAuth.UserInfoURL)
+	
+	// Log token type for debugging (first 20 chars)
+	tokenPreview := accessToken
+	if len(tokenPreview) > 20 {
+		tokenPreview = tokenPreview[:20] + "..."
+	}
+	a.logger.Debugf("Using token: %s", tokenPreview)
+	
 	req, err := http.NewRequest("GET", a.config.OAuth.UserInfoURL, nil)
 	if err != nil {
 		return nil, err
@@ -125,17 +135,32 @@ func (a *OAuthAdapter) GetUserInfo(accessToken string) (*application.UserInfo, e
 
 	resp, err := a.client.Do(req)
 	if err != nil {
+		a.logger.WithError(err).Error("Failed to make userinfo request")
 		return nil, err
 	}
 	defer resp.Body.Close()
 
+	body, _ := io.ReadAll(resp.Body)
+	
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
+		a.logger.Errorf("UserInfo request failed - Status: %d, URL: %s, Response: %s", 
+			resp.StatusCode, a.config.OAuth.UserInfoURL, string(body))
+		
+		// Common Okta 403 errors and solutions
+		if resp.StatusCode == http.StatusForbidden {
+			return nil, fmt.Errorf("userinfo request forbidden (403). Common causes:\n"+
+				"  1) Using ID token instead of access token (check you're sending access_token, not id_token)\n"+
+				"  2) Access token missing required scopes (must include 'openid')\n"+
+				"  3) Token audience mismatch (token 'aud' must match authorization server)\n"+
+				"  4) Token expired or invalid\n"+
+				"Okta response: %s", string(body))
+		}
+		
 		return nil, fmt.Errorf("userinfo request failed with status %d: %s", resp.StatusCode, string(body))
 	}
 
 	var rawInfo map[string]interface{}
-	if err := json.NewDecoder(resp.Body).Decode(&rawInfo); err != nil {
+	if err := json.Unmarshal(body, &rawInfo); err != nil {
 		return nil, err
 	}
 
@@ -276,4 +301,56 @@ func (a *OAuthAdapter) applyAdminOverrides(userInfo *application.UserInfo) {
 			}
 		}
 	}
+}
+
+// ExtractScopesFromToken extracts scopes from a JWT token without full validation
+// This is used for service account tokens that may not have userinfo access
+func (a *OAuthAdapter) ExtractScopesFromToken(accessToken string) ([]string, error) {
+	// Parse the token without validation to extract claims
+	parser := jwt.NewParser(jwt.WithoutClaimsValidation())
+	token, _, err := parser.ParseUnverified(accessToken, jwt.MapClaims{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse token: %w", err)
+	}
+
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		return nil, fmt.Errorf("invalid token claims")
+	}
+
+	// Extract scopes - can be in 'scp' or 'scope' claim
+	var scopes []string
+	
+	// Try 'scp' claim (array format)
+	if scp, ok := claims["scp"].([]interface{}); ok {
+		for _, s := range scp {
+			if scopeStr, ok := s.(string); ok {
+				scopes = append(scopes, scopeStr)
+			}
+		}
+	}
+	
+	// Try 'scope' claim (space-separated string format)
+	if scope, ok := claims["scope"].(string); ok {
+		scopes = append(scopes, strings.Split(scope, " ")...)
+	}
+	
+	return scopes, nil
+}
+
+// HasScope checks if a token has a specific scope
+func (a *OAuthAdapter) HasScope(accessToken string, requiredScope string) bool {
+	scopes, err := a.ExtractScopesFromToken(accessToken)
+	if err != nil {
+		a.logger.WithError(err).Warn("Failed to extract scopes from token")
+		return false
+	}
+	
+	for _, scope := range scopes {
+		if scope == requiredScope {
+			return true
+		}
+	}
+	
+	return false
 }

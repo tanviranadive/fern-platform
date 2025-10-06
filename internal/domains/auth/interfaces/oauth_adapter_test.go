@@ -487,7 +487,8 @@ var _ = Describe("OAuthAdapter", Label("auth"), func() {
 
 			info, err := adapter.GetUserInfo("token")
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("userinfo request failed with status 403"))
+			Expect(err.Error()).To(ContainSubstring("userinfo request forbidden (403)"))
+			Expect(err.Error()).To(ContainSubstring("Using ID token instead of access token"))
 			Expect(info).To(BeNil())
 		})
 

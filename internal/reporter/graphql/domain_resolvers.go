@@ -329,7 +329,7 @@ func (r *mutationResolver) CreateProject_domain(ctx context.Context, input model
 	// Check if user has permission to create projects
 	// Only admins and managers can create projects
 	roleGroups := getRoleGroupNamesFromContext(ctx)
-	canCreate := user.Role == authDomain.RoleAdmin || hasManagerRole(user, roleGroups)
+	canCreate := user.Role == authDomain.RoleAdmin || user.Role == authDomain.RoleManager || hasManagerRole(user, roleGroups)
 
 	if !canCreate {
 		return nil, fmt.Errorf("insufficient permissions to create project")
@@ -463,6 +463,9 @@ func (r *mutationResolver) UpdateProject_domain(ctx context.Context, id string, 
 	// Check if user can update this project
 	canUpdate := false
 	if user.Role == authDomain.RoleAdmin {
+		canUpdate = true
+	} else if user.Role == authDomain.RoleManager {
+		// Managers with RoleManager can update projects
 		canUpdate = true
 	} else {
 		// Get role group names from context
@@ -623,6 +626,9 @@ func (r *mutationResolver) DeleteProject_domain(ctx context.Context, id string) 
 	// Check if user can delete this project
 	canDelete := false
 	if user.Role == authDomain.RoleAdmin {
+		canDelete = true
+	} else if user.Role == authDomain.RoleManager {
+		// Managers with RoleManager can delete projects
 		canDelete = true
 	} else {
 		// Get role group names from context

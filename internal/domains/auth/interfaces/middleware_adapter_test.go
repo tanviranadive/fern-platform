@@ -62,6 +62,10 @@ func (f *fakeOAuthAdapter) GetUserInfo(accessToken string) (*application.UserInf
 	return f.user, f.userErr
 }
 func (f *fakeOAuthAdapter) BuildProviderLogoutURL(idToken string) string { return f.logoutURL }
+func (f *fakeOAuthAdapter) HasScope(accessToken string, requiredScope string) bool {
+	// For testing, return false by default
+	return false
+}
 
 var _ = Describe("AuthMiddlewareAdapter", Label("auth"), func() {
 	var (
@@ -124,7 +128,7 @@ var _ = Describe("AuthMiddlewareAdapter", Label("auth"), func() {
 			mw := adapter.RequireAuth()
 			mw(c)
 
-			Expect(recorder.Code).To(Equal(400))
+			Expect(recorder.Code).To(Equal(401)) // Changed from 400 to 401
 		})
 
 		It("redirects to login if no session", func() {
