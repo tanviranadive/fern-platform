@@ -20,6 +20,7 @@ func NewDatabaseConverter() *DatabaseConverter {
 // ConvertTestRunToDatabase converts a domain TestRun to database model
 func (c *DatabaseConverter) ConvertTestRunToDatabase(domainTestRun *domain.TestRun) *database.TestRun {
 	dbSuiteRuns := c.ConvertDomainSuiteRunsToDatabase(domainTestRun.SuiteRuns)
+	dbTags := c.ConvertDomainTagsToDatabase(domainTestRun.Tags)
 
 	return &database.TestRun{
 		ProjectID:    domainTestRun.ProjectID,
@@ -36,6 +37,7 @@ func (c *DatabaseConverter) ConvertTestRunToDatabase(domainTestRun *domain.TestR
 		SkippedTests: domainTestRun.SkippedTests,
 		Environment:  domainTestRun.Environment,
 		Metadata:     database.JSONMap(domainTestRun.Metadata),
+		Tags:         dbTags,
 		SuiteRuns:    dbSuiteRuns,
 	}
 }
@@ -48,6 +50,9 @@ func (c *DatabaseConverter) ConvertDomainSuiteRunsToDatabase(domainSuiteRuns []d
 		// Convert SpecRuns
 		dbSpecRuns := c.ConvertDomainSpecRunsToDatabase(domainSuite.SpecRuns)
 
+		// Convert tags
+		dbTags := c.ConvertDomainTagsToDatabase(domainSuite.Tags)
+
 		dbSuiteRuns[i] = database.SuiteRun{
 			TestRunID:    domainSuite.TestRunID,
 			SuiteName:    domainSuite.Name,
@@ -59,6 +64,7 @@ func (c *DatabaseConverter) ConvertDomainSuiteRunsToDatabase(domainSuiteRuns []d
 			FailedSpecs:  domainSuite.FailedTests,                        // FailedTests -> FailedSpecs
 			SkippedSpecs: domainSuite.SkippedTests,                       // SkippedTests -> SkippedSpecs
 			Duration:     int64(domainSuite.Duration / time.Millisecond), // Convert to milliseconds
+			Tags:         dbTags,
 			SpecRuns:     dbSpecRuns,
 		}
 	}
@@ -77,6 +83,9 @@ func (c *DatabaseConverter) ConvertDomainSpecRunsToDatabase(domainSpecRuns []*do
 			errorMessage = domainSpec.FailureMessage
 		}
 
+		// Convert tags
+		dbTags := c.ConvertDomainTagsToDatabase(domainSpec.Tags)
+
 		dbSpecRuns[i] = database.SpecRun{
 			SuiteRunID:   domainSpec.SuiteRunID,
 			SpecName:     domainSpec.Name, // Name -> SpecName
@@ -88,6 +97,7 @@ func (c *DatabaseConverter) ConvertDomainSpecRunsToDatabase(domainSpecRuns []*do
 			StackTrace:   domainSpec.StackTrace,
 			RetryCount:   domainSpec.RetryCount,
 			IsFlaky:      domainSpec.IsFlaky,
+			Tags:         dbTags,
 		}
 	}
 
@@ -110,6 +120,9 @@ func (c *DatabaseConverter) ConvertTestRunToDomain(dbTestRun *database.TestRun) 
 		suiteRuns[i] = c.ConvertSuiteRunToDomain(&dbSuite)
 	}
 
+	// Convert tags
+	tags := c.ConvertDatabaseTagsToDomain(dbTestRun.Tags)
+
 	return &domain.TestRun{
 		ID:           dbTestRun.ID,
 		RunID:        dbTestRun.RunID,
@@ -130,6 +143,7 @@ func (c *DatabaseConverter) ConvertTestRunToDomain(dbTestRun *database.TestRun) 
 		Source:       "", // Not stored in database model
 		SessionID:    "", // Not stored in database model
 		Metadata:     metadata,
+		Tags:         tags,
 		SuiteRuns:    suiteRuns,
 	}
 }
@@ -141,6 +155,9 @@ func (c *DatabaseConverter) ConvertSuiteRunToDomain(dbSuite *database.SuiteRun) 
 	for i, dbSpec := range dbSuite.SpecRuns {
 		specRuns[i] = c.ConvertSpecRunToDomain(&dbSpec)
 	}
+
+	// Convert tags
+	tags := c.ConvertDatabaseTagsToDomain(dbSuite.Tags)
 
 	return domain.SuiteRun{
 		ID:           dbSuite.ID,
@@ -156,12 +173,16 @@ func (c *DatabaseConverter) ConvertSuiteRunToDomain(dbSuite *database.SuiteRun) 
 		FailedTests:  dbSuite.FailedSpecs,
 		SkippedTests: dbSuite.SkippedSpecs,
 		Duration:     time.Duration(dbSuite.Duration) * time.Millisecond,
+		Tags:         tags,
 		SpecRuns:     specRuns,
 	}
 }
 
 // ConvertSpecRunToDomain converts a database SpecRun to domain model
 func (c *DatabaseConverter) ConvertSpecRunToDomain(dbSpec *database.SpecRun) *domain.SpecRun {
+	// Convert tags
+	tags := c.ConvertDatabaseTagsToDomain(dbSpec.Tags)
+
 	return &domain.SpecRun{
 		ID:             dbSpec.ID,
 		SuiteRunID:     dbSpec.SuiteRunID,
@@ -176,5 +197,44 @@ func (c *DatabaseConverter) ConvertSpecRunToDomain(dbSpec *database.SpecRun) *do
 		StackTrace:     dbSpec.StackTrace,
 		RetryCount:     dbSpec.RetryCount,
 		IsFlaky:        dbSpec.IsFlaky,
+		Tags:           tags,
 	}
+}
+
+// ConvertDomainTagsToDatabase converts domain tags to database tags
+func (c *DatabaseConverter) ConvertDomainTagsToDatabase(domainTags []domain.Tag) []database.Tag {
+	if len(domainTags) == 0 {
+		return nil
+	}
+
+	dbTags := make([]database.Tag, len(domainTags))
+	for i, tag := range domainTags {
+		dbTags[i] = database.Tag{
+			BaseModel: database.BaseModel{
+				ID: tag.ID,
+			},
+			Name:     tag.Name,
+			Category: tag.Category,
+			Value:    tag.Value,
+		}
+	}
+	return dbTags
+}
+
+// ConvertDatabaseTagsToDomain converts database tags to domain tags
+func (c *DatabaseConverter) ConvertDatabaseTagsToDomain(dbTags []database.Tag) []domain.Tag {
+	if len(dbTags) == 0 {
+		return nil
+	}
+
+	domainTags := make([]domain.Tag, len(dbTags))
+	for i, tag := range dbTags {
+		domainTags[i] = domain.Tag{
+			ID:       tag.ID,
+			Name:     tag.Name,
+			Category: tag.Category,
+			Value:    tag.Value,
+		}
+	}
+	return domainTags
 }

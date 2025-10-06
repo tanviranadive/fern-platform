@@ -24,6 +24,23 @@ func (r *Resolver) convertTestRunToGraphQL(testRun *testingDomain.TestRun) *mode
 		suiteRuns[i] = r.convertSuiteRunToGraphQL(&suite)
 	}
 
+	// Convert tags
+	tags := make([]*model.Tag, len(testRun.Tags))
+	for i, tag := range testRun.Tags {
+		tags[i] = &model.Tag{
+			ID:          strconv.FormatUint(uint64(tag.ID), 10),
+			Name:        tag.Name,
+			Category:    convertStringPtr(tag.Category),
+			Value:       convertStringPtr(tag.Value),
+			Description: nil,
+			Color:       nil,
+			// Use zero time for now to maintain cache consistency across runs
+			// TODO: Look up domain tag by ID to get actual timestamps
+			CreatedAt:   time.Time{},
+			UpdatedAt:   time.Time{},
+		}
+	}
+
 	// Log for debugging with more detail
 	suiteDetails := make([]map[string]interface{}, len(testRun.SuiteRuns))
 	for i, s := range testRun.SuiteRuns {
@@ -59,6 +76,7 @@ func (r *Resolver) convertTestRunToGraphQL(testRun *testingDomain.TestRun) *mode
 		SkippedTests: testRun.SkippedTests,
 		Duration:     int(testRun.Duration.Milliseconds()),
 		Environment:  convertStringPtr(testRun.Environment),
+		Tags:         tags,
 		SuiteRuns:    suiteRuns,
 		CreatedAt:    testRun.StartTime, // Use StartTime as CreatedAt
 		UpdatedAt:    testRun.StartTime, // Use StartTime as UpdatedAt
@@ -73,6 +91,23 @@ func (r *Resolver) convertSuiteRunToGraphQL(suite *testingDomain.SuiteRun) *mode
 		specRuns[i] = r.convertSpecRunToGraphQL(spec)
 	}
 
+	// Convert tags
+	tags := make([]*model.Tag, len(suite.Tags))
+	for i, tag := range suite.Tags {
+		tags[i] = &model.Tag{
+			ID:          strconv.FormatUint(uint64(tag.ID), 10),
+			Name:        tag.Name,
+			Category:    convertStringPtr(tag.Category),
+			Value:       convertStringPtr(tag.Value),
+			Description: nil,
+			Color:       nil,
+			// Use zero time for now to maintain cache consistency across runs
+			// TODO: Look up domain tag by ID to get actual timestamps
+			CreatedAt:   time.Time{},
+			UpdatedAt:   time.Time{},
+		}
+	}
+
 	return &model.SuiteRun{
 		ID:           strconv.FormatUint(uint64(suite.ID), 10),
 		TestRunID:    strconv.FormatUint(uint64(suite.TestRunID), 10),
@@ -85,6 +120,7 @@ func (r *Resolver) convertSuiteRunToGraphQL(suite *testingDomain.SuiteRun) *mode
 		FailedSpecs:  suite.FailedTests,
 		SkippedSpecs: suite.SkippedTests,
 		Duration:     int(suite.Duration.Milliseconds()),
+		Tags:         tags,
 		SpecRuns:     specRuns,
 		CreatedAt:    suite.StartTime,
 		UpdatedAt:    suite.StartTime,
@@ -103,6 +139,23 @@ func (r *Resolver) convertSpecRunToGraphQL(spec *testingDomain.SpecRun) *model.S
 		stackTrace = &spec.StackTrace
 	}
 
+	// Convert tags
+	tags := make([]*model.Tag, len(spec.Tags))
+	for i, tag := range spec.Tags {
+		tags[i] = &model.Tag{
+			ID:          strconv.FormatUint(uint64(tag.ID), 10),
+			Name:        tag.Name,
+			Category:    convertStringPtr(tag.Category),
+			Value:       convertStringPtr(tag.Value),
+			Description: nil,
+			Color:       nil,
+			// Use zero time for now to maintain cache consistency across runs
+			// TODO: Look up domain tag by ID to get actual timestamps
+			CreatedAt:   time.Time{},
+			UpdatedAt:   time.Time{},
+		}
+	}
+
 	return &model.SpecRun{
 		ID:           strconv.FormatUint(uint64(spec.ID), 10),
 		SuiteRunID:   strconv.FormatUint(uint64(spec.SuiteRunID), 10),
@@ -115,6 +168,7 @@ func (r *Resolver) convertSpecRunToGraphQL(spec *testingDomain.SpecRun) *model.S
 		StackTrace:   stackTrace,
 		RetryCount:   spec.RetryCount,
 		IsFlaky:      spec.IsFlaky,
+		Tags:         tags,
 		CreatedAt:    spec.StartTime,
 		UpdatedAt:    spec.StartTime,
 	}
@@ -171,20 +225,17 @@ func (r *Resolver) convertProjectToGraphQL(project *projectsDomain.Project) *mod
 // convertTagToGraphQL converts a domain tag to GraphQL model
 func (r *Resolver) convertTagToGraphQL(tag *tagsDomain.Tag) *model.Tag {
 	// Convert TagID string to numeric ID for GraphQL
-	// For now, use a simple hash
-	id := "0"
-	if tagID := tag.ID(); tagID != "" {
-		// Simple conversion - in production you'd want a proper mapping
-		id = fmt.Sprintf("%d", len(string(tagID)))
-	}
+	id := string(tag.ID())
 
 	return &model.Tag{
 		ID:          id,
 		Name:        tag.Name(),
-		Description: nil,        // Not available in domain model
-		Color:       nil,        // Not available in domain model
-		CreatedAt:   time.Now(), // TODO: Add timestamps to domain model
-		UpdatedAt:   time.Now(), // TODO: Add timestamps to domain model
+		Category:    convertStringPtr(tag.Category()),
+		Value:       convertStringPtr(tag.Value()),
+		Description: nil,             // Not available in domain model
+		Color:       nil,             // Not available in domain model
+		CreatedAt:   tag.CreatedAt(), // Use domain model timestamp
+		UpdatedAt:   tag.CreatedAt(), // Tags are immutable, use CreatedAt
 	}
 }
 

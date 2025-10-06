@@ -4745,35 +4745,44 @@
             const handleRunClick = async (run) => {
                 setSelectedRun(run);
                 setSelectedSuite(null);
-                
+
                 // Try to get detailed test run data with suite runs from API
                 let suites = [];
-                
+
                 try {
                     // Use GraphQL to fetch test run details
                     const data = await window.graphqlClient.query(
                         window.GRAPHQL_QUERIES.GET_TEST_RUN_DETAILS,
                         { runId: run.runId }
                     );
-                    
+
                     if (data && data.testRunByRunId) {
                         const detailedRun = data.testRunByRunId;
-                        console.log('Fetched detailed run via GraphQL:', detailedRun);
-                        
+
+                        // Update selectedRun with detailed data including tags
+                        setSelectedRun({
+                            ...run,
+                            ...detailedRun,
+                            tags: detailedRun.tags || []
+                        });
+
                         // Use the actual suiteRuns relationship from GraphQL
                         if (detailedRun.suiteRuns && detailedRun.suiteRuns.length > 0) {
-                            suites = detailedRun.suiteRuns.map(suiteRun => ({
-                                id: suiteRun.id,
-                                name: suiteRun.suiteName,
-                                totalTests: suiteRun.totalSpecs,
-                                passedTests: suiteRun.passedSpecs,
-                                failedTests: suiteRun.failedSpecs,
-                                skippedTests: suiteRun.skippedSpecs,
-                                duration_ms: suiteRun.duration,
-                                status: suiteRun.status,
-                                test_run_id: run.id,
-                                specRuns: suiteRun.specRuns || []
-                            }));
+                            suites = detailedRun.suiteRuns.map((suiteRun, idx) => {
+                                return {
+                                    id: suiteRun.id,
+                                    name: suiteRun.suiteName,
+                                    totalTests: suiteRun.totalSpecs,
+                                    passedTests: suiteRun.passedSpecs,
+                                    failedTests: suiteRun.failedSpecs,
+                                    skippedTests: suiteRun.skippedSpecs,
+                                    duration_ms: suiteRun.duration,
+                                    status: suiteRun.status,
+                                    test_run_id: run.id,
+                                    tags: suiteRun.tags || [],
+                                    specRuns: suiteRun.specRuns || []
+                                };
+                            });
                         } else if (detailedRun.metadata && detailedRun.metadata.suite_runs) {
                             // Fallback to metadata if no database relationships exist
                             console.log('Falling back to metadata suiteRuns');
@@ -4790,7 +4799,7 @@
                     setError(`No test suite data available for this test run. The run may not have been properly reported by fern-ginkgo-client.`);
                     return;
                 }
-                
+
                 setSuiteData(suites);
                 setView('suites');
             };
@@ -4821,15 +4830,16 @@
             };
 
             const handleSuiteClick = (suite) => {
+                console.log('[SUITE CLICK] Clicked suite:', suite);
+                console.log('[SUITE CLICK] Suite tags:', suite.tags);
                 setSelectedSuite(suite);
-                
+
                 let specs = [];
-                
+
                 // Use real spec data from database relationships or metadata
                 if (suite.specRuns && suite.specRuns.length > 0) {
                     // Map database SpecRun entities to our spec format
                     specs = suite.specRuns.map((specRun, index) => {
-                        console.log('Spec run data:', specRun);
                         return {
                             id: specRun.id || index + 1,
                             name: specRun.specName || '[Unnamed Spec]',
@@ -4840,7 +4850,7 @@
                             started_at: specRun.startTime,
                             finished_at: specRun.endTime,
                             startTime: specRun.startTime,  // Add both for compatibility
-                            tags: []
+                            tags: specRun.tags || []  // ← FIXED: Copy tags from specRun
                         };
                     });
                 } else {
@@ -5012,11 +5022,32 @@
                             Test Suites for {selectedRun?.projectName || selectedRun?.projectId}
                         </h2>
                         <div style={{marginBottom: '1.5rem', padding: '1rem', background: 'var(--bg-secondary)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-light)'}}>
-                            <div style={{fontSize: '0.875rem', color: 'var(--text-secondary)'}}>
-                                <strong>Run ID:</strong> {selectedRun?.runId} | 
-                                <strong> Branch:</strong> {selectedRun?.branch || 'main'} | 
+                            <div style={{fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '0.5rem'}}>
+                                <strong>Run ID:</strong> {selectedRun?.runId} |
+                                <strong> Branch:</strong> {selectedRun?.branch || 'main'} |
                                 <strong> Environment:</strong> {selectedRun?.environment || 'default'}
                             </div>
+                            {selectedRun?.tags && selectedRun.tags.length > 0 && (
+                                <div style={{fontSize: '0.875rem', marginTop: '0.5rem'}}>
+                                    <strong style={{color: 'var(--text-secondary)'}}>Tags:</strong>{' '}
+                                    {selectedRun.tags.map((tag, index) => (
+                                        <span key={tag.id || index} style={{
+                                            display: 'inline-block',
+                                            padding: '0.35rem 0.75rem',
+                                            marginLeft: '0.5rem',
+                                            marginTop: '0.25rem',
+                                            background: '#3b82f6',
+                                            color: '#ffffff',
+                                            borderRadius: '0.375rem',
+                                            fontSize: '0.8rem',
+                                            fontWeight: '600',
+                                            boxShadow: '0 1px 3px rgba(0,0,0,0.12)'
+                                        }}>
+                                            {tag.name}
+                                        </span>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                         
                         <div className="table-container">
@@ -5027,19 +5058,21 @@
                                         <th>Test Results</th>
                                         <th>Status</th>
                                         <th>Duration</th>
+                                        <th>Tags</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {suiteData.map((suite) => (
-                                        <tr key={suite.id}
-                                            onClick={() => handleSuiteClick(suite)}
-                                            style={{cursor: 'pointer'}}
-                                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-secondary)'}
-                                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                                        >
-                                            <td>
-                                                <div style={{fontWeight: '600', fontSize: '0.875rem'}}>{suite.name}</div>
-                                            </td>
+                                    {suiteData.map((suite, suiteIdx) => {
+                                        return (
+                                            <tr key={suite.id}
+                                                onClick={() => handleSuiteClick(suite)}
+                                                style={{cursor: 'pointer'}}
+                                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-secondary)'}
+                                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                                            >
+                                                <td>
+                                                    <div style={{fontWeight: '600', fontSize: '0.875rem'}}>{suite.name}</div>
+                                                </td>
                                             <td>
                                                 <div style={{display: 'flex', gap: '0.75rem', alignItems: 'center', fontSize: '0.875rem', fontWeight: '500'}}>
                                                     <span className="success">{suite.passedTests}</span>
@@ -5058,8 +5091,33 @@
                                             <td style={{fontWeight: '500'}}>
                                                 {(suite.duration_ms / 1000).toFixed(1)}s
                                             </td>
+                                            <td>
+                                                {(() => {
+                                                    if (suite.tags && suite.tags.length > 0) {
+                                                        return suite.tags.map((tag, idx) => (
+                                                            <span key={tag.id || idx} style={{
+                                                                display: 'inline-block',
+                                                                padding: '0.25rem 0.6rem',
+                                                                marginRight: '0.4rem',
+                                                                marginBottom: '0.25rem',
+                                                                background: '#3b82f6',
+                                                                color: '#ffffff',
+                                                                borderRadius: '0.375rem',
+                                                                fontSize: '0.75rem',
+                                                                fontWeight: '600',
+                                                                boxShadow: '0 1px 2px rgba(0,0,0,0.1)'
+                                                            }}>
+                                                                {tag.name}
+                                                            </span>
+                                                        ));
+                                                    } else {
+                                                        return <span style={{color: 'var(--text-tertiary)', fontSize: '0.875rem'}}>—</span>;
+                                                    }
+                                                })()}
+                                            </td>
                                         </tr>
-                                    ))}
+                                        );
+                                    })}
                                 </tbody>
                             </table>
                         </div>
@@ -5078,10 +5136,31 @@
                         </h2>
                         <div style={{marginBottom: '1.5rem', padding: '1rem', background: 'var(--bg-secondary)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-light)'}}>
                             <div style={{fontSize: '0.875rem', color: 'var(--text-secondary)'}}>
-                                <strong>Project:</strong> {selectedRun?.projectName || selectedRun?.projectId} | 
-                                <strong> Run ID:</strong> {selectedRun?.runId} | 
+                                <strong>Project:</strong> {selectedRun?.projectName || selectedRun?.projectId} |
+                                <strong> Run ID:</strong> {selectedRun?.runId} |
                                 <strong> Suite:</strong> {selectedSuite?.name}
                             </div>
+                            {selectedSuite?.tags && selectedSuite.tags.length > 0 && (
+                                <div style={{fontSize: '0.875rem', marginTop: '0.5rem'}}>
+                                    <strong style={{color: 'var(--text-secondary)'}}>Suite Tags:</strong>{' '}
+                                    {selectedSuite.tags.map((tag, index) => (
+                                        <span key={tag.id || index} style={{
+                                            display: 'inline-block',
+                                            padding: '0.35rem 0.75rem',
+                                            marginLeft: '0.5rem',
+                                            marginTop: '0.25rem',
+                                            background: '#3b82f6',
+                                            color: '#ffffff',
+                                            borderRadius: '0.375rem',
+                                            fontSize: '0.8rem',
+                                            fontWeight: '600',
+                                            boxShadow: '0 1px 3px rgba(0,0,0,0.12)'
+                                        }}>
+                                            {tag.name}
+                                        </span>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                         
                         <div className="table-container">
@@ -5092,6 +5171,7 @@
                                         <th>Status</th>
                                         <th>Duration</th>
                                         <th>Error Message</th>
+                                        <th>Tags</th>
                                         <th>Started</th>
                                     </tr>
                                 </thead>
@@ -5117,6 +5197,30 @@
                                                 ) : (
                                                     <span style={{color: 'var(--text-tertiary)', fontSize: '0.875rem'}}>-</span>
                                                 )}
+                                            </td>
+                                            <td>
+                                                {(() => {
+                                                    if (spec.tags && spec.tags.length > 0) {
+                                                        return spec.tags.map((tag, idx) => (
+                                                            <span key={tag.id || idx} style={{
+                                                                display: 'inline-block',
+                                                                padding: '0.25rem 0.6rem',
+                                                                marginRight: '0.4rem',
+                                                                marginBottom: '0.25rem',
+                                                                background: '#3b82f6',
+                                                                color: '#ffffff',
+                                                                borderRadius: '0.375rem',
+                                                                fontSize: '0.75rem',
+                                                                fontWeight: '600',
+                                                                boxShadow: '0 1px 2px rgba(0,0,0,0.1)'
+                                                            }}>
+                                                                {tag.name}
+                                                            </span>
+                                                        ));
+                                                    } else {
+                                                        return <span style={{color: 'var(--text-tertiary)', fontSize: '0.875rem'}}>—</span>;
+                                                    }
+                                                })()}
                                             </td>
                                             <td style={{fontWeight: '500', color: 'var(--text-secondary)'}}><Timestamp timestamp={spec.startTime || spec.started_at} /></td>
                                         </tr>

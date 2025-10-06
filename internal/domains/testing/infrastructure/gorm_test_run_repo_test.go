@@ -135,6 +135,37 @@ var _ = Describe("GormTestRunRepository", func() {
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("failed to update test run"))
 		})
+
+		It("should handle metadata with multiple fields", func() {
+			// Test metadata with various types
+			testRun.Metadata = map[string]interface{}{
+				"key":    "value",
+				"number": 42,
+				"bool":   true,
+			}
+
+			err := repo.Update(ctx, testRun)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Verify it was updated
+			retrieved, err := repo.GetByID(ctx, testRun.ID)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(retrieved.Metadata).NotTo(BeNil())
+		})
+
+		It("should skip metadata update when metadata is nil", func() {
+			testRun.Metadata = nil
+
+			err := repo.Update(ctx, testRun)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should handle empty metadata map", func() {
+			testRun.Metadata = map[string]interface{}{}
+
+			err := repo.Update(ctx, testRun)
+			Expect(err).NotTo(HaveOccurred())
+		})
 	})
 
 	Describe("GetByID", func() {
@@ -1094,6 +1125,17 @@ var _ = Describe("GormTestRunRepository", func() {
 				// Success rate should be 2/12 = 0.1667
 				Expect(summary.SuccessRate).To(BeNumerically("~", 2.0/12.0, 0.001))
 			})
+		})
+
+		It("should return error when total count query fails", func() {
+			// Close database to simulate error
+			sqlDB, _ := db.DB()
+			sqlDB.Close()
+
+			summary, err := repo.GetTestRunSummary(ctx, "any-project")
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("failed to count total runs"))
+			Expect(summary).To(BeNil())
 		})
 	})
 })

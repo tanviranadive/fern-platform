@@ -22,6 +22,7 @@ type TestRunRequest struct {
 	BuildTriggerActor string     `json:"build_trigger_actor"`
 	BuildUrl          string     `json:"build_url"`
 	Environment       string     `json:"environment"`
+	Tags              []Tag      `json:"tags"`
 	SuiteRuns         []SuiteRun `json:"suite_runs"`
 }
 
@@ -80,6 +81,7 @@ func (h *DomainHandler) convertDomainTestRunToAPI(tr *testingDomain.TestRun) gin
 		"failedTests":  tr.FailedTests,
 		"skippedTests": tr.SkippedTests,
 		"environment":  tr.Environment,
+		"tags":         tr.Tags,
 		"metadata":     tr.Metadata,
 	}
 }
@@ -129,6 +131,9 @@ func (h *DomainHandler) convertApiSuiteRunstoDomain(reqSuiteRuns []SuiteRun) []t
 			endTime = &reqSuite.EndTime
 		}
 
+		// Convert tags
+		domainTags := h.convertApiTagsToDomain(reqSuite.Tags)
+
 		// Create value (not pointer) for slice of values
 		domainSuiteRuns[i] = testingDomain.SuiteRun{
 			ID:           reqSuite.ID,
@@ -144,6 +149,7 @@ func (h *DomainHandler) convertApiSuiteRunstoDomain(reqSuiteRuns []SuiteRun) []t
 			FailedTests:  failedTests,
 			SkippedTests: skippedTests,
 			Duration:     duration,
+			Tags:         domainTags,
 			SpecRuns:     domainSpecRuns, // []*testingDomain.SpecRun
 		}
 	}
@@ -179,6 +185,9 @@ func (h *DomainHandler) convertSpecRuns(reqSpecRuns []SpecRun) []*testingDomain.
 			}
 		}
 
+		// Convert tags
+		domainTags := h.convertApiTagsToDomain(reqSpec.Tags)
+
 		// Create pointer for slice of pointers
 		domainSpecRuns[i] = &testingDomain.SpecRun{
 			ID:             reqSpec.ID,
@@ -194,6 +203,7 @@ func (h *DomainHandler) convertSpecRuns(reqSpecRuns []SpecRun) []*testingDomain.
 			StackTrace:     "",    // Set if available in your data
 			RetryCount:     0,     // Set based on your requirements
 			IsFlaky:        false, // Set based on your requirements
+			Tags:           domainTags,
 		}
 	}
 
@@ -265,7 +275,51 @@ func (h *DomainHandler) calculateSuiteStatus(specRuns []*testingDomain.SpecRun) 
 		return "failed"
 	}
 	if hasSkipped {
-		return "partial"
+		return "skipped"
 	}
 	return "passed"
+}
+
+// convertApiTagsToDomain converts API tags to domain tags
+func (h *DomainHandler) convertApiTagsToDomain(apiTags []Tag) []testingDomain.Tag {
+	if len(apiTags) == 0 {
+		return nil
+	}
+
+	domainTags := make([]testingDomain.Tag, len(apiTags))
+	for i, tag := range apiTags {
+		domainTags[i] = testingDomain.Tag{
+			ID:   uint(tag.ID),
+			Name: tag.Name,
+			// Category and Value will be populated during tag processing
+		}
+	}
+	return domainTags
+}
+
+// mergeUniqueTags merges two tag slices, removing duplicates by ID
+func (h *DomainHandler) mergeUniqueTags(existingTags, newTags []testingDomain.Tag) []testingDomain.Tag {
+	tagMap := make(map[uint]testingDomain.Tag)
+
+	// Add existing tags
+	for _, tag := range existingTags {
+		if tag.ID != 0 {
+			tagMap[tag.ID] = tag
+		}
+	}
+
+	// Add new tags (will overwrite if ID exists, but that's fine - same tag)
+	for _, tag := range newTags {
+		if tag.ID != 0 {
+			tagMap[tag.ID] = tag
+		}
+	}
+
+	// Convert map to slice
+	tags := make([]testingDomain.Tag, 0, len(tagMap))
+	for _, tag := range tagMap {
+		tags = append(tags, tag)
+	}
+
+	return tags
 }

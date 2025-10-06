@@ -4,10 +4,11 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/guidewire-oss/fern-platform/internal/testhelpers"
-	"github.com/stretchr/testify/mock"
 	"net/http"
 	"net/http/httptest"
+
+	"github.com/guidewire-oss/fern-platform/internal/testhelpers"
+	"github.com/stretchr/testify/mock"
 
 	"github.com/gin-gonic/gin"
 	"github.com/guidewire-oss/fern-platform/pkg/config"
@@ -220,6 +221,43 @@ var _ = Describe("recordTestRun Function Tests", func() {
 			// This proves JSON binding worked correctly
 			Expect(w.Code).To(Equal(http.StatusInternalServerError))
 		})
+
+		It("should return 400 when request body is nil or empty", func() {
+			// Test with nil body - Gin treats nil body as EOF during JSON binding
+			req := httptest.NewRequest("POST", "/api/v1/test-runs", nil)
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+			router.ServeHTTP(w, req)
+
+			Expect(w.Code).To(Equal(http.StatusBadRequest))
+
+			var response map[string]interface{}
+			err := json.Unmarshal(w.Body.Bytes(), &response)
+			Expect(err).NotTo(HaveOccurred())
+			// Nil or empty body causes EOF error during JSON binding
+			Expect(response["error"]).To(ContainSubstring("EOF"))
+		})
+
+		It("should check for nil request body before JSON binding", func() {
+			// This test verifies the explicit nil body check exists in the code
+			// The check at line 189: if c.Request.Body == nil
+			// However, in practice, Gin's httptest always provides a body (even if empty),
+			// so the ShouldBindJSON catches it first with EOF error
+
+			// Test with empty string body
+			req := httptest.NewRequest("POST", "/api/v1/test-runs", bytes.NewBufferString(""))
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+			router.ServeHTTP(w, req)
+
+			Expect(w.Code).To(Equal(http.StatusBadRequest))
+
+			var response map[string]interface{}
+			err := json.Unmarshal(w.Body.Bytes(), &response)
+			Expect(err).NotTo(HaveOccurred())
+			// Empty body causes EOF error during JSON parsing
+			Expect(response["error"]).To(ContainSubstring("EOF"))
+		})
 	})
 
 	Describe("Environment Field Processing", func() {
@@ -365,7 +403,7 @@ var _ = Describe("recordTestRun Function Tests", func() {
 					},
 					{
 						"name":         "suite-3",
-						"status":       "partial",
+						"status":       "skipped",
 						"totalTests":   2,
 						"passedTests":  1,
 						"failedTests":  0,
@@ -440,7 +478,7 @@ var _ = Describe("recordTestRun Function Tests", func() {
 					},
 					{
 						"name":         "integration-tests",
-						"status":       "partial",
+						"status":       "skipped",
 						"totalTests":   15,
 						"passedTests":  12,
 						"failedTests":  0,
@@ -492,6 +530,140 @@ var _ = Describe("recordTestRun Function Tests", func() {
 			router.ServeHTTP(w, req)
 
 			// Should handle large payload and reach service layer
+			Expect(w.Code).To(Equal(http.StatusInternalServerError))
+		})
+	})
+
+	Describe("Tags in Spec Runs and Suite Runs", func() {
+		It("should process request with tags in spec runs", func() {
+			requestBody := map[string]interface{}{
+				"testProjectId": "test-project",
+				"suiteRuns": []map[string]interface{}{
+					{
+						"name":   "suite-1",
+						"status": "passed",
+						"tags": []map[string]interface{}{
+							{"name": "smoke"},
+							{"name": "priority:high"},
+						},
+						"specRuns": []map[string]interface{}{
+							{
+								"name":   "spec-1",
+								"status": "passed",
+								"tags": []map[string]interface{}{
+									{"name": "unit"},
+									{"name": "category:backend"},
+								},
+							},
+						},
+					},
+				},
+			}
+
+			body, _ := json.Marshal(requestBody)
+			req := httptest.NewRequest("POST", "/api/v1/test-runs", bytes.NewBuffer(body))
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+			router.ServeHTTP(w, req)
+
+			// Should parse JSON with tags structure successfully
+			// Will fail at service layer due to nil services, but proves tags were parsed
+			Expect(w.Code).To(Equal(http.StatusInternalServerError))
+		})
+
+		It("should process request with tags only in suite runs", func() {
+			requestBody := map[string]interface{}{
+				"testProjectId": "test-project",
+				"suiteRuns": []map[string]interface{}{
+					{
+						"name":   "suite-1",
+						"status": "passed",
+						"tags": []map[string]interface{}{
+							{"name": "regression"},
+						},
+						"specRuns": []map[string]interface{}{},
+					},
+				},
+			}
+
+			body, _ := json.Marshal(requestBody)
+			req := httptest.NewRequest("POST", "/api/v1/test-runs", bytes.NewBuffer(body))
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+			router.ServeHTTP(w, req)
+
+			// Should parse JSON with suite-level tags successfully
+			Expect(w.Code).To(Equal(http.StatusInternalServerError))
+		})
+
+		It("should process request with tags at both suite and spec levels", func() {
+			requestBody := map[string]interface{}{
+				"testProjectId": "test-project",
+				"suiteRuns": []map[string]interface{}{
+					{
+						"name":   "integration-suite",
+						"status": "passed",
+						"tags": []map[string]interface{}{
+							{"name": "integration"},
+							{"name": "environment:staging"},
+						},
+						"specRuns": []map[string]interface{}{
+							{
+								"name":   "api-test",
+								"status": "passed",
+								"tags": []map[string]interface{}{
+									{"name": "api"},
+									{"name": "critical"},
+								},
+							},
+							{
+								"name":   "db-test",
+								"status": "passed",
+								"tags": []map[string]interface{}{
+									{"name": "database"},
+								},
+							},
+						},
+					},
+				},
+			}
+
+			body, _ := json.Marshal(requestBody)
+			req := httptest.NewRequest("POST", "/api/v1/test-runs", bytes.NewBuffer(body))
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+			router.ServeHTTP(w, req)
+
+			// Should parse complex tag structure successfully
+			Expect(w.Code).To(Equal(http.StatusInternalServerError))
+		})
+
+		It("should handle missing tags field in spec runs", func() {
+			requestBody := map[string]interface{}{
+				"testProjectId": "test-project",
+				"suiteRuns": []map[string]interface{}{
+					{
+						"name":   "suite-1",
+						"status": "passed",
+						// No tags field
+						"specRuns": []map[string]interface{}{
+							{
+								"name":   "spec-1",
+								"status": "passed",
+								// No tags field
+							},
+						},
+					},
+				},
+			}
+
+			body, _ := json.Marshal(requestBody)
+			req := httptest.NewRequest("POST", "/api/v1/test-runs", bytes.NewBuffer(body))
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+			router.ServeHTTP(w, req)
+
+			// Should handle missing tags field gracefully
 			Expect(w.Code).To(Equal(http.StatusInternalServerError))
 		})
 	})

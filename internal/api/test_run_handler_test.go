@@ -809,7 +809,11 @@ var _ = Describe("TestRunHandler", func() {
 				SkippedTests: 0,
 				Duration:     5 * time.Minute,
 				Environment:  "test",
-				Metadata:     map[string]interface{}{"key": "value"},
+				Tags: []domain.Tag{
+					{ID: 1, Name: "smoke", Category: "", Value: "smoke"},
+					{ID: 2, Name: "priority:high", Category: "priority", Value: "high"},
+				},
+				Metadata: map[string]interface{}{"key": "value"},
 			}
 
 			result := handler.convertTestRunToAPI(testRun)
@@ -828,6 +832,7 @@ var _ = Describe("TestRunHandler", func() {
 			Expect(result["skippedTests"]).To(Equal(0))
 			Expect(result["duration"]).To(Equal(int64(300000)))
 			Expect(result["environment"]).To(Equal("test"))
+			Expect(result["tags"]).To(HaveLen(2))
 		})
 
 		It("should handle zero times and empty fields", func() {
@@ -849,16 +854,44 @@ var _ = Describe("TestRunHandler", func() {
 			Expect(result["endTime"]).To(BeNil())
 			Expect(result["duration"]).To(Equal(int64(0)))
 		})
+
+		It("should handle test run with no tags", func() {
+			testRun := &domain.TestRun{
+				ID:        1,
+				ProjectID: "project-123",
+				Status:    "running",
+				Tags:      nil,
+			}
+
+			result := handler.convertTestRunToAPI(testRun)
+
+			Expect(result["id"]).To(Equal(uint(1)))
+			Expect(result["tags"]).To(BeNil())
+		})
+
+		It("should handle test run with empty tags array", func() {
+			testRun := &domain.TestRun{
+				ID:        1,
+				ProjectID: "project-123",
+				Status:    "running",
+				Tags:      []domain.Tag{},
+			}
+
+			result := handler.convertTestRunToAPI(testRun)
+
+			Expect(result["id"]).To(Equal(uint(1)))
+			Expect(result["tags"]).To(HaveLen(0))
+		})
 	})
 
 	Describe("RegisterRoutes", func() {
 		It("should register all routes correctly", func() {
 			routes := router.Routes()
-			
+
 			// Check user routes exist
 			userRoutes := []string{
 				"GET /api/v1/test-runs",
-				"GET /api/v1/test-runs/count", 
+				"GET /api/v1/test-runs/count",
 				"GET /api/v1/test-runs/:id",
 				"GET /api/v1/test-runs/by-run-id/:runId",
 				"GET /api/v1/test-runs/stats",
@@ -875,7 +908,7 @@ var _ = Describe("TestRunHandler", func() {
 			}
 
 			allExpectedRoutes := append(userRoutes, adminRoutes...)
-			
+
 			for _, expectedRoute := range allExpectedRoutes {
 				found := false
 				for _, route := range routes {
