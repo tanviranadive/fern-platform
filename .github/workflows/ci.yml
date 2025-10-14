@@ -184,3 +184,25 @@ jobs:
         module: ./ci
         args: all --source .
 
+  upload-main-coverage:
+    name: Upload Coverage (main)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    if: github.event.repository.fork == false && github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - run: go test -race -coverprofile=coverage.txt -covermode=atomic ./...
+      # codecov/codecov-action v5.1.2 (pinned for security)
+      - uses: codecov/codecov-action@5a1091511ad55cbe89839c7260b706298ca349f7
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./coverage.txt
+          flags: unittests
+          name: main-coverage
+          fail_ci_if_error: false
