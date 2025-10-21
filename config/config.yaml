@@ -17,7 +17,7 @@ database:
   port: 5432
   user: "postgres"
   password: "postgres"
-  dbname: "fern_platform"
+  dbname: "app"
   sslmode: "disable"
   timezone: "UTC"
   maxOpenConns: 25
@@ -26,13 +26,28 @@ database:
   connMaxIdleTime: "300s"
 
 auth:
-  enabled: false
+  enabled: true
   jwtSecret: ""
   jwksUrl: ""
   issuer: ""
   audience: ""
   tokenExpiry: "24h"
   refreshExpiry: "168h"
+  oauth:
+    enabled: true
+    clientId: "0oa2dp0elqsYZfmKU0h8"
+    clientSecret: ""
+    redirectUrl: "http://localhost:8080/auth/callback"
+    scopes: [ "openid", "profile", "email", "groups" ]
+    adminGroups: ["pod-capitola"]
+
+    # OAuth endpoints (required)
+    authUrl: "https://guidewire-hub.oktapreview.com/oauth2/ausj9ftnbxOqfGU4U0h7/v1/authorize"
+    tokenUrl: "https://guidewire-hub.oktapreview.com/oauth2/ausj9ftnbxOqfGU4U0h7/v1/token"
+    userInfoUrl: "https://guidewire-hub.oktapreview.com/oauth2/ausj9ftnbxOqfGU4U0h7/v1/userinfo"
+    jwksUrl: "https://guidewire-hub.oktapreview.com/oauth2/default/v1/keys"
+    logoutUrl: "https://guidewire-hub.oktapreview.com/oauth2/ausj9ftnbxOqfGU4U0h7/v1/logout"
+
 
 logging:
   level: "info"

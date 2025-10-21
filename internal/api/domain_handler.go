@@ -16,6 +16,7 @@ import (
 	"github.com/guidewire-oss/fern-platform/internal/domains/integrations"
 	projectsApp "github.com/guidewire-oss/fern-platform/internal/domains/projects/application"
 	projectsDomain "github.com/guidewire-oss/fern-platform/internal/domains/projects/domain"
+	summaryInterfaces "github.com/guidewire-oss/fern-platform/internal/domains/summary/interfaces"
 	tagsApp "github.com/guidewire-oss/fern-platform/internal/domains/tags/application"
 	testingApp "github.com/guidewire-oss/fern-platform/internal/domains/testing/application"
 	testingDomain "github.com/guidewire-oss/fern-platform/internal/domains/testing/domain"
@@ -29,6 +30,7 @@ type DomainHandler struct {
 	tagService            *tagsApp.TagService
 	flakyDetectionService *analyticsApp.FlakyDetectionService
 	jiraConnectionService *integrations.JiraConnectionService
+	summaryHandler        *summaryInterfaces.SummaryHandler
 	authMiddleware        *interfaces.AuthMiddlewareAdapter
 	logger                *logging.Logger
 }
@@ -40,6 +42,7 @@ func NewDomainHandler(
 	tagService *tagsApp.TagService,
 	flakyDetectionService *analyticsApp.FlakyDetectionService,
 	jiraConnectionService *integrations.JiraConnectionService,
+	summaryHandler *summaryInterfaces.SummaryHandler,
 	authMiddleware *interfaces.AuthMiddlewareAdapter,
 	logger *logging.Logger,
 ) *DomainHandler {
@@ -49,6 +52,7 @@ func NewDomainHandler(
 		tagService:            tagService,
 		flakyDetectionService: flakyDetectionService,
 		jiraConnectionService: jiraConnectionService,
+		summaryHandler:        summaryHandler,
 		authMiddleware:        authMiddleware,
 		logger:                logger,
 	}
@@ -93,6 +97,9 @@ func (h *DomainHandler) RegisterRoutes(router *gin.Engine) {
 			protected.GET("/projects", h.getProjects)
 			protected.GET("/projects/:id", h.getProject)
 			protected.GET("/projects/by-project-id/:projectId", h.getProjectByProjectId)
+
+			// Summary
+			protected.GET("/summary/project/:projectId/seed/:seed", h.summaryHandler.GetSummary)
 
 			// Manager-only routes
 			managerRoutes := protected.Group("/")
