@@ -48,8 +48,10 @@ type SpecRun struct {
 }
 
 type Tag struct {
-	ID   uint64 `json:"id"`
-	Name string `json:"name"`
+	ID       uint64 `json:"id"`
+	Name     string `json:"name"`
+	Category string `json:"category,omitempty"`
+	Value    string `json:"value,omitempty"`
 }
 
 type ProjectDetails struct {
@@ -289,9 +291,10 @@ func (h *DomainHandler) convertApiTagsToDomain(apiTags []Tag) []testingDomain.Ta
 	domainTags := make([]testingDomain.Tag, len(apiTags))
 	for i, tag := range apiTags {
 		domainTags[i] = testingDomain.Tag{
-			ID:   uint(tag.ID),
-			Name: tag.Name,
-			// Category and Value will be populated during tag processing
+			ID:       uint(tag.ID),
+			Name:     tag.Name,
+			Category: tag.Category,
+			Value:    tag.Value,
 		}
 	}
 	return domainTags

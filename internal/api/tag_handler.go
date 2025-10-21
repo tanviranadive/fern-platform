@@ -81,8 +81,10 @@ func processTagList(c context.Context, tagService *tagsApp.TagService, tags []Ta
 		}
 
 		result = append(result, Tag{
-			ID:   tagID,
-			Name: domainTag.Name(),
+			ID:       tagID,
+			Name:     domainTag.Name(),
+			Category: domainTag.Category(),
+			Value:    domainTag.Value(),
 		})
 	}
 	return result, nil

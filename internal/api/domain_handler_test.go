@@ -94,7 +94,7 @@ var _ = Describe("DomainHandler Integration Tests", func() {
 			router := gin.New()
 
 			// Create handler - health check doesn't require services
-			handler := NewDomainHandler(nil, nil, nil, nil, nil, nil, logger)
+			handler := NewDomainHandler(nil, nil, nil, nil, nil, nil, nil, logger)
 
 			// Register routes
 			handler.RegisterRoutes(router)
@@ -118,7 +118,7 @@ var _ = Describe("DomainHandler Integration Tests", func() {
 			// Create a fresh router for this test
 			router := gin.New()
 
-			handler := NewDomainHandler(nil, nil, nil, nil, nil, nil, logger)
+			handler := NewDomainHandler(nil, nil, nil, nil, nil, nil, nil, logger)
 			handler.RegisterRoutes(router)
 
 			routes := router.Routes()
@@ -165,7 +165,7 @@ var _ = Describe("recordTestRun Function Tests", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		// Create handler with nil services - we'll test what we can without mocking
-		handler = NewDomainHandler(nil, nil, nil, nil, nil, nil, logger)
+		handler = NewDomainHandler(nil, nil, nil, nil, nil, nil, nil, logger)
 
 		// Setup router with only the specific route we're testing
 		router = gin.New()
@@ -850,7 +850,7 @@ var _ = Describe("recordTestRun Integration Tests with Mocked Services", func() 
 		tagRepo.On("Save", mock.Anything, mock.Anything).Return(nil).Maybe()
 
 		// Create handler
-		handler = NewDomainHandler(testingService, nil, tagService, nil, nil, nil, logger)
+		handler = NewDomainHandler(testingService, nil, tagService, nil, nil, nil, nil, logger)
 
 		// Setup router
 		router = gin.New()

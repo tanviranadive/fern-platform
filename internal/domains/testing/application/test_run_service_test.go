@@ -1426,4 +1426,301 @@ var _ = Describe("TestRunService", Label("unit", "application", "testing"), func
 			}).To(Panic())
 		})
 	})
+
+	Describe("CreateTestRun with Tag Category and Value", func() {
+		It("should populate Category and Value for tags during first-time creation", func() {
+			testRun := &domain.TestRun{
+				RunID:     "test-123",
+				ProjectID: "proj-456",
+				Branch:    "main",
+				Status:    "running",
+				Tags: []domain.Tag{
+					{ID: 1, Name: "priority:high", Category: "priority", Value: "high"},
+					{ID: 2, Name: "env:staging", Category: "env", Value: "staging"},
+					{ID: 3, Name: "smoke", Category: "", Value: "smoke"},
+				},
+			}
+
+			mockTestRunRepo.On("Create", ctx, mock.MatchedBy(func(tr *domain.TestRun) bool {
+				// Verify that all tags have their Category and Value populated
+				if len(tr.Tags) != 3 {
+					return false
+				}
+
+				// Check first tag: priority:high
+				if tr.Tags[0].Name != "priority:high" || tr.Tags[0].Category != "priority" || tr.Tags[0].Value != "high" {
+					return false
+				}
+
+				// Check second tag: env:staging
+				if tr.Tags[1].Name != "env:staging" || tr.Tags[1].Category != "env" || tr.Tags[1].Value != "staging" {
+					return false
+				}
+
+				// Check third tag: smoke (no category)
+				if tr.Tags[2].Name != "smoke" || tr.Tags[2].Category != "" || tr.Tags[2].Value != "smoke" {
+					return false
+				}
+
+				return true
+			})).Return(nil)
+
+			_, alreadyExisted, err := service.CreateTestRun(ctx, testRun)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(alreadyExisted).To(BeFalse())
+
+			mockTestRunRepo.AssertExpectations(GinkgoT())
+		})
+
+		It("should ensure tag IDs are preserved during first-time creation", func() {
+			testRun := &domain.TestRun{
+				RunID:     "test-456",
+				ProjectID: "proj-789",
+				Status:    "running",
+				Tags: []domain.Tag{
+					{ID: 10, Name: "type:integration", Category: "type", Value: "integration"},
+					{ID: 20, Name: "critical", Category: "", Value: "critical"},
+				},
+			}
+
+			mockTestRunRepo.On("Create", ctx, mock.MatchedBy(func(tr *domain.TestRun) bool {
+				if len(tr.Tags) != 2 {
+					return false
+				}
+
+				// Verify IDs are preserved
+				if tr.Tags[0].ID != 10 || tr.Tags[1].ID != 20 {
+					return false
+				}
+
+				// Verify Category and Value are correct
+				if tr.Tags[0].Category != "type" || tr.Tags[0].Value != "integration" {
+					return false
+				}
+				if tr.Tags[1].Category != "" || tr.Tags[1].Value != "critical" {
+					return false
+				}
+
+				return true
+			})).Return(nil)
+
+			_, _, err := service.CreateTestRun(ctx, testRun)
+			Expect(err).NotTo(HaveOccurred())
+
+			mockTestRunRepo.AssertExpectations(GinkgoT())
+		})
+
+		It("should handle tags with special characters in Category and Value", func() {
+			testRun := &domain.TestRun{
+				RunID:     "test-special",
+				ProjectID: "proj-special",
+				Status:    "running",
+				Tags: []domain.Tag{
+					{ID: 1, Name: "browser:chrome-v120", Category: "browser", Value: "chrome-v120"},
+					{ID: 2, Name: "os:windows-10", Category: "os", Value: "windows-10"},
+					{ID: 3, Name: "user.action", Category: "", Value: "user.action"},
+				},
+			}
+
+			mockTestRunRepo.On("Create", ctx, mock.MatchedBy(func(tr *domain.TestRun) bool {
+				if len(tr.Tags) != 3 {
+					return false
+				}
+
+				// Verify special characters are preserved
+				if tr.Tags[0].Category != "browser" || tr.Tags[0].Value != "chrome-v120" {
+					return false
+				}
+				if tr.Tags[1].Category != "os" || tr.Tags[1].Value != "windows-10" {
+					return false
+				}
+				if tr.Tags[2].Category != "" || tr.Tags[2].Value != "user.action" {
+					return false
+				}
+
+				return true
+			})).Return(nil)
+
+			_, _, err := service.CreateTestRun(ctx, testRun)
+			Expect(err).NotTo(HaveOccurred())
+
+			mockTestRunRepo.AssertExpectations(GinkgoT())
+		})
+
+		It("should create test run with empty tags array", func() {
+			testRun := &domain.TestRun{
+				RunID:     "test-no-tags",
+				ProjectID: "proj-no-tags",
+				Status:    "running",
+				Tags:      []domain.Tag{},
+			}
+
+			mockTestRunRepo.On("Create", ctx, mock.MatchedBy(func(tr *domain.TestRun) bool {
+				return len(tr.Tags) == 0
+			})).Return(nil)
+
+			_, _, err := service.CreateTestRun(ctx, testRun)
+			Expect(err).NotTo(HaveOccurred())
+
+			mockTestRunRepo.AssertExpectations(GinkgoT())
+		})
+	})
+
+	Describe("UpdateTestRun with Tag Category and Value", func() {
+		It("should preserve Category and Value for tags during update", func() {
+			testRun := &domain.TestRun{
+				ID:        1,
+				ProjectID: "proj-123",
+				Status:    "completed",
+				Tags: []domain.Tag{
+					{ID: 1, Name: "priority:high", Category: "priority", Value: "high"},
+					{ID: 2, Name: "regression", Category: "", Value: "regression"},
+				},
+			}
+
+			mockTestRunRepo.On("Update", ctx, mock.MatchedBy(func(tr *domain.TestRun) bool {
+				if len(tr.Tags) != 2 {
+					return false
+				}
+
+				// Verify Category and Value are preserved in update
+				if tr.Tags[0].Category != "priority" || tr.Tags[0].Value != "high" {
+					return false
+				}
+				if tr.Tags[1].Category != "" || tr.Tags[1].Value != "regression" {
+					return false
+				}
+
+				return true
+			})).Return(nil)
+
+			err := service.UpdateTestRun(ctx, testRun)
+			Expect(err).NotTo(HaveOccurred())
+
+			mockTestRunRepo.AssertExpectations(GinkgoT())
+		})
+
+		It("should handle updating test run with new tags having Category and Value", func() {
+			testRun := &domain.TestRun{
+				ID:        1,
+				ProjectID: "proj-123",
+				Status:    "completed",
+				Tags: []domain.Tag{
+					{ID: 5, Name: "platform:linux", Category: "platform", Value: "linux"},
+					{ID: 6, Name: "automated", Category: "", Value: "automated"},
+					{ID: 7, Name: "feature:auth", Category: "feature", Value: "auth"},
+				},
+			}
+
+			mockTestRunRepo.On("Update", ctx, mock.MatchedBy(func(tr *domain.TestRun) bool {
+				if len(tr.Tags) != 3 {
+					return false
+				}
+
+				// Verify all new tags have correct Category and Value
+				if tr.Tags[0].Category != "platform" || tr.Tags[0].Value != "linux" {
+					return false
+				}
+				if tr.Tags[1].Category != "" || tr.Tags[1].Value != "automated" {
+					return false
+				}
+				if tr.Tags[2].Category != "feature" || tr.Tags[2].Value != "auth" {
+					return false
+				}
+
+				return true
+			})).Return(nil)
+
+			err := service.UpdateTestRun(ctx, testRun)
+			Expect(err).NotTo(HaveOccurred())
+
+			mockTestRunRepo.AssertExpectations(GinkgoT())
+		})
+
+		It("should maintain Category and Value consistency when updating tags multiple times", func() {
+			// First update
+			testRun1 := &domain.TestRun{
+				ID:        1,
+				ProjectID: "proj-123",
+				Status:    "running",
+				Tags: []domain.Tag{
+					{ID: 1, Name: "priority:low", Category: "priority", Value: "low"},
+				},
+			}
+
+			mockTestRunRepo.On("Update", ctx, mock.MatchedBy(func(tr *domain.TestRun) bool {
+				return len(tr.Tags) == 1 && tr.Tags[0].Category == "priority" && tr.Tags[0].Value == "low"
+			})).Return(nil).Once()
+
+			err := service.UpdateTestRun(ctx, testRun1)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Second update with different tags
+			testRun2 := &domain.TestRun{
+				ID:        1,
+				ProjectID: "proj-123",
+				Status:    "completed",
+				Tags: []domain.Tag{
+					{ID: 1, Name: "priority:low", Category: "priority", Value: "low"},
+					{ID: 2, Name: "status:fixed", Category: "status", Value: "fixed"},
+				},
+			}
+
+			mockTestRunRepo.On("Update", ctx, mock.MatchedBy(func(tr *domain.TestRun) bool {
+				if len(tr.Tags) != 2 {
+					return false
+				}
+				// Verify both tags maintain their Category and Value
+				if tr.Tags[0].Category != "priority" || tr.Tags[0].Value != "low" {
+					return false
+				}
+				if tr.Tags[1].Category != "status" || tr.Tags[1].Value != "fixed" {
+					return false
+				}
+				return true
+			})).Return(nil).Once()
+
+			err = service.UpdateTestRun(ctx, testRun2)
+			Expect(err).NotTo(HaveOccurred())
+
+			mockTestRunRepo.AssertExpectations(GinkgoT())
+		})
+
+		It("should handle updating tags with empty Category but non-empty Value", func() {
+			testRun := &domain.TestRun{
+				ID:        1,
+				ProjectID: "proj-123",
+				Status:    "completed",
+				Tags: []domain.Tag{
+					{ID: 1, Name: "nightly", Category: "", Value: "nightly"},
+					{ID: 2, Name: "experimental", Category: "", Value: "experimental"},
+					{ID: 3, Name: "suite:api", Category: "suite", Value: "api"},
+				},
+			}
+
+			mockTestRunRepo.On("Update", ctx, mock.MatchedBy(func(tr *domain.TestRun) bool {
+				if len(tr.Tags) != 3 {
+					return false
+				}
+
+				// Tags without category should have empty Category but valid Value
+				if tr.Tags[0].Category != "" || tr.Tags[0].Value != "nightly" {
+					return false
+				}
+				if tr.Tags[1].Category != "" || tr.Tags[1].Value != "experimental" {
+					return false
+				}
+				if tr.Tags[2].Category != "suite" || tr.Tags[2].Value != "api" {
+					return false
+				}
+
+				return true
+			})).Return(nil)
+
+			err := service.UpdateTestRun(ctx, testRun)
+			Expect(err).NotTo(HaveOccurred())
+
+			mockTestRunRepo.AssertExpectations(GinkgoT())
+		})
+	})
 })
