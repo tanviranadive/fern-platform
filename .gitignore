@@ -12,6 +12,7 @@ cookies*.txt
 coverage*.out
 coverage*.txt
 coverage*.html
+coverprofile.out
 *.test
 
 # Temporary configuration files

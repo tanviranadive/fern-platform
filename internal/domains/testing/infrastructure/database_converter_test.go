@@ -445,6 +445,279 @@ var _ = Describe("DatabaseConverter", func() {
 		})
 	})
 
+	Describe("ConvertDomainTagsToDatabase", func() {
+		It("should convert domain tags to database tags", func() {
+			domainTags := []domain.Tag{
+				{ID: 1, Name: "priority:high", Category: "priority", Value: "high"},
+				{ID: 2, Name: "browser:chrome", Category: "browser", Value: "chrome"},
+				{ID: 3, Name: "smoke", Category: "", Value: "smoke"},
+			}
+
+			dbTags := converter.ConvertDomainTagsToDatabase(domainTags)
+			Expect(dbTags).To(HaveLen(3))
+			Expect(dbTags[0].ID).To(Equal(uint(1)))
+			Expect(dbTags[0].Name).To(Equal("priority:high"))
+			Expect(dbTags[0].Category).To(Equal("priority"))
+			Expect(dbTags[0].Value).To(Equal("high"))
+			Expect(dbTags[1].ID).To(Equal(uint(2)))
+			Expect(dbTags[1].Name).To(Equal("browser:chrome"))
+			Expect(dbTags[1].Category).To(Equal("browser"))
+			Expect(dbTags[1].Value).To(Equal("chrome"))
+			Expect(dbTags[2].ID).To(Equal(uint(3)))
+			Expect(dbTags[2].Name).To(Equal("smoke"))
+			Expect(dbTags[2].Category).To(Equal(""))
+			Expect(dbTags[2].Value).To(Equal("smoke"))
+		})
+
+		It("should return nil for empty domain tags", func() {
+			dbTags := converter.ConvertDomainTagsToDatabase([]domain.Tag{})
+			Expect(dbTags).To(BeNil())
+		})
+
+		It("should return nil for nil domain tags", func() {
+			dbTags := converter.ConvertDomainTagsToDatabase(nil)
+			Expect(dbTags).To(BeNil())
+		})
+	})
+
+	Describe("ConvertDatabaseTagsToDomain", func() {
+		It("should convert database tags to domain tags", func() {
+			dbTags := []database.Tag{
+				{
+					BaseModel: database.BaseModel{ID: 10},
+					Name:      "priority:high",
+					Category:  "priority",
+					Value:     "high",
+				},
+				{
+					BaseModel: database.BaseModel{ID: 20},
+					Name:      "regression",
+					Category:  "",
+					Value:     "regression",
+				},
+			}
+
+			domainTags := converter.ConvertDatabaseTagsToDomain(dbTags)
+			Expect(domainTags).To(HaveLen(2))
+			Expect(domainTags[0].ID).To(Equal(uint(10)))
+			Expect(domainTags[0].Name).To(Equal("priority:high"))
+			Expect(domainTags[0].Category).To(Equal("priority"))
+			Expect(domainTags[0].Value).To(Equal("high"))
+			Expect(domainTags[1].ID).To(Equal(uint(20)))
+			Expect(domainTags[1].Name).To(Equal("regression"))
+			Expect(domainTags[1].Category).To(Equal(""))
+			Expect(domainTags[1].Value).To(Equal("regression"))
+		})
+
+		It("should return nil for empty database tags", func() {
+			domainTags := converter.ConvertDatabaseTagsToDomain([]database.Tag{})
+			Expect(domainTags).To(BeNil())
+		})
+
+		It("should return nil for nil database tags", func() {
+			domainTags := converter.ConvertDatabaseTagsToDomain(nil)
+			Expect(domainTags).To(BeNil())
+		})
+	})
+
+	Describe("ConvertTestRunToDatabase with tags", func() {
+		It("should convert TestRun with tags to database", func() {
+			endTime := now.Add(5 * time.Minute)
+			domainTestRun := &domain.TestRun{
+				ProjectID:    "project-123",
+				RunID:        "run-456",
+				Status:       "completed",
+				Branch:       "main",
+				GitCommit:    "abc123",
+				StartTime:    now,
+				EndTime:      &endTime,
+				Duration:     5 * time.Minute,
+				TotalTests:   10,
+				PassedTests:  9,
+				FailedTests:  1,
+				SkippedTests: 0,
+				Environment:  "test",
+				Tags: []domain.Tag{
+					{ID: 1, Name: "smoke", Category: "", Value: "smoke"},
+					{ID: 2, Name: "priority:high", Category: "priority", Value: "high"},
+				},
+				SuiteRuns: []domain.SuiteRun{},
+			}
+
+			dbTestRun := converter.ConvertTestRunToDatabase(domainTestRun)
+			Expect(dbTestRun.Tags).To(HaveLen(2))
+			Expect(dbTestRun.Tags[0].ID).To(Equal(uint(1)))
+			Expect(dbTestRun.Tags[0].Name).To(Equal("smoke"))
+			Expect(dbTestRun.Tags[1].ID).To(Equal(uint(2)))
+			Expect(dbTestRun.Tags[1].Name).To(Equal("priority:high"))
+			Expect(dbTestRun.Tags[1].Category).To(Equal("priority"))
+		})
+	})
+
+	Describe("ConvertDomainSuiteRunsToDatabase with tags", func() {
+		It("should convert suite runs with tags to database", func() {
+			suiteEndTime := now.Add(time.Minute)
+			domainSuiteRuns := []domain.SuiteRun{
+				{
+					TestRunID:    112456,
+					Name:         "Suite1",
+					Status:       "passed",
+					StartTime:    now,
+					EndTime:      &suiteEndTime,
+					TotalTests:   5,
+					PassedTests:  5,
+					FailedTests:  0,
+					SkippedTests: 0,
+					Duration:     time.Minute,
+					Tags: []domain.Tag{
+						{ID: 1, Name: "suite-tag", Category: "", Value: "suite-tag"},
+					},
+					SpecRuns: []*domain.SpecRun{},
+				},
+			}
+
+			dbSuiteRuns := converter.ConvertDomainSuiteRunsToDatabase(domainSuiteRuns)
+			Expect(dbSuiteRuns).To(HaveLen(1))
+			Expect(dbSuiteRuns[0].Tags).To(HaveLen(1))
+			Expect(dbSuiteRuns[0].Tags[0].ID).To(Equal(uint(1)))
+			Expect(dbSuiteRuns[0].Tags[0].Name).To(Equal("suite-tag"))
+		})
+	})
+
+	Describe("ConvertDomainSpecRunsToDatabase with tags", func() {
+		It("should convert spec runs with tags to database", func() {
+			specEndTime := now.Add(time.Second)
+			domainSpecRuns := []*domain.SpecRun{
+				{
+					SuiteRunID: 112456,
+					Name:       "TestSpec1",
+					Status:     "passed",
+					StartTime:  now,
+					EndTime:    &specEndTime,
+					Duration:   time.Second,
+					Tags: []domain.Tag{
+						{ID: 5, Name: "spec-tag", Category: "", Value: "spec-tag"},
+						{ID: 6, Name: "browser:firefox", Category: "browser", Value: "firefox"},
+					},
+				},
+			}
+
+			dbSpecRuns := converter.ConvertDomainSpecRunsToDatabase(domainSpecRuns)
+			Expect(dbSpecRuns).To(HaveLen(1))
+			Expect(dbSpecRuns[0].Tags).To(HaveLen(2))
+			Expect(dbSpecRuns[0].Tags[0].ID).To(Equal(uint(5)))
+			Expect(dbSpecRuns[0].Tags[0].Name).To(Equal("spec-tag"))
+			Expect(dbSpecRuns[0].Tags[1].ID).To(Equal(uint(6)))
+			Expect(dbSpecRuns[0].Tags[1].Name).To(Equal("browser:firefox"))
+			Expect(dbSpecRuns[0].Tags[1].Category).To(Equal("browser"))
+			Expect(dbSpecRuns[0].Tags[1].Value).To(Equal("firefox"))
+		})
+	})
+
+	Describe("ConvertTestRunToDomain with tags", func() {
+		It("should convert database TestRun with tags to domain", func() {
+			endTime := now.Add(10 * time.Minute)
+			dbTestRun := &database.TestRun{
+				ProjectID:    "project-456",
+				RunID:        "run-789",
+				Status:       "completed",
+				Branch:       "develop",
+				CommitSHA:    "def456",
+				StartTime:    now,
+				EndTime:      &endTime,
+				Duration:     int64(10 * time.Minute / time.Millisecond),
+				TotalTests:   50,
+				PassedTests:  40,
+				FailedTests:  5,
+				SkippedTests: 5,
+				Environment:  "production",
+				Tags: []database.Tag{
+					{
+						BaseModel: database.BaseModel{ID: 100},
+						Name:      "production",
+						Category:  "",
+						Value:     "production",
+					},
+				},
+				SuiteRuns: []database.SuiteRun{},
+			}
+
+			domainTestRun := converter.ConvertTestRunToDomain(dbTestRun)
+			Expect(domainTestRun.Tags).To(HaveLen(1))
+			Expect(domainTestRun.Tags[0].ID).To(Equal(uint(100)))
+			Expect(domainTestRun.Tags[0].Name).To(Equal("production"))
+		})
+	})
+
+	Describe("ConvertSuiteRunToDomain with tags", func() {
+		It("should convert database SuiteRun with tags to domain", func() {
+			suiteEndTime := now.Add(3 * time.Minute)
+			dbSuite := &database.SuiteRun{
+				TestRunID:    112456,
+				SuiteName:    "SuiteWithTags",
+				Status:       "passed",
+				StartTime:    now,
+				EndTime:      &suiteEndTime,
+				TotalSpecs:   8,
+				PassedSpecs:  8,
+				FailedSpecs:  0,
+				SkippedSpecs: 0,
+				Duration:     int64(3 * time.Minute / time.Millisecond),
+				Tags: []database.Tag{
+					{
+						BaseModel: database.BaseModel{ID: 200},
+						Name:      "integration",
+						Category:  "",
+						Value:     "integration",
+					},
+				},
+				SpecRuns: []database.SpecRun{},
+			}
+
+			domainSuite := converter.ConvertSuiteRunToDomain(dbSuite)
+			Expect(domainSuite.Tags).To(HaveLen(1))
+			Expect(domainSuite.Tags[0].ID).To(Equal(uint(200)))
+			Expect(domainSuite.Tags[0].Name).To(Equal("integration"))
+		})
+	})
+
+	Describe("ConvertSpecRunToDomain with tags", func() {
+		It("should convert database SpecRun with tags to domain", func() {
+			specEndTime := now.Add(5 * time.Second)
+			dbSpec := &database.SpecRun{
+				SuiteRunID: 112456,
+				SpecName:   "SpecWithTags",
+				Status:     "passed",
+				StartTime:  now,
+				EndTime:    &specEndTime,
+				Duration:   int64(5 * time.Second / time.Millisecond),
+				Tags: []database.Tag{
+					{
+						BaseModel: database.BaseModel{ID: 300},
+						Name:      "e2e",
+						Category:  "",
+						Value:     "e2e",
+					},
+					{
+						BaseModel: database.BaseModel{ID: 301},
+						Name:      "platform:linux",
+						Category:  "platform",
+						Value:     "linux",
+					},
+				},
+			}
+
+			domainSpec := converter.ConvertSpecRunToDomain(dbSpec)
+			Expect(domainSpec.Tags).To(HaveLen(2))
+			Expect(domainSpec.Tags[0].ID).To(Equal(uint(300)))
+			Expect(domainSpec.Tags[0].Name).To(Equal("e2e"))
+			Expect(domainSpec.Tags[1].ID).To(Equal(uint(301)))
+			Expect(domainSpec.Tags[1].Name).To(Equal("platform:linux"))
+			Expect(domainSpec.Tags[1].Category).To(Equal("platform"))
+			Expect(domainSpec.Tags[1].Value).To(Equal("linux"))
+		})
+	})
+
 	Describe("Round-trip conversions", func() {
 		It("should maintain data integrity for TestRun conversions", func() {
 			// Create original domain model

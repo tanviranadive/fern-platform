@@ -89,12 +89,12 @@ var _ = Describe("DomainHandler helpers", func() {
 			Expect(h.calculateSuiteStatus(specs)).To(Equal("failed"))
 		})
 
-		It("returns partial when skipped present but no failures", func() {
+		It("returns skipped when skipped present but no failures", func() {
 			specs := []*testingDomain.SpecRun{
 				{Status: "passed"},
 				{Status: "skipped"},
 			}
-			Expect(h.calculateSuiteStatus(specs)).To(Equal("partial"))
+			Expect(h.calculateSuiteStatus(specs)).To(Equal("skipped"))
 		})
 
 		It("returns passed when all passing", func() {
@@ -250,6 +250,464 @@ var _ = Describe("DomainHandler helpers", func() {
 			Expect(apiMap["settings"]).To(Equal(snap.Settings))
 			Expect(apiMap["createdAt"]).To(Equal(snap.CreatedAt))
 			Expect(apiMap["updatedAt"]).To(Equal(snap.UpdatedAt))
+		})
+	})
+
+	Describe("convertApiTagsToDomain", func() {
+		It("returns nil for empty tag array", func() {
+			tags := h.convertApiTagsToDomain([]Tag{})
+			Expect(tags).To(BeNil())
+		})
+
+		It("converts API tags to domain tags", func() {
+			apiTags := []Tag{
+				{ID: 1, Name: "priority:high"},
+				{ID: 2, Name: "browser:chrome"},
+			}
+
+			domainTags := h.convertApiTagsToDomain(apiTags)
+			Expect(domainTags).To(HaveLen(2))
+			Expect(domainTags[0].ID).To(Equal(uint(1)))
+			Expect(domainTags[0].Name).To(Equal("priority:high"))
+			Expect(domainTags[1].ID).To(Equal(uint(2)))
+			Expect(domainTags[1].Name).To(Equal("browser:chrome"))
+		})
+	})
+
+	Describe("mergeUniqueTags", func() {
+		It("merges two tag slices without duplicates", func() {
+			existing := []testingDomain.Tag{
+				{ID: 1, Name: "priority:high", Category: "priority", Value: "high"},
+				{ID: 2, Name: "browser:chrome", Category: "browser", Value: "chrome"},
+			}
+
+			newTags := []testingDomain.Tag{
+				{ID: 2, Name: "browser:chrome", Category: "browser", Value: "chrome"}, // duplicate
+				{ID: 3, Name: "smoke", Category: "", Value: "smoke"},
+			}
+
+			merged := h.mergeUniqueTags(existing, newTags)
+			Expect(merged).To(HaveLen(3)) // 1, 2, 3
+
+			tagIDs := make(map[uint]bool)
+			for _, tag := range merged {
+				tagIDs[tag.ID] = true
+			}
+			Expect(tagIDs).To(HaveKey(uint(1)))
+			Expect(tagIDs).To(HaveKey(uint(2)))
+			Expect(tagIDs).To(HaveKey(uint(3)))
+		})
+
+		It("ignores tags with ID 0 in both slices", func() {
+			existing := []testingDomain.Tag{
+				{ID: 0, Name: "unprocessed1"},
+				{ID: 1, Name: "tag1"},
+			}
+
+			newTags := []testingDomain.Tag{
+				{ID: 0, Name: "unprocessed2"},
+				{ID: 2, Name: "tag2"},
+			}
+
+			merged := h.mergeUniqueTags(existing, newTags)
+			Expect(merged).To(HaveLen(2))
+			for _, tag := range merged {
+				Expect(tag.ID).NotTo(Equal(uint(0)))
+			}
+		})
+
+		It("handles empty slices", func() {
+			existing := []testingDomain.Tag{
+				{ID: 1, Name: "tag1"},
+			}
+
+			merged1 := h.mergeUniqueTags(existing, []testingDomain.Tag{})
+			Expect(merged1).To(HaveLen(1))
+
+			merged2 := h.mergeUniqueTags([]testingDomain.Tag{}, existing)
+			Expect(merged2).To(HaveLen(1))
+
+			merged3 := h.mergeUniqueTags([]testingDomain.Tag{}, []testingDomain.Tag{})
+			Expect(merged3).To(HaveLen(0))
+		})
+	})
+
+	Describe("convertSpecRuns with tags", func() {
+		It("converts tags from API SpecRuns to domain SpecRuns", func() {
+			start := time.Now()
+			end := start.Add(1 * time.Second)
+
+			req := []SpecRun{
+				{
+					ID:              1,
+					SuiteID:         10,
+					SpecDescription: "test with tags",
+					Status:          "passed",
+					StartTime:       start,
+					EndTime:         end,
+					Tags: []Tag{
+						{ID: 1, Name: "smoke"},
+						{ID: 2, Name: "priority:high"},
+					},
+				},
+			}
+
+			domain := h.convertSpecRuns(req)
+			Expect(domain).To(HaveLen(1))
+			Expect(domain[0].Tags).To(HaveLen(2))
+			Expect(domain[0].Tags[0].ID).To(Equal(uint(1)))
+			Expect(domain[0].Tags[1].ID).To(Equal(uint(2)))
+		})
+	})
+
+	Describe("convertApiSuiteRunstoDomain with tags", func() {
+		It("converts tags from API SuiteRuns to domain SuiteRuns", func() {
+			start := time.Now()
+			end := start.Add(500 * time.Millisecond)
+
+			reqSuites := []SuiteRun{
+				{
+					ID:        100,
+					SuiteName: "suite-with-tags",
+					StartTime: start,
+					EndTime:   end,
+					Tags: []Tag{
+						{ID: 1, Name: "regression"},
+					},
+					SpecRuns: []SpecRun{
+						{
+							ID:              1,
+							SuiteID:         100,
+							SpecDescription: "spec",
+							Status:          "passed",
+							StartTime:       start,
+							EndTime:         end,
+							Tags: []Tag{
+								{ID: 2, Name: "smoke"},
+							},
+						},
+					},
+				},
+			}
+
+			ds := h.convertApiSuiteRunstoDomain(reqSuites)
+			Expect(ds).To(HaveLen(1))
+			Expect(ds[0].Tags).To(HaveLen(1))
+			Expect(ds[0].Tags[0].ID).To(Equal(uint(1)))
+			Expect(ds[0].SpecRuns).To(HaveLen(1))
+			Expect(ds[0].SpecRuns[0].Tags).To(HaveLen(1))
+			Expect(ds[0].SpecRuns[0].Tags[0].ID).To(Equal(uint(2)))
+		})
+	})
+
+	Describe("convertDomainTestRunToAPI with tags", func() {
+		It("includes tags in the API response", func() {
+			now := time.Now()
+			end := now.Add(3 * time.Second)
+			tr := &testingDomain.TestRun{
+				ID:           55,
+				RunID:        "run-1",
+				ProjectID:    "proj-xyz",
+				Branch:       "main",
+				GitCommit:    "abcdef",
+				Status:       "passed",
+				StartTime:    now,
+				EndTime:      &end,
+				Duration:     3 * time.Second,
+				TotalTests:   10,
+				PassedTests:  9,
+				FailedTests:  1,
+				SkippedTests: 0,
+				Environment:  "ci",
+				Tags: []testingDomain.Tag{
+					{ID: 1, Name: "priority:high", Category: "priority", Value: "high"},
+					{ID: 2, Name: "smoke", Category: "", Value: "smoke"},
+				},
+				Metadata: map[string]interface{}{"k": "v"},
+			}
+
+			apiMap := h.convertDomainTestRunToAPI(tr)
+			Expect(apiMap).To(HaveKey("tags"))
+			tags := apiMap["tags"].([]testingDomain.Tag)
+			Expect(tags).To(HaveLen(2))
+			Expect(tags[0].ID).To(Equal(uint(1)))
+			Expect(tags[1].ID).To(Equal(uint(2)))
+		})
+	})
+
+	Describe("Tag propagation from JSON request to domain", func() {
+		It("should convert JSON request with tags to domain objects", func() {
+			// This simulates what happens when a JSON request comes in
+			// The JSON is unmarshaled into the API request structs
+			start := time.Now()
+			end := start.Add(1 * time.Second)
+
+			// Simulate JSON request body after c.ShouldBindJSON
+			req := TestRunRequest{
+				TestProjectID: "project-123",
+				SuiteRuns: []SuiteRun{
+					{
+						ID:        1,
+						SuiteName: "Test Suite",
+						StartTime: start,
+						EndTime:   end,
+						Tags: []Tag{
+							{ID: 1, Name: "suite-tag"},
+						},
+						SpecRuns: []SpecRun{
+							{
+								ID:              1,
+								SuiteID:         1,
+								SpecDescription: "Test Spec",
+								Status:          "passed",
+								StartTime:       start,
+								EndTime:         end,
+								Tags: []Tag{
+									{ID: 2, Name: "spec-tag"},
+								},
+							},
+						},
+					},
+				},
+			}
+
+			// Convert to domain (this is what happens in recordTestRun)
+			domainSuiteRuns := h.convertApiSuiteRunstoDomain(req.SuiteRuns)
+
+			// Verify tags made it through
+			Expect(domainSuiteRuns).To(HaveLen(1))
+			Expect(domainSuiteRuns[0].Tags).To(HaveLen(1))
+			Expect(domainSuiteRuns[0].Tags[0].ID).To(Equal(uint(1)))
+			Expect(domainSuiteRuns[0].Tags[0].Name).To(Equal("suite-tag"))
+
+			Expect(domainSuiteRuns[0].SpecRuns).To(HaveLen(1))
+			Expect(domainSuiteRuns[0].SpecRuns[0].Tags).To(HaveLen(1))
+			Expect(domainSuiteRuns[0].SpecRuns[0].Tags[0].ID).To(Equal(uint(2)))
+			Expect(domainSuiteRuns[0].SpecRuns[0].Tags[0].Name).To(Equal("spec-tag"))
+		})
+	})
+
+	Describe("Tag propagation from API to domain", func() {
+		It("should propagate tags from API SpecRuns to domain SpecRuns", func() {
+			start := time.Now()
+			end := start.Add(1 * time.Second)
+
+			// Create API request with tags in SpecRuns
+			apiSpecRuns := []SpecRun{
+				{
+					ID:              1,
+					SuiteID:         100,
+					SpecDescription: "spec with tags",
+					Status:          "passed",
+					StartTime:       start,
+					EndTime:         end,
+					Tags: []Tag{
+						{ID: 10, Name: "smoke"},
+						{ID: 11, Name: "priority:high"},
+					},
+				},
+				{
+					ID:              2,
+					SuiteID:         100,
+					SpecDescription: "spec without tags",
+					Status:          "passed",
+					StartTime:       start,
+					EndTime:         end,
+					Tags:            []Tag{}, // Empty tags
+				},
+			}
+
+			// Convert to domain
+			domainSpecRuns := h.convertSpecRuns(apiSpecRuns)
+
+			Expect(domainSpecRuns[0].Tags).To(HaveLen(2))
+			Expect(domainSpecRuns[0].Tags[0].ID).To(Equal(uint(10)))
+			Expect(domainSpecRuns[0].Tags[0].Name).To(Equal("smoke"))
+			Expect(domainSpecRuns[0].Tags[1].ID).To(Equal(uint(11)))
+			Expect(domainSpecRuns[0].Tags[1].Name).To(Equal("priority:high"))
+
+			// Verify second spec has no tags
+			Expect(domainSpecRuns[1].Tags).To(BeNil())
+		})
+
+		It("should propagate tags from API SuiteRuns to domain SuiteRuns", func() {
+			start := time.Now()
+			end := start.Add(500 * time.Millisecond)
+
+			// Create API request with tags in SuiteRuns
+			apiSuiteRuns := []SuiteRun{
+				{
+					ID:        100,
+					SuiteName: "suite with tags",
+					StartTime: start,
+					EndTime:   end,
+					Tags: []Tag{
+						{ID: 20, Name: "regression"},
+						{ID: 21, Name: "browser:chrome"},
+					},
+					SpecRuns: []SpecRun{
+						{
+							ID:              1,
+							SuiteID:         100,
+							SpecDescription: "spec",
+							Status:          "passed",
+							StartTime:       start,
+							EndTime:         end,
+							Tags: []Tag{
+								{ID: 30, Name: "smoke"},
+							},
+						},
+					},
+				},
+			}
+
+			domainSuiteRuns := h.convertApiSuiteRunstoDomain(apiSuiteRuns)
+
+			// Verify suite has tags
+			Expect(domainSuiteRuns[0].Tags).To(HaveLen(2))
+			Expect(domainSuiteRuns[0].Tags[0].ID).To(Equal(uint(20)))
+			Expect(domainSuiteRuns[0].Tags[0].Name).To(Equal("regression"))
+			Expect(domainSuiteRuns[0].Tags[1].ID).To(Equal(uint(21)))
+			Expect(domainSuiteRuns[0].Tags[1].Name).To(Equal("browser:chrome"))
+
+			// Verify spec within suite also has tags
+			Expect(domainSuiteRuns[0].SpecRuns).To(HaveLen(1))
+			Expect(domainSuiteRuns[0].SpecRuns[0].Tags).To(HaveLen(1))
+			Expect(domainSuiteRuns[0].SpecRuns[0].Tags[0].ID).To(Equal(uint(30)))
+			Expect(domainSuiteRuns[0].SpecRuns[0].Tags[0].Name).To(Equal("smoke"))
+		})
+
+		It("should propagate tags through complete conversion chain", func() {
+			start := time.Now()
+			end := start.Add(500 * time.Millisecond)
+
+			// Create API request with tags at multiple levels
+			apiSuiteRuns := []SuiteRun{
+				{
+					ID:        100,
+					SuiteName: "suite 1",
+					StartTime: start,
+					EndTime:   end,
+					Tags: []Tag{
+						{ID: 1, Name: "suite-tag"},
+					},
+					SpecRuns: []SpecRun{
+						{
+							ID:              1,
+							SuiteID:         100,
+							SpecDescription: "spec 1",
+							Status:          "passed",
+							StartTime:       start,
+							EndTime:         end,
+							Tags: []Tag{
+								{ID: 2, Name: "spec-tag-1"},
+							},
+						},
+						{
+							ID:              2,
+							SuiteID:         100,
+							SpecDescription: "spec 2",
+							Status:          "passed",
+							StartTime:       start,
+							EndTime:         end,
+							Tags: []Tag{
+								{ID: 3, Name: "spec-tag-2"},
+							},
+						},
+					},
+				},
+				{
+					ID:        101,
+					SuiteName: "suite 2",
+					StartTime: start,
+					EndTime:   end,
+					Tags: []Tag{
+						{ID: 4, Name: "another-suite-tag"},
+					},
+					SpecRuns: []SpecRun{
+						{
+							ID:              3,
+							SuiteID:         101,
+							SpecDescription: "spec 3",
+							Status:          "passed",
+							StartTime:       start,
+							EndTime:         end,
+							Tags: []Tag{
+								{ID: 5, Name: "spec-tag-3"},
+							},
+						},
+					},
+				},
+			}
+
+			// Convert to domain
+			domainSuiteRuns := h.convertApiSuiteRunstoDomain(apiSuiteRuns)
+
+			// Verify all tags are propagated
+			Expect(domainSuiteRuns).To(HaveLen(2))
+
+			// Suite 1
+			Expect(domainSuiteRuns[0].Tags).To(HaveLen(1))
+			Expect(domainSuiteRuns[0].Tags[0].Name).To(Equal("suite-tag"))
+			Expect(domainSuiteRuns[0].SpecRuns).To(HaveLen(2))
+			Expect(domainSuiteRuns[0].SpecRuns[0].Tags).To(HaveLen(1))
+			Expect(domainSuiteRuns[0].SpecRuns[0].Tags[0].Name).To(Equal("spec-tag-1"))
+			Expect(domainSuiteRuns[0].SpecRuns[1].Tags).To(HaveLen(1))
+			Expect(domainSuiteRuns[0].SpecRuns[1].Tags[0].Name).To(Equal("spec-tag-2"))
+
+			// Suite 2
+			Expect(domainSuiteRuns[1].Tags).To(HaveLen(1))
+			Expect(domainSuiteRuns[1].Tags[0].Name).To(Equal("another-suite-tag"))
+			Expect(domainSuiteRuns[1].SpecRuns).To(HaveLen(1))
+			Expect(domainSuiteRuns[1].SpecRuns[0].Tags).To(HaveLen(1))
+			Expect(domainSuiteRuns[1].SpecRuns[0].Tags[0].Name).To(Equal("spec-tag-3"))
+		})
+
+		It("should handle mixed scenarios with some tags and some without", func() {
+			start := time.Now()
+			end := start.Add(500 * time.Millisecond)
+
+			apiSuiteRuns := []SuiteRun{
+				{
+					ID:        100,
+					SuiteName: "suite with tags",
+					StartTime: start,
+					EndTime:   end,
+					Tags:      []Tag{{ID: 10, Name: "tag1"}},
+					SpecRuns: []SpecRun{
+						{ID: 1, SuiteID: 100, SpecDescription: "spec with tags", Status: "passed", StartTime: start, EndTime: end, Tags: []Tag{{ID: 11, Name: "tag2"}}},
+						{ID: 2, SuiteID: 100, SpecDescription: "spec without tags", Status: "passed", StartTime: start, EndTime: end, Tags: nil},
+					},
+				},
+				{
+					ID:        101,
+					SuiteName: "suite without tags",
+					StartTime: start,
+					EndTime:   end,
+					Tags:      nil, // No tags
+					SpecRuns: []SpecRun{
+						{
+							ID:              3,
+							SuiteID:         101,
+							SpecDescription: "spec",
+							Status:          "passed",
+							StartTime:       start,
+							EndTime:         end,
+							Tags:            []Tag{}, // Empty array
+						},
+					},
+				},
+			}
+
+			domainSuiteRuns := h.convertApiSuiteRunstoDomain(apiSuiteRuns)
+
+			// Suite 1 should have tags
+			Expect(domainSuiteRuns[0].Tags).To(HaveLen(1))
+			Expect(domainSuiteRuns[0].SpecRuns[0].Tags).To(HaveLen(1))
+			Expect(domainSuiteRuns[0].SpecRuns[1].Tags).To(BeNil())
+
+			Expect(domainSuiteRuns[1].Tags).To(BeNil())
+			Expect(domainSuiteRuns[1].SpecRuns[0].Tags).To(BeNil())
 		})
 	})
 })

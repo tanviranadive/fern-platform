@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/guidewire-oss/fern-platform/internal/domains/testing/domain"
+	"github.com/guidewire-oss/fern-platform/pkg/database"
+	"gorm.io/gorm"
 )
 
 // TestRunService handles test run business logic
@@ -322,5 +324,34 @@ func (s *TestRunService) GetSuiteRunsByTestRunID(ctx context.Context, testRunID 
 
 // UpdateTestRun updates an existing test run
 func (s *TestRunService) UpdateTestRun(ctx context.Context, testRun *domain.TestRun) error {
-	return s.testRunRepo.Update(ctx, testRun)
+	if err := s.testRunRepo.Update(ctx, testRun); err != nil {
+		return err
+	}
+
+	if len(testRun.Tags) > 0 {
+		if db, ok := s.testRunRepo.(interface{ GetDB() *gorm.DB }); ok {
+			// Use DB model with embedded BaseModel
+			dbModel := database.TestRun{
+				BaseModel: database.BaseModel{ID: testRun.ID},
+			}
+
+			// Convert domain tags → database tags
+			dbTags := make([]database.Tag, len(testRun.Tags))
+			for i, t := range testRun.Tags {
+				dbTags[i] = database.Tag{
+					BaseModel: database.BaseModel{ID: t.ID},
+					Name:      t.Name,
+					Category:  t.Category,
+					Value:     t.Value,
+				}
+			}
+
+			// Replace associations
+			if err := db.GetDB().Model(&dbModel).Association("Tags").Replace(dbTags); err != nil {
+				return fmt.Errorf("failed to update test run tags: %w", err)
+			}
+		}
+	}
+
+	return nil
 }

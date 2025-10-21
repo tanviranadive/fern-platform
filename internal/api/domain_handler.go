@@ -186,13 +186,27 @@ func (h *DomainHandler) healthCheck(c *gin.Context) {
 func (h *DomainHandler) recordTestRun(c *gin.Context) {
 	var req TestRunRequest
 
+	if c.Request.Body == nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Request body is empty"})
+		return
+	}
+
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
+	// Process tags before converting to domain objects
+	if err := ProcessTestRunTags(c.Request.Context(), h.tagService, &req); err != nil {
+		h.logger.WithError(err).Error("Failed to process tags")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error processing tags"})
+		return
+	}
+
 	// Convert request SuiteRuns to domain SuiteRuns
 	domainSuiteRuns := h.convertApiSuiteRunstoDomain(req.SuiteRuns)
+
+	runLevelTags := h.convertApiTagsToDomain(req.Tags)
 
 	// Calculate counts and status for this batch
 	status := h.calculateOverallStatus(req.SuiteRuns)
@@ -218,6 +232,7 @@ func (h *DomainHandler) recordTestRun(c *gin.Context) {
 		existing, err := h.testingService.GetTestRunByRunID(c.Request.Context(), runID)
 		if err == nil && existing != nil {
 			testRun = existing
+			fmt.Println("Test run exists, runID:", runID)
 		}
 	}
 
@@ -232,6 +247,7 @@ func (h *DomainHandler) recordTestRun(c *gin.Context) {
 			Metadata:     map[string]interface{}{},
 			Status:       status,
 			StartTime:    time.Now(),
+			Tags:         runLevelTags,
 			SuiteRuns:    domainSuiteRuns,
 			TotalTests:   totalTests,
 			PassedTests:  passedTests,
@@ -276,12 +292,15 @@ func (h *DomainHandler) recordTestRun(c *gin.Context) {
 				}
 			}
 		}
-		// Update existing run: accumulate suite runs + counts
+		// Update existing run: accumulate suite runs + counts + tags
 		testRun.SuiteRuns = append(testRun.SuiteRuns, domainSuiteRuns...)
 		testRun.TotalTests += totalTests
 		testRun.PassedTests += passedTests
 		testRun.FailedTests += failedTests
 		testRun.SkippedTests += skippedTests
+
+		// ✅ Merge run-level tags
+		testRun.Tags = h.mergeUniqueTags(testRun.Tags, runLevelTags)
 
 		// mark overall status as failed if any failed
 		if status == "failed" || testRun.Status == "failed" {

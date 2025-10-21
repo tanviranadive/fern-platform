@@ -309,6 +309,7 @@ func (h *TestRunHandler) convertTestRunToAPI(tr *domain.TestRun) gin.H {
 		"skippedTests": tr.SkippedTests,
 		"duration":     tr.Duration.Milliseconds(),
 		"environment":  tr.Environment,
+		"tags":         tr.Tags,
 		"metadata":     tr.Metadata,
 		"createdAt":    tr.StartTime,
 		"updatedAt":    tr.EndTime,
