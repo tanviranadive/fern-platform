@@ -1341,4 +1341,43 @@ var _ = Describe("recordTestRun Integration Tests with Mocked Services", func() 
 			testRunRepo.AssertExpectations(GinkgoT())
 		})
 	})
+
+	Describe("getTestRuns with service account", func() {
+		It("should handle service account request without user", func() {
+			gin.SetMode(gin.TestMode)
+			router := gin.New()
+			
+			testRunService := testingApp.NewTestRunService(nil, nil, nil)
+			handler := NewDomainHandler(testRunService, nil, nil, nil, nil, nil, logger)
+			
+			router.GET("/test-runs", handler.getTestRuns)
+			
+			req := httptest.NewRequest("GET", "/test-runs", nil)
+			w := httptest.NewRecorder()
+			router.ServeHTTP(w, req)
+
+			Expect(w.Code).To(Equal(http.StatusUnauthorized))
+			Expect(w.Body.String()).To(ContainSubstring("Authentication required"))
+		})
+
+		It("should handle invalid user data", func() {
+			gin.SetMode(gin.TestMode)
+			router := gin.New()
+			
+			testRunService := testingApp.NewTestRunService(nil, nil, nil)
+			handler := NewDomainHandler(testRunService, nil, nil, nil, nil, nil, logger)
+			
+			router.GET("/test-runs", func(c *gin.Context) {
+				c.Set("user", "not-a-user-object") // Invalid type
+				handler.getTestRuns(c)
+			})
+			
+			req := httptest.NewRequest("GET", "/test-runs", nil)
+			w := httptest.NewRecorder()
+			router.ServeHTTP(w, req)
+
+			Expect(w.Code).To(Equal(http.StatusInternalServerError))
+			Expect(w.Body.String()).To(ContainSubstring("Invalid user data"))
+		})
+	})
 })

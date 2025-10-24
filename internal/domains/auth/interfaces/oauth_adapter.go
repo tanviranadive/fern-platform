@@ -11,7 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/guidewire-oss/fern-platform/internal/domains/auth/application"
 	"github.com/guidewire-oss/fern-platform/pkg/config"
 	"github.com/guidewire-oss/fern-platform/pkg/logging"
@@ -303,27 +302,79 @@ func (a *OAuthAdapter) applyAdminOverrides(userInfo *application.UserInfo) {
 	}
 }
 
-// extractScopesFromToken extracts scopes from a JWT token without validation
-// PRIVATE: This method is only safe to call after the token has been validated
-// via ValidateAndCheckScope. Never call this directly on unvalidated tokens.
-func (a *OAuthAdapter) extractScopesFromToken(accessToken string) ([]string, error) {
-	// Parse the token without validation to extract claims
-	parser := jwt.NewParser(jwt.WithoutClaimsValidation())
-	token, _, err := parser.ParseUnverified(accessToken, jwt.MapClaims{})
+// ValidateAndCheckScope validates a token and checks if it has a specific scope.
+// This method uses OAuth token introspection (RFC 7662) if available, which properly validates
+// the token with the authorization server. If introspection is not configured, it falls back
+// to validating via the userinfo endpoint (which only works for user tokens, not service accounts).
+func (a *OAuthAdapter) ValidateAndCheckScope(accessToken string, requiredScope string) (bool, error) {
+	// If introspection endpoint is configured, use it (preferred method)
+	if a.config.OAuth.IntrospectionURL != "" {
+		return a.introspectAndCheckScope(accessToken, requiredScope)
+	}
+	
+	// Fallback: validate via userinfo endpoint
+	// Note: This only works for user tokens with openid scope, not service account tokens
+	return a.validateViaUserinfoAndCheckScope(accessToken, requiredScope)
+}
+
+// introspectAndCheckScope uses OAuth token introspection (RFC 7662) to validate and check scope
+func (a *OAuthAdapter) introspectAndCheckScope(accessToken string, requiredScope string) (bool, error) {
+	// Build introspection request
+	data := url.Values{}
+	data.Set("token", accessToken)
+	data.Set("token_type_hint", "access_token")
+	
+	req, err := http.NewRequest("POST", a.config.OAuth.IntrospectionURL, strings.NewReader(data.Encode()))
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse token: %w", err)
+		return false, fmt.Errorf("failed to create introspection request: %w", err)
 	}
-
-	claims, ok := token.Claims.(jwt.MapClaims)
-	if !ok {
-		return nil, fmt.Errorf("invalid token claims")
+	
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("Accept", "application/json")
+	
+	// Add client authentication if client secret is available
+	if a.config.OAuth.ClientSecret != "" {
+		req.SetBasicAuth(a.config.OAuth.ClientID, a.config.OAuth.ClientSecret)
 	}
-
-	// Extract scopes - can be in 'scp' or 'scope' claim
+	
+	resp, err := a.client.Do(req)
+	if err != nil {
+		return false, fmt.Errorf("failed to introspect token: %w", err)
+	}
+	defer resp.Body.Close()
+	
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return false, fmt.Errorf("token introspection failed with status %d: %s", resp.StatusCode, string(body))
+	}
+	
+	// Parse introspection response
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return false, fmt.Errorf("failed to read introspection response: %w", err)
+	}
+	
+	var introspectionData map[string]interface{}
+	if err := json.Unmarshal(body, &introspectionData); err != nil {
+		return false, fmt.Errorf("failed to parse introspection response: %w", err)
+	}
+	
+	// Check if token is active
+	active, ok := introspectionData["active"].(bool)
+	if !ok || !active {
+		return false, fmt.Errorf("token is not active")
+	}
+	
+	// Extract scopes from introspection response
 	var scopes []string
 	
-	// Try 'scp' claim (array format)
-	if scp, ok := claims["scp"].([]interface{}); ok {
+	// Try 'scope' field (space-separated string format per RFC 7662)
+	if scope, ok := introspectionData["scope"].(string); ok {
+		scopes = strings.Split(scope, " ")
+	}
+	
+	// Try 'scp' field (array format - some providers use this)
+	if scp, ok := introspectionData["scp"].([]interface{}); ok {
 		for _, s := range scp {
 			if scopeStr, ok := s.(string); ok {
 				scopes = append(scopes, scopeStr)
@@ -331,17 +382,18 @@ func (a *OAuthAdapter) extractScopesFromToken(accessToken string) ([]string, err
 		}
 	}
 	
-	// Try 'scope' claim (space-separated string format)
-	if scope, ok := claims["scope"].(string); ok {
-		scopes = append(scopes, strings.Split(scope, " ")...)
+	// Check if required scope is present
+	for _, scope := range scopes {
+		if scope == requiredScope {
+			return true, nil
+		}
 	}
 	
-	return scopes, nil
+	return false, nil
 }
 
-// ValidateAndCheckScope validates a token via userinfo endpoint and checks if it has a specific scope
-// This validates the token by attempting to use it, which verifies signature and expiry
-func (a *OAuthAdapter) ValidateAndCheckScope(accessToken string, requiredScope string) (bool, error) {
+// validateViaUserinfoAndCheckScope validates via userinfo endpoint (fallback for user tokens only)
+func (a *OAuthAdapter) validateViaUserinfoAndCheckScope(accessToken string, requiredScope string) (bool, error) {
 	// Validate the token by trying to get user info - this will fail if token is invalid/expired
 	// This is a simple but effective validation that works with any OAuth provider
 	req, err := http.NewRequest("GET", a.config.OAuth.UserInfoURL, nil)
@@ -364,12 +416,36 @@ func (a *OAuthAdapter) ValidateAndCheckScope(accessToken string, requiredScope s
 		return false, fmt.Errorf("token validation failed with status %d: %s", resp.StatusCode, string(body))
 	}
 	
-	// Token is valid, now check scope
-	scopes, err := a.extractScopesFromToken(accessToken)
+	// Token is validated. Now extract scopes from the validated response body.
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return false, fmt.Errorf("failed to extract scopes: %w", err)
+		return false, fmt.Errorf("failed to read validation response: %w", err)
 	}
 	
+	var responseData map[string]interface{}
+	if err := json.Unmarshal(body, &responseData); err != nil {
+		return false, fmt.Errorf("failed to parse validation response: %w", err)
+	}
+	
+	// Extract scopes from the validated userinfo response
+	// Scopes can be in 'scp' or 'scope' field
+	var scopes []string
+	
+	// Try 'scp' field (array format)
+	if scp, ok := responseData["scp"].([]interface{}); ok {
+		for _, s := range scp {
+			if scopeStr, ok := s.(string); ok {
+				scopes = append(scopes, scopeStr)
+			}
+		}
+	}
+	
+	// Try 'scope' field (space-separated string format)
+	if scope, ok := responseData["scope"].(string); ok {
+		scopes = append(scopes, strings.Split(scope, " ")...)
+	}
+	
+	// Check if required scope is present
 	for _, scope := range scopes {
 		if scope == requiredScope {
 			return true, nil

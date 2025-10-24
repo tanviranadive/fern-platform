@@ -78,6 +78,7 @@ type OAuthConfig struct {
 	JWKSUrl     string `mapstructure:"jwksUrl"`     // JWKS endpoint for token validation
 	IssuerURL   string `mapstructure:"issuerUrl"`   // OpenID Connect Discovery URL (optional)
 	LogoutURL   string `mapstructure:"logoutUrl"`   // Logout endpoint (optional)
+	IntrospectionURL string `mapstructure:"introspectionUrl"` // Token introspection endpoint (RFC 7662, optional)
 
 	// User and role mapping
 	AdminUsers       []string          `mapstructure:"adminUsers"`       // List of admin user emails/IDs

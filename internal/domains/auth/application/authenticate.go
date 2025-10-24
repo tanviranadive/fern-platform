@@ -203,6 +203,10 @@ func (s *AuthenticationService) createSession(ctx context.Context, user *domain.
 	return session, nil
 }
 
+func (s *AuthenticationService) DetermineUserRole(userInfo UserInfo) domain.UserRole {
+	return s.determineUserRole(userInfo)
+}
+
 func (s *AuthenticationService) determineUserRole(userInfo UserInfo) domain.UserRole {
 	// Check for admin groups (highest priority)
 	for _, group := range userInfo.Groups {
