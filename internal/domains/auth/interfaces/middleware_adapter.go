@@ -31,7 +31,7 @@ type OAuthAdapterIface interface {
 	ExchangeCodeForToken(code, verifier string) (*application.TokenInfo, error)
 	GetUserInfo(accessToken string) (*application.UserInfo, error)
 	BuildProviderLogoutURL(idToken string) string
-	HasScope(accessToken string, requiredScope string) bool
+	ValidateAndCheckScope(accessToken string, requiredScope string) (bool, error)
 }
 
 // AuthMiddlewareAdapter provides Gin middleware using auth domain services
@@ -84,7 +84,15 @@ func (m *AuthMiddlewareAdapter) RequireAuth() gin.HandlerFunc {
 				// UserInfo failed - check if it's a service account token with fern-read scope
 				m.logger.WithError(err).Debug("GetUserInfo failed, checking for service account token")
 				
-				if m.oauthAdapter.HasScope(accessToken, "fern-read") {
+				// SECURITY: Use ValidateAndCheckScope to verify token signature and expiry
+				hasScope, validationErr := m.oauthAdapter.ValidateAndCheckScope(accessToken, "fern-read")
+				if validationErr != nil {
+					m.logger.WithError(validationErr).Error("Token validation failed")
+					c.JSON(401, gin.H{"error": "Invalid token: validation failed"})
+					return
+				}
+				
+				if hasScope {
 					// Service account token with fern-read scope
 					m.logger.Info("Service account token detected with fern-read scope")
 					

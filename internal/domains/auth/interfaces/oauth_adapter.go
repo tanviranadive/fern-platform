@@ -303,9 +303,10 @@ func (a *OAuthAdapter) applyAdminOverrides(userInfo *application.UserInfo) {
 	}
 }
 
-// ExtractScopesFromToken extracts scopes from a JWT token without full validation
-// This is used for service account tokens that may not have userinfo access
-func (a *OAuthAdapter) ExtractScopesFromToken(accessToken string) ([]string, error) {
+// extractScopesFromToken extracts scopes from a JWT token without validation
+// PRIVATE: This method is only safe to call after the token has been validated
+// via ValidateAndCheckScope. Never call this directly on unvalidated tokens.
+func (a *OAuthAdapter) extractScopesFromToken(accessToken string) ([]string, error) {
 	// Parse the token without validation to extract claims
 	parser := jwt.NewParser(jwt.WithoutClaimsValidation())
 	token, _, err := parser.ParseUnverified(accessToken, jwt.MapClaims{})
@@ -338,19 +339,42 @@ func (a *OAuthAdapter) ExtractScopesFromToken(accessToken string) ([]string, err
 	return scopes, nil
 }
 
-// HasScope checks if a token has a specific scope
-func (a *OAuthAdapter) HasScope(accessToken string, requiredScope string) bool {
-	scopes, err := a.ExtractScopesFromToken(accessToken)
+// ValidateAndCheckScope validates a token via userinfo endpoint and checks if it has a specific scope
+// This validates the token by attempting to use it, which verifies signature and expiry
+func (a *OAuthAdapter) ValidateAndCheckScope(accessToken string, requiredScope string) (bool, error) {
+	// Validate the token by trying to get user info - this will fail if token is invalid/expired
+	// This is a simple but effective validation that works with any OAuth provider
+	req, err := http.NewRequest("GET", a.config.OAuth.UserInfoURL, nil)
 	if err != nil {
-		a.logger.WithError(err).Warn("Failed to extract scopes from token")
-		return false
+		return false, fmt.Errorf("failed to create validation request: %w", err)
+	}
+	
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set("Accept", "application/json")
+	
+	resp, err := a.client.Do(req)
+	if err != nil {
+		return false, fmt.Errorf("failed to validate token: %w", err)
+	}
+	defer resp.Body.Close()
+	
+	// If we get anything other than 200, the token is invalid
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return false, fmt.Errorf("token validation failed with status %d: %s", resp.StatusCode, string(body))
+	}
+	
+	// Token is valid, now check scope
+	scopes, err := a.extractScopesFromToken(accessToken)
+	if err != nil {
+		return false, fmt.Errorf("failed to extract scopes: %w", err)
 	}
 	
 	for _, scope := range scopes {
 		if scope == requiredScope {
-			return true
+			return true, nil
 		}
 	}
 	
-	return false
+	return false, nil
 }
